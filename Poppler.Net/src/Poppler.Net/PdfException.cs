@@ -18,6 +18,11 @@ public sealed class PdfFormatException : PdfException
     {
     }
 
+    public PdfFormatException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+
     internal PdfFormatException(string message, long offset)
         : base($"{message} (byte offset {offset}).")
     {

@@ -17,12 +17,28 @@ internal sealed class PdfDocumentCore
     {
         _data = data ?? throw new ArgumentNullException(nameof(data));
         _options = options ?? throw new ArgumentNullException(nameof(options));
-        PdfVersion = ReadHeaderVersion(data);
+        (PdfVersion, HeaderOffset) = ReadHeader(data);
+        if (HeaderOffset > 0)
+        {
+            AddDiagnostic(
+                PdfDiagnosticSeverity.Warning,
+                "header.prefix",
+                $"Skipped {HeaderOffset} byte(s) before the PDF header.",
+                HeaderOffset);
+        }
+        if (!HasEndOfFileMarker(data))
+        {
+            AddDiagnostic(
+                PdfDiagnosticSeverity.Warning,
+                "eof.missing",
+                "The final PDF end-of-file marker is missing.");
+        }
         _crossReference = new PdfCrossReference(this, data, options);
         _crossReference.Load();
     }
 
     public string PdfVersion { get; }
+    public int HeaderOffset { get; }
     public PdfReadOptions Options => _options;
     public PdfDictionary Trailer => _crossReference.Trailer;
     public bool XrefWasRepaired => _crossReference.WasRepaired;
@@ -42,6 +58,14 @@ internal sealed class PdfDocumentCore
                 entry.Type == PdfXrefEntryType.Free)
             {
                 throw new PdfFormatException($"Indirect object {reference} is missing.");
+            }
+            int expectedGeneration =
+                entry.Type == PdfXrefEntryType.Compressed ? 0 : entry.Generation;
+            if (reference.Generation != expectedGeneration)
+            {
+                throw new PdfFormatException(
+                    $"Indirect object {reference.ObjectNumber} has generation " +
+                    $"{expectedGeneration}, not {reference.Generation}.");
             }
 
             PdfObject value = entry.Type switch
@@ -127,14 +151,40 @@ internal sealed class PdfDocumentCore
         long? offset = null) =>
         _diagnostics.Add(new PdfDiagnostic(severity, code, message, offset));
 
+    public int ToPhysicalOffset(long logicalOffset)
+    {
+        long physicalOffset;
+        try
+        {
+            physicalOffset = checked(logicalOffset + HeaderOffset);
+        }
+        catch (OverflowException exception)
+        {
+            throw new PdfFormatException("PDF offset overflow.", exception);
+        }
+
+        if (physicalOffset < 0 || physicalOffset > int.MaxValue)
+            throw new PdfFormatException($"PDF offset {logicalOffset} is outside the supported range.");
+        return (int)physicalOffset;
+    }
+
+    public long ToLogicalOffset(int physicalOffset) => (long)physicalOffset - HeaderOffset;
+
+    public void ResetResolutionCache()
+    {
+        _objectCache.Clear();
+        _resolving.Clear();
+    }
+
     private PdfObject ReadUncompressed(PdfReference requested, PdfXrefEntry entry)
     {
-        if (entry.Field1 < 0 || entry.Field1 >= _data.Length)
+        int offset = ToPhysicalOffset(entry.Field1);
+        if (offset < HeaderOffset || offset >= _data.Length)
             throw new PdfFormatException($"Object {requested} has an invalid xref offset.");
-        int offset = checked((int)entry.Field1);
         var reader = new PdfSyntaxReader(_data, offset, _data.Length - offset, _options);
         PdfIndirectObject indirect = reader.ReadIndirectObject(ResolveLength);
-        if (indirect.ObjectNumber != requested.ObjectNumber)
+        if (indirect.ObjectNumber != requested.ObjectNumber ||
+            indirect.Generation != requested.Generation)
         {
             throw new PdfFormatException(
                 $"Xref for {requested} points to object {indirect.ObjectNumber} {indirect.Generation}.");
@@ -168,7 +218,11 @@ internal sealed class PdfDocumentCore
                     throw new PdfFormatException("Object stream has no /N.");
         int first = container.Dictionary.GetValueOrNull("First").AsInteger(this) ??
                     throw new PdfFormatException("Object stream has no /First.");
-        if (count < 0 || count > _options.MaximumObjects || first < 0)
+        if (count < 0 ||
+            count > _options.MaximumObjects ||
+            first < 0 ||
+            entry.Field2 < 0 ||
+            entry.Field2 >= count)
             throw new PdfFormatException("Invalid object stream header.");
 
         byte[] decoded = Decode(container);
@@ -192,6 +246,12 @@ internal sealed class PdfDocumentCore
             items[index] = (objectNumber, relativeOffset);
         }
 
+        if (items[entry.Field2].ObjectNumber != requested.ObjectNumber)
+        {
+            throw new PdfFormatException(
+                $"Object stream index {entry.Field2} does not point to {requested.ObjectNumber}.");
+        }
+
         for (int index = 0; index < items.Length; index++)
         {
             int start = checked(first + items[index].Offset);
@@ -210,7 +270,7 @@ internal sealed class PdfDocumentCore
         throw new PdfFormatException($"Object {requested} was not found in object stream {streamObjectNumber}.");
     }
 
-    private static string ReadHeaderVersion(byte[] data)
+    private static (string Version, int Offset) ReadHeader(byte[] data)
     {
         int limit = Math.Min(data.Length, 1024);
         int marker = data.AsSpan(0, limit).IndexOf("%PDF-"u8);
@@ -223,6 +283,12 @@ internal sealed class PdfDocumentCore
         string version = Encoding.ASCII.GetString(data, start, end - start);
         if (version.Length < 3 || !version.Contains('.', StringComparison.Ordinal))
             throw new PdfFormatException("Invalid PDF header version.");
-        return version;
+        return (version, marker);
+    }
+
+    private static bool HasEndOfFileMarker(byte[] data)
+    {
+        int searchStart = Math.Max(0, data.Length - 4096);
+        return data.AsSpan(searchStart).LastIndexOf("%%EOF"u8) >= 0;
     }
 }

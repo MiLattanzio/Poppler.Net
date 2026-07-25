@@ -4,7 +4,8 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.1.0-alpha.1` release is not a complete replacement for libpoppler.
+> This `0.2.0-alpha.1` foundation release is not a complete replacement for
+> libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, basic text extraction and
 > an SVG diagnostic renderer. See
@@ -12,7 +13,7 @@ process invocation, or native NuGet dependency.
 
 ## Build
 
-Requirements: .NET 8 SDK or later.
+Requirements: .NET SDK 8.0.423. `global.json` pins the selected feature band.
 
 ```bash
 dotnet build Poppler.Net.sln
@@ -20,8 +21,10 @@ dotnet run --project tests/Poppler.Net.Tests
 ```
 
 `./build.sh` performs restore, Release build, executable regression tests and
-NuGet packaging. See `VERIFICATION.md` for the checks completed in the creation
-environment.
+NuGet packaging. It also rejects native or mixed-mode binaries anywhere in the
+restored NuGet graph. The production library itself has no package dependency;
+xUnit v3 is the first approved managed-only test dependency. See
+`VERIFICATION.md` for the checks completed in the creation environment.
 
 ## CLI
 
@@ -62,6 +65,11 @@ All page indices in the API are zero-based. CLI page numbers are one-based.
 The implementation uses bounded allocations, recursion limits and decoded
 stream limits because PDFs are untrusted input. Defaults can be changed with
 `PdfReadOptions`.
+
+The `0.2` foundation additionally supports header-relative offsets after a
+leading transport prefix, validates object generations and compressed-object
+indices, and reconstructs xref/object streams during damaged-xref recovery.
+See [docs/FOUNDATION.md](docs/FOUNDATION.md).
 
 ## License and provenance
 

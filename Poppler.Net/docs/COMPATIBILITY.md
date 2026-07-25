@@ -1,11 +1,14 @@
 # Compatibility matrix
 
-## Works in 0.1.0-alpha.1
+## Works in 0.2.0-alpha.1
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
 - Xref streams and compressed object streams.
 - Incremental updates through `/Prev`; hybrid `/XRefStm` lookup.
+- Header-relative offsets when up to 1,023 leading bytes precede `%PDF-`.
+- Conservative damaged-xref reconstruction, including xref streams and
+  compressed object streams.
 - Catalog and page-tree traversal with inherited boxes, resources and rotation.
 - Flate, LZW, ASCIIHex, ASCII85 and RunLength filters.
 - TIFF predictor 2 and PNG predictors 10–15.
@@ -17,6 +20,7 @@
   `"`, `Tc`, `Tw`, `Tz`, `TL`, `Ts`.
 - Simple one-byte fonts and common `ToUnicode` bfchar/bfrange CMaps.
 - Diagnostic SVG output containing extracted text.
+- Missing `%%EOF` and leading-prefix diagnostics.
 
 ## Explicit limitations
 
@@ -33,11 +37,12 @@
 - Annotations, forms, optional content, actions, movie/sound and JavaScript are
   not executed. Presence detection is metadata only.
 - Saving produces a byte-for-byte copy; object mutation is not implemented.
-- Damaged-xref repair is a conservative object-header scan, not Poppler's full
-  recovery behavior.
+- Damaged-xref repair remains conservative. It does not yet reproduce all of
+  Poppler's stream-end heuristics or repair every malformed incremental chain.
 
 ## Safety limits
 
 Default limits are 256 MiB input, 256 MiB decoded per stream, 1,000,000
-indirect objects, 10,000 pages, nesting depth 128 and object recursion 64.
-Use `PdfReadOptions` to lower limits for server workloads.
+indirect objects, 1,000,000 direct collection items, 10,000 pages, nesting
+depth 128 and object recursion 64. Use `PdfReadOptions` to lower limits for
+server workloads.

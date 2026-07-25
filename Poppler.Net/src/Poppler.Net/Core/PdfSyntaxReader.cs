@@ -70,7 +70,8 @@ internal sealed class PdfSyntaxReader
             if (dictionary.TryGetValue("Length", out PdfObject? lengthObject))
             {
                 declaredLength = lengthObject is PdfNumber number && number.IsInteger
-                    ? checked((int)number.Value)
+                    && number.Value is >= 0 and <= int.MaxValue
+                    ? (int)number.Value
                     : resolveLength?.Invoke(lengthObject);
             }
 
@@ -328,18 +329,25 @@ internal sealed class PdfSyntaxReader
     {
         Position++;
         var nibbles = new List<int>();
+        bool terminated = false;
         while (Position < _end)
         {
             byte current = _data[Position++];
             if (current == '>')
+            {
+                terminated = true;
                 break;
+            }
             if (IsWhiteSpace(current))
                 continue;
             if (!TryHex(current, out int value))
                 throw Error("Invalid hexadecimal string digit");
             nibbles.Add(value);
+            EnsureCollectionLimit(nibbles.Count);
         }
 
+        if (!terminated)
+            throw Error("Unterminated hexadecimal string");
         if (nibbles.Count % 2 != 0)
             nibbles.Add(0);
         var bytes = new byte[nibbles.Count / 2];
@@ -364,6 +372,7 @@ internal sealed class PdfSyntaxReader
             }
 
             items.Add(ReadObject(depth));
+            EnsureCollectionLimit(items.Count);
         }
     }
 
@@ -385,6 +394,7 @@ internal sealed class PdfSyntaxReader
             if (ReadObject(depth) is not PdfName name)
                 throw Error("Dictionary key is not a name");
             items[name.Value] = ReadObject(depth);
+            EnsureCollectionLimit(items.Count);
         }
     }
 
@@ -424,10 +434,37 @@ internal sealed class PdfSyntaxReader
     private int FindKeyword(string keyword)
     {
         ReadOnlySpan<byte> needle = Encoding.ASCII.GetBytes(keyword);
-        int relative = _data.AsSpan(Position, _end - Position).IndexOf(needle);
-        if (relative < 0)
-            throw Error($"Missing {keyword} marker");
-        return Position + relative;
+        int candidate = Position;
+        while (candidate <= _end - needle.Length)
+        {
+            int relative = _data.AsSpan(candidate, _end - candidate).IndexOf(needle);
+            if (relative < 0)
+                break;
+            candidate += relative;
+            bool startsAtBoundary =
+                candidate == Position ||
+                IsWhiteSpace(_data[candidate - 1]) ||
+                IsDelimiter(_data[candidate - 1]);
+            int after = candidate + needle.Length;
+            bool endsAtBoundary =
+                after >= _end ||
+                IsWhiteSpace(_data[after]) ||
+                IsDelimiter(_data[after]);
+            if (startsAtBoundary && endsAtBoundary)
+                return candidate;
+            candidate++;
+        }
+
+        throw Error($"Missing {keyword} marker");
+    }
+
+    private void EnsureCollectionLimit(int count)
+    {
+        if (count > _options.MaximumCollectionItems)
+        {
+            throw new PdfLimitException(
+                $"PDF collection exceeds {_options.MaximumCollectionItems} items.");
+        }
     }
 
     private byte Peek(int distance) =>

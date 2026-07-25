@@ -9,7 +9,7 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.1.0-alpha.1` is the first usable slice, not a claim that all
+slices. Version `0.2.0-alpha.1` is a hardened foundation, not a claim that all
 of Poppler has already been translated.
 
 ## Implemented sequence
@@ -26,10 +26,11 @@ of Poppler has already been translated.
 6. Port file specifications and embedded-file name trees.
 7. Implement an initial text-content interpreter with `ToUnicode` CMaps,
    simple encodings and common text-state operators.
-8. Expose a C# API patterned after Poppler's stable C++ API and a zero-package
-   CLI.
-9. Add synthetic regression PDFs and a package-wide scan forbidding native
-   interop.
+8. Expose a C# API patterned after Poppler's stable C++ API and a managed CLI.
+9. Add xUnit v3 regression fixtures and a package-graph verifier that rejects
+   native or mixed-mode NuGet assets.
+10. Harden header-relative offsets, incremental revisions, generation checks
+    and damaged-xref/object-stream reconstruction.
 
 ## Upstream-to-managed map
 
@@ -37,7 +38,7 @@ of Poppler has already been translated.
 | --- | --- | --- |
 | `Object`, `Array`, `Dict`, `Ref` | `PdfObject` hierarchy | Implemented |
 | `Lexer`, `Parser` | `PdfSyntaxReader` | Implemented |
-| `XRef`, `Hints`, `Linearization` | `PdfCrossReference`, detection | Substantial |
+| `XRef`, `Hints`, `Linearization` | `PdfCrossReference`, detection | Substantial; repair remains partial |
 | `Stream`, `FlateStream` | `PdfFilterPipeline` | Common filters implemented |
 | `PDFDoc`, `Catalog`, `Page` | `Document`, `Page` | Read-only core implemented |
 | `PageLabelInfo` | `PageLabelTree` | Implemented |
@@ -56,17 +57,18 @@ of Poppler has already been translated.
 
 ## Next implementation slices
 
-1. Encryption revisions 2–6 and permission enforcement.
-2. Complete font engine: Type 1/CFF/TrueType parsing, shaping, substitution,
+1. Complete corpus/differential/fuzz gates for the parser foundation.
+2. Encryption revisions 2–6 and permission enforcement.
+3. Complete font engine: Type 1/CFF/TrueType parsing, shaping, substitution,
    vertical writing and glyph rasterization.
-3. Full graphics interpreter, transparency groups, shadings, patterns,
+4. Full graphics interpreter, transparency groups, shadings, patterns,
    clipping, blend modes and image masks.
-4. Managed JPEG, JPEG2000, JBIG2 and CCITT decoders.
-5. Annotations, AcroForm/XFA surface, actions, links and outlines.
-6. Color spaces, ICC profiles, spot colors and overprint.
-7. Digital signature validation through managed cryptography.
-8. Writer, repair mode, fuzz corpus, PDF corpus differential tests and API
-   parity.
+5. Managed JPEG, JPEG2000, JBIG2 and CCITT decoders.
+6. Annotations, AcroForm/XFA surface, actions, links and outlines.
+7. Color spaces, ICC profiles, spot colors and overprint.
+8. Digital signature validation through managed cryptography.
+9. Writer, advanced repair mode, fuzz corpus, PDF corpus differential tests
+   and API parity.
 
 Each slice should be compared against the same Poppler 26.07.0 fixture corpus;
 differences must be classified as parser, layout, font, raster or color errors.

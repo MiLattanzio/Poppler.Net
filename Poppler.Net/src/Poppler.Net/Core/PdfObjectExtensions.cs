@@ -23,8 +23,10 @@ internal static class PdfObjectExtensions
         (value?.Resolve(document) as PdfName)?.Value;
 
     public static int? AsInteger(this PdfObject? value, PdfDocumentCore document) =>
-        value?.Resolve(document) is PdfNumber number && number.IsInteger
-            ? checked((int)number.Value)
+        value?.Resolve(document) is PdfNumber number &&
+        number.IsInteger &&
+        number.Value is >= int.MinValue and <= int.MaxValue
+            ? (int)number.Value
             : null;
 
     public static double? AsNumber(this PdfObject? value, PdfDocumentCore document) =>

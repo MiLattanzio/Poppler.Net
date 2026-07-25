@@ -65,11 +65,20 @@ internal static class PdfFilterPipeline
             using var zlib = new ZLibStream(input, CompressionMode.Decompress);
             return ReadBounded(zlib, options.MaximumDecodedStreamBytes);
         }
-        catch (InvalidDataException)
+        catch (InvalidDataException zlibException)
         {
-            using var input = new MemoryStream(source, writable: false);
-            using var deflate = new DeflateStream(input, CompressionMode.Decompress);
-            return ReadBounded(deflate, options.MaximumDecodedStreamBytes);
+            try
+            {
+                using var input = new MemoryStream(source, writable: false);
+                using var deflate = new DeflateStream(input, CompressionMode.Decompress);
+                return ReadBounded(deflate, options.MaximumDecodedStreamBytes);
+            }
+            catch (InvalidDataException deflateException)
+            {
+                throw new PdfFormatException(
+                    "Invalid Flate stream.",
+                    new AggregateException(zlibException, deflateException));
+            }
         }
     }
 

@@ -8,6 +8,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poppler.Net.Cli", "src\Popp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poppler.Net.Tests", "tests\Poppler.Net.Tests\Poppler.Net.Tests.csproj", "{7883CF28-6E4A-4505-A2CD-95E8B5856901}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poppler.Net.ManagedOnlyVerifier", "eng\Poppler.Net.ManagedOnlyVerifier\Poppler.Net.ManagedOnlyVerifier.csproj", "{C6BA8CE9-7DD6-4E9A-8D1A-5A3D4FD7BE80}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -26,5 +28,9 @@ Global
 		{7883CF28-6E4A-4505-A2CD-95E8B5856901}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7883CF28-6E4A-4505-A2CD-95E8B5856901}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7883CF28-6E4A-4505-A2CD-95E8B5856901}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C6BA8CE9-7DD6-4E9A-8D1A-5A3D4FD7BE80}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C6BA8CE9-7DD6-4E9A-8D1A-5A3D4FD7BE80}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C6BA8CE9-7DD6-4E9A-8D1A-5A3D4FD7BE80}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C6BA8CE9-7DD6-4E9A-8D1A-5A3D4FD7BE80}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

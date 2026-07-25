@@ -48,7 +48,7 @@ internal sealed class PdfCrossReference
         }
         catch (Exception exception) when (
             _options.AttemptXrefRepair &&
-            exception is PdfFormatException or PdfLimitException)
+            exception is PdfFormatException)
         {
             _document.AddDiagnostic(
                 PdfDiagnosticSeverity.Warning,
@@ -56,6 +56,7 @@ internal sealed class PdfCrossReference
                 $"Cross-reference parsing failed; conservative repair was used: {exception.Message}");
             _entries.Clear();
             _visitedSections.Clear();
+            _document.ResetResolutionCache();
             RepairByScanningObjects();
             WasRepaired = true;
         }
@@ -63,7 +64,8 @@ internal sealed class PdfCrossReference
 
     private void ReadSection(long offset, bool isPrimary)
     {
-        if (offset < 0 || offset >= _data.Length)
+        int physicalOffset = _document.ToPhysicalOffset(offset);
+        if (physicalOffset < _document.HeaderOffset || physicalOffset >= _data.Length)
             throw new PdfFormatException("Cross-reference offset is outside the file", offset);
         if (!_visitedSections.Add(offset))
             return;
@@ -72,8 +74,8 @@ internal sealed class PdfCrossReference
 
         var reader = new PdfSyntaxReader(
             _data,
-            checked((int)offset),
-            _data.Length - checked((int)offset),
+            physicalOffset,
+            _data.Length - physicalOffset,
             _options);
         reader.SkipTrivia();
 
@@ -95,7 +97,7 @@ internal sealed class PdfCrossReference
                 indirect.ObjectNumber,
                 new PdfXrefEntry(
                     PdfXrefEntryType.Uncompressed,
-                    indirect.StartOffset,
+                    _document.ToLogicalOffset(indirect.StartOffset),
                     0,
                     indirect.Generation));
             sectionTrailer = stream.Dictionary;
@@ -116,6 +118,7 @@ internal sealed class PdfCrossReference
 
     private PdfDictionary ReadClassicTable(PdfSyntaxReader reader)
     {
+        long parsedEntries = 0;
         while (true)
         {
             string first = reader.ReadRawToken();
@@ -135,7 +138,10 @@ internal sealed class PdfCrossReference
                 throw new PdfFormatException("Invalid xref subsection header", reader.Position);
             }
 
-            EnsureObjectCount(count);
+            EnsureObjectRange(firstObject, count);
+            parsedEntries += count;
+            if (parsedEntries > _options.MaximumObjects)
+                throw new PdfLimitException("Classic xref contains too many entries.");
             for (int index = 0; index < count; index++)
             {
                 string offsetToken = reader.ReadRawToken();
@@ -147,8 +153,10 @@ internal sealed class PdfCrossReference
                 {
                     throw new PdfFormatException("Invalid classic xref entry", reader.Position);
                 }
+                if (offset < 0 || generation is < 0 or > 65535)
+                    throw new PdfFormatException("Invalid classic xref entry range", reader.Position);
 
-                int objectNumber = checked(firstObject + index);
+                int objectNumber = firstObject + index;
                 _entries.TryAdd(
                     objectNumber,
                     status == "n"
@@ -174,11 +182,15 @@ internal sealed class PdfCrossReference
 
         int size = stream.Dictionary.GetValueOrNull("Size").AsInteger(_document) ??
                    throw new PdfFormatException("Xref stream has no /Size.");
+        if (size < 0 || size > _options.MaximumObjects)
+            throw new PdfLimitException($"PDF object count exceeds {_options.MaximumObjects}.");
         PdfArray? indexArray = stream.Dictionary.GetValueOrNull("Index").AsArray(_document);
         var ranges = new List<(int First, int Count)>();
+        long totalEntries = 0;
         if (indexArray is null)
         {
             ranges.Add((0, size));
+            totalEntries = size;
         }
         else
         {
@@ -190,7 +202,11 @@ internal sealed class PdfCrossReference
                 int count = indexArray[index + 1].AsInteger(_document) ?? -1;
                 if (first < 0 || count < 0)
                     throw new PdfFormatException("Invalid xref stream /Index range.");
+                EnsureObjectRange(first, count);
                 ranges.Add((first, count));
+                totalEntries += count;
+                if (totalEntries > _options.MaximumObjects)
+                    throw new PdfLimitException("Xref stream contains too many indexed entries.");
             }
         }
 
@@ -198,7 +214,7 @@ internal sealed class PdfCrossReference
         int position = 0;
         foreach ((int first, int count) in ranges)
         {
-            EnsureObjectCount(count);
+            EnsureObjectRange(first, count);
             for (int item = 0; item < count; item++)
             {
                 ulong typeValue = fieldWidths[0] == 0
@@ -208,40 +224,53 @@ internal sealed class PdfCrossReference
                 ulong field2 = ReadUnsigned(decoded, ref position, fieldWidths[2]);
                 int objectNumber = checked(first + item);
 
-                PdfXrefEntry entry = typeValue switch
-                {
-                    0 => new PdfXrefEntry(
-                        PdfXrefEntryType.Free,
-                        checked((long)field1),
-                        0,
-                        checked((int)field2)),
-                    1 => new PdfXrefEntry(
-                        PdfXrefEntryType.Uncompressed,
-                        checked((long)field1),
-                        0,
-                        checked((int)field2)),
-                    2 => new PdfXrefEntry(
-                        PdfXrefEntryType.Compressed,
-                        checked((long)field1),
-                        checked((int)field2),
-                        0),
-                    _ => new PdfXrefEntry(PdfXrefEntryType.Free, 0, 0, 0)
-                };
+                PdfXrefEntry entry = CreateXrefEntry(typeValue, field1, field2);
                 _entries.TryAdd(objectNumber, entry);
             }
         }
     }
 
+    private PdfXrefEntry CreateXrefEntry(ulong type, ulong field1, ulong field2)
+    {
+        if (type is 0 or 1)
+        {
+            if (field1 > (ulong)long.MaxValue || field2 > 65535)
+                throw new PdfFormatException("Xref stream entry is outside the supported range.");
+            return new PdfXrefEntry(
+                type == 0 ? PdfXrefEntryType.Free : PdfXrefEntryType.Uncompressed,
+                (long)field1,
+                0,
+                (int)field2);
+        }
+
+        if (type == 2)
+        {
+            if (field1 >= (ulong)_options.MaximumObjects || field2 > (ulong)int.MaxValue)
+                throw new PdfFormatException("Compressed xref entry is outside the supported range.");
+            return new PdfXrefEntry(
+                PdfXrefEntryType.Compressed,
+                (long)field1,
+                (int)field2,
+                0);
+        }
+
+        return new PdfXrefEntry(PdfXrefEntryType.Free, 0, 0, 0);
+    }
+
     private void RepairByScanningObjects()
     {
-        int position = 0;
+        int position = _document.HeaderOffset;
         int lastTrailerOffset = -1;
         while (position < _data.Length)
         {
-            if (Matches(position, "trailer"))
+            if (IsTokenStart(position) &&
+                Matches(position, "trailer") &&
+                IsTokenEnd(position + "trailer".Length))
+            {
                 lastTrailerOffset = position + "trailer".Length;
+            }
 
-            if (!IsLineBoundary(position) || !IsDigit(_data[position]))
+            if (!IsTokenStart(position) || !IsDigit(_data[position]))
             {
                 position++;
                 continue;
@@ -253,20 +282,38 @@ internal sealed class PdfCrossReference
                 !TryReadUnsignedToken(ref position, out int generation) ||
                 !SkipRequiredWhiteSpace(ref position) ||
                 !Matches(position, "obj") ||
+                !IsTokenEnd(position + 3) ||
                 objectNumber < 0 ||
-                generation < 0)
+                generation is < 0 or > 65535)
             {
                 position = headerStart + 1;
                 continue;
             }
 
+            EnsureObjectRange(objectNumber, 1);
             _entries[objectNumber] = new PdfXrefEntry(
                 PdfXrefEntryType.Uncompressed,
-                headerStart,
+                _document.ToLogicalOffset(headerStart),
                 0,
                 generation);
-            EnsureObjectCount(0);
-            position += 3;
+            try
+            {
+                var reader = new PdfSyntaxReader(
+                    _data,
+                    headerStart,
+                    _data.Length - headerStart,
+                    _options);
+                PdfIndirectObject indirect = reader.ReadIndirectObject();
+                position = indirect.ObjectNumber == objectNumber &&
+                           indirect.Generation == generation &&
+                           indirect.EndOffset > headerStart
+                    ? indirect.EndOffset
+                    : headerStart + 1;
+            }
+            catch (PdfException)
+            {
+                position = headerStart + 1;
+            }
         }
 
         if (lastTrailerOffset >= 0)
@@ -285,6 +332,94 @@ internal sealed class PdfCrossReference
             {
                 // An object scan can still recover a catalog without a readable trailer.
             }
+        }
+
+        RecoverSpecialStreams(lastTrailerOffset);
+        if (_entries.Count == 0)
+            throw new PdfFormatException("No indirect objects were found during xref repair.");
+    }
+
+    private void RecoverSpecialStreams(int trailerPosition)
+    {
+        int newestTrailerPosition = trailerPosition;
+        KeyValuePair<int, PdfXrefEntry>[] streamCandidates = _entries
+            .Where(pair => pair.Value.Type == PdfXrefEntryType.Uncompressed)
+            .OrderBy(pair => pair.Value.Field1)
+            .ToArray();
+
+        foreach ((int objectNumber, PdfXrefEntry entry) in streamCandidates)
+        {
+            try
+            {
+                PdfObject value = _document.Resolve(
+                    new PdfReference(objectNumber, entry.Generation));
+                if (value is not PdfStream stream)
+                    continue;
+
+                string? type = stream.Dictionary.GetValueOrNull("Type").AsName(_document);
+                if (type == "XRef")
+                {
+                    ReadXrefStream(stream);
+                    int physicalPosition = _document.ToPhysicalOffset(entry.Field1);
+                    if (physicalPosition > newestTrailerPosition &&
+                        stream.Dictionary.ContainsKey("Root"))
+                    {
+                        Trailer = stream.Dictionary;
+                        newestTrailerPosition = physicalPosition;
+                    }
+                }
+                else if (type == "ObjStm")
+                {
+                    RecoverObjectStreamEntries(stream, objectNumber);
+                }
+            }
+            catch (PdfException)
+            {
+                // A repair scan deliberately tolerates false-positive object headers.
+            }
+        }
+    }
+
+    private void RecoverObjectStreamEntries(PdfStream stream, int streamObjectNumber)
+    {
+        int count = stream.Dictionary.GetValueOrNull("N").AsInteger(_document) ?? -1;
+        int first = stream.Dictionary.GetValueOrNull("First").AsInteger(_document) ?? -1;
+        if (count < 0 || count > _options.MaximumObjects || first < 0)
+            return;
+
+        byte[] decoded = PdfFilterPipeline.Decode(stream, _document, _options);
+        if (first > decoded.Length)
+            return;
+
+        var reader = new PdfSyntaxReader(decoded, 0, first, _options);
+        for (int index = 0; index < count; index++)
+        {
+            string objectToken = reader.ReadRawToken();
+            string offsetToken = reader.ReadRawToken();
+            if (!int.TryParse(
+                    objectToken,
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out int objectNumber) ||
+                !int.TryParse(
+                    offsetToken,
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out int relativeOffset) ||
+                objectNumber < 0 ||
+                relativeOffset < 0)
+            {
+                return;
+            }
+
+            EnsureObjectRange(objectNumber, 1);
+            _entries.TryAdd(
+                objectNumber,
+                new PdfXrefEntry(
+                    PdfXrefEntryType.Compressed,
+                    streamObjectNumber,
+                    index,
+                    0));
         }
     }
 
@@ -315,10 +450,14 @@ internal sealed class PdfCrossReference
         return offset;
     }
 
-    private void EnsureObjectCount(int additional)
+    private void EnsureObjectRange(int firstObject, int count)
     {
-        if ((long)_entries.Count + additional > _options.MaximumObjects)
+        if (firstObject < 0 ||
+            count < 0 ||
+            (long)firstObject + count > _options.MaximumObjects)
+        {
             throw new PdfLimitException($"PDF object count exceeds {_options.MaximumObjects}.");
+        }
     }
 
     private static ulong ReadUnsigned(byte[] data, ref int position, int width)
@@ -359,11 +498,23 @@ internal sealed class PdfCrossReference
         _data.AsSpan(position, value.Length)
             .SequenceEqual(System.Text.Encoding.ASCII.GetBytes(value));
 
-    private bool IsLineBoundary(int position) =>
-        position == 0 || _data[position - 1] is (byte)'\r' or (byte)'\n';
+    private bool IsTokenStart(int position) =>
+        position <= _document.HeaderOffset ||
+        IsWhiteSpace(_data[position - 1]) ||
+        IsDelimiter(_data[position - 1]);
+
+    private bool IsTokenEnd(int position) =>
+        position >= _data.Length ||
+        IsWhiteSpace(_data[position]) ||
+        IsDelimiter(_data[position]);
 
     private static bool IsDigit(byte value) => value is >= (byte)'0' and <= (byte)'9';
 
     private static bool IsWhiteSpace(byte value) =>
         value is 0 or (byte)'\t' or (byte)'\n' or (byte)'\f' or (byte)'\r' or (byte)' ';
+
+    private static bool IsDelimiter(byte value) =>
+        value is (byte)'(' or (byte)')' or (byte)'<' or (byte)'>' or
+            (byte)'[' or (byte)']' or (byte)'{' or (byte)'}' or
+            (byte)'/' or (byte)'%';
 }
