@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>poppler-net</AssemblyName>
+    <RootNamespace>Poppler.Cli</RootNamespace>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>poppler-net</ToolCommandName>
+    <Version>0.1.0-alpha.1</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Poppler.Net\Poppler.Net.csproj" />
+  </ItemGroup>
+</Project>

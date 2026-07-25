@@ -1,0 +1,200 @@
+using System.Globalization;
+using Poppler;
+using Poppler.Rendering;
+
+return Cli.Run(args);
+
+internal static class Cli
+{
+    public static int Run(string[] args)
+    {
+        if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
+        {
+            PrintHelp();
+            return 0;
+        }
+
+        try
+        {
+            return args[0] switch
+            {
+                "info" => Info(args),
+                "text" => Text(args),
+                "attachments" => Attachments(args),
+                "svg" => Svg(args),
+                "version" or "--version" => Version(),
+                _ => UsageError($"Unknown command '{args[0]}'.")
+            };
+        }
+        catch (Exception exception) when (
+            exception is PdfException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            Console.Error.WriteLine($"error: {exception.Message}");
+            return 1;
+        }
+    }
+
+    private static int Info(string[] args)
+    {
+        RequireCount(args, 2, "info requires an input PDF.");
+        using Document document = Document.LoadFromFile(args[1]);
+        Console.WriteLine($"PDF version:        {document.PdfVersion}");
+        Console.WriteLine($"Pages:              {document.Pages}");
+        Console.WriteLine($"Encrypted:          {YesNo(document.IsEncrypted)}");
+        Console.WriteLine($"Linearized:         {YesNo(document.IsLinearized)}");
+        Console.WriteLine($"Xref repaired:      {YesNo(document.XrefWasRepaired)}");
+        Console.WriteLine($"Page mode:          {document.PageMode}");
+        Console.WriteLine($"Page layout:        {document.PageLayout}");
+        Console.WriteLine($"Form type:          {document.FormType}");
+        Console.WriteLine($"JavaScript present: {YesNo(document.HasJavaScript)}");
+        Console.WriteLine($"Embedded files:     {document.EmbeddedFiles.Count}");
+        foreach ((string key, string value) in document.Information.OrderBy(pair => pair.Key))
+            Console.WriteLine($"{key,-20} {value}");
+        if (document.PdfId is { } id)
+        {
+            Console.WriteLine($"Permanent ID:       {id.PermanentId}");
+            Console.WriteLine($"Update ID:          {id.UpdateId}");
+        }
+
+        foreach (PdfDiagnostic diagnostic in document.Diagnostics)
+            Console.Error.WriteLine($"{diagnostic.Severity}: {diagnostic.Code}: {diagnostic.Message}");
+        return 0;
+    }
+
+    private static int Text(string[] args)
+    {
+        RequireCount(args, 2, "text requires an input PDF.");
+        using Document document = Document.LoadFromFile(args[1]);
+        bool raw = args.Contains("--raw", StringComparer.Ordinal);
+        int? pageNumber = GetPageOption(args);
+        if (pageNumber is not null)
+        {
+            Console.WriteLine(document.CreatePage(ToIndex(pageNumber.Value, document)).Text(
+                layout: raw ? TextLayout.RawOrder : TextLayout.Physical));
+            return 0;
+        }
+
+        for (int index = 0; index < document.Pages; index++)
+        {
+            if (index > 0)
+                Console.WriteLine();
+            Page page = document.CreatePage(index);
+            Console.WriteLine($"--- Page {page.Number} ({page.Label}) ---");
+            Console.WriteLine(page.Text(layout: raw ? TextLayout.RawOrder : TextLayout.Physical));
+        }
+
+        return 0;
+    }
+
+    private static int Attachments(string[] args)
+    {
+        RequireCount(args, 3, "attachments requires an input PDF and output directory.");
+        string outputDirectory = Path.GetFullPath(args[2]);
+        Directory.CreateDirectory(outputDirectory);
+        using Document document = Document.LoadFromFile(args[1]);
+        foreach (EmbeddedFile file in document.EmbeddedFiles)
+        {
+            string safeName = Path.GetFileName(file.Name);
+            if (string.IsNullOrWhiteSpace(safeName))
+                safeName = "attachment.bin";
+            string path = UniquePath(outputDirectory, safeName);
+            file.SaveTo(path);
+            Console.WriteLine($"{file.Name} -> {path} ({file.Size} bytes)");
+        }
+
+        return 0;
+    }
+
+    private static int Svg(string[] args)
+    {
+        RequireCount(args, 3, "svg requires an input PDF and output SVG.");
+        using Document document = Document.LoadFromFile(args[1]);
+        int pageNumber = GetPageOption(args) ?? 1;
+        var options = new SvgRenderOptions
+        {
+            DrawTextBounds = args.Contains("--bounds", StringComparer.Ordinal)
+        };
+        document.CreatePage(ToIndex(pageNumber, document)).SaveSvg(args[2], options);
+        Console.WriteLine(Path.GetFullPath(args[2]));
+        return 0;
+    }
+
+    private static int Version()
+    {
+        Console.WriteLine(
+            $"poppler-net {Document.PortVersion} (source port target: Poppler {Document.UpstreamVersion})");
+        return 0;
+    }
+
+    private static int? GetPageOption(string[] args)
+    {
+        int option = Array.IndexOf(args, "--page");
+        if (option < 0)
+            return null;
+        if (option + 1 >= args.Length ||
+            !int.TryParse(args[option + 1], NumberStyles.None, CultureInfo.InvariantCulture, out int page) ||
+            page < 1)
+        {
+            throw new ArgumentException("--page requires a positive, one-based page number.");
+        }
+
+        return page;
+    }
+
+    private static int ToIndex(int pageNumber, Document document)
+    {
+        int index = pageNumber - 1;
+        if ((uint)index >= (uint)document.Pages)
+            throw new ArgumentOutOfRangeException(nameof(pageNumber), $"Page {pageNumber} does not exist.");
+        return index;
+    }
+
+    private static string UniquePath(string directory, string fileName)
+    {
+        string path = Path.Combine(directory, fileName);
+        if (!File.Exists(path))
+            return path;
+        string stem = Path.GetFileNameWithoutExtension(fileName);
+        string extension = Path.GetExtension(fileName);
+        for (int suffix = 2; suffix < int.MaxValue; suffix++)
+        {
+            path = Path.Combine(directory, $"{stem}-{suffix}{extension}");
+            if (!File.Exists(path))
+                return path;
+        }
+
+        throw new IOException($"Could not choose a unique path for '{fileName}'.");
+    }
+
+    private static string YesNo(bool value) => value ? "yes" : "no";
+
+    private static void RequireCount(string[] args, int count, string message)
+    {
+        if (args.Length < count)
+            throw new ArgumentException(message);
+    }
+
+    private static int UsageError(string message)
+    {
+        Console.Error.WriteLine(message);
+        Console.Error.WriteLine("Run 'poppler-net --help' for usage.");
+        return 2;
+    }
+
+    private static void PrintHelp()
+    {
+        Console.WriteLine(
+            """
+            poppler-net — managed-only Poppler 26.07 port (alpha)
+
+            Usage:
+              poppler-net info <input.pdf>
+              poppler-net text <input.pdf> [--page N] [--raw]
+              poppler-net attachments <input.pdf> <output-dir>
+              poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds]
+              poppler-net version
+
+            Page numbers accepted by the CLI are one-based.
+            """);
+    }
+}
