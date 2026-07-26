@@ -1,10 +1,11 @@
 using System.Globalization;
 using System.Text;
 using Poppler.Core.Filters;
+using Poppler.Security;
 
 namespace Poppler.Core;
 
-internal sealed class PdfDocumentCore
+internal sealed class PdfDocumentCore : IDisposable
 {
     private readonly byte[] _data;
     private readonly PdfReadOptions _options;
@@ -12,11 +13,19 @@ internal sealed class PdfDocumentCore
     private readonly HashSet<PdfReference> _resolving = new();
     private readonly List<PdfDiagnostic> _diagnostics = new();
     private readonly PdfCrossReference _crossReference;
+    private PdfStandardSecurityHandler? _securityHandler;
+    private PdfReference? _encryptionReference;
 
-    public PdfDocumentCore(byte[] data, PdfReadOptions options)
+    public PdfDocumentCore(
+        byte[] data,
+        PdfReadOptions options,
+        string ownerPassword = "",
+        string userPassword = "")
     {
         _data = data ?? throw new ArgumentNullException(nameof(data));
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        ArgumentNullException.ThrowIfNull(ownerPassword);
+        ArgumentNullException.ThrowIfNull(userPassword);
         (PdfVersion, HeaderOffset) = ReadHeader(data);
         if (HeaderOffset > 0)
         {
@@ -35,6 +44,7 @@ internal sealed class PdfDocumentCore
         }
         _crossReference = new PdfCrossReference(this, data, options);
         _crossReference.Load();
+        InitializeSecurity(ownerPassword, userPassword);
     }
 
     public string PdfVersion { get; }
@@ -44,6 +54,12 @@ internal sealed class PdfDocumentCore
     public bool XrefWasRepaired => _crossReference.WasRepaired;
     public IReadOnlyList<PdfDiagnostic> Diagnostics => _diagnostics;
     public ReadOnlyMemory<byte> OriginalBytes => _data;
+    public bool IsEncrypted => _securityHandler is not null;
+    public bool IsLocked => _securityHandler?.IsLocked == true;
+    public Permission Permissions => _securityHandler?.Permissions ?? Permission.All;
+    public PdfPasswordKind PasswordKind =>
+        _securityHandler?.PasswordKind ?? PdfPasswordKind.None;
+    public PdfEncryptionInfo? EncryptionInfo => _securityHandler?.EncryptionInfo;
 
     public PdfObject Resolve(PdfReference reference)
     {
@@ -85,6 +101,18 @@ internal sealed class PdfDocumentCore
 
     public byte[] Decode(PdfStream stream) =>
         PdfFilterPipeline.Decode(stream, this, _options);
+
+    public byte[] DecryptExplicitStream(
+        PdfStream stream,
+        ReadOnlySpan<byte> input,
+        string cryptFilterName)
+    {
+        if (cryptFilterName == "Identity")
+            return input.ToArray();
+        return _securityHandler?.DecryptExplicitStream(stream, input, cryptFilterName) ??
+               throw new PdfFormatException(
+                   $"Stream uses crypt filter /{cryptFilterName} without an encryption dictionary.");
+    }
 
     public PdfDictionary FindCatalog()
     {
@@ -176,6 +204,8 @@ internal sealed class PdfDocumentCore
         _resolving.Clear();
     }
 
+    public void Dispose() => _securityHandler?.Dispose();
+
     private PdfObject ReadUncompressed(PdfReference requested, PdfXrefEntry entry)
     {
         int offset = ToPhysicalOffset(entry.Field1);
@@ -190,7 +220,16 @@ internal sealed class PdfDocumentCore
                 $"Xref for {requested} points to object {indirect.ObjectNumber} {indirect.Generation}.");
         }
 
-        return indirect.Value;
+        if (_securityHandler is not null &&
+            !_securityHandler.IsLocked &&
+            !requested.Equals(_encryptionReference))
+        {
+            return _securityHandler.DecryptObject(indirect.Value, requested);
+        }
+
+        return indirect.Value is PdfStream stream
+            ? new PdfStream(stream.Dictionary, stream.EncodedBytes.Span, requested)
+            : indirect.Value;
     }
 
     private int? ResolveLength(PdfObject value)
@@ -290,5 +329,26 @@ internal sealed class PdfDocumentCore
     {
         int searchStart = Math.Max(0, data.Length - 4096);
         return data.AsSpan(searchStart).LastIndexOf("%%EOF"u8) >= 0;
+    }
+
+    private void InitializeSecurity(string ownerPassword, string userPassword)
+    {
+        PdfObject? encryption = Trailer.GetValueOrNull("Encrypt");
+        if (encryption is null)
+            return;
+
+        _encryptionReference = encryption as PdfReference;
+        PdfDictionary dictionary = encryption.AsDictionary(this) ??
+            throw new PdfFormatException("Trailer /Encrypt is not a dictionary.");
+        _securityHandler = new PdfStandardSecurityHandler(this, dictionary);
+        bool authenticated = _securityHandler.Authenticate(ownerPassword, userPassword);
+        ResetResolutionCache();
+        if (!authenticated)
+        {
+            AddDiagnostic(
+                PdfDiagnosticSeverity.Warning,
+                "security.locked",
+                "The PDF is encrypted and the supplied passwords did not unlock it.");
+        }
     }
 }

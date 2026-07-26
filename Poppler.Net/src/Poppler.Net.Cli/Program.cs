@@ -37,12 +37,25 @@ internal static class Cli
     private static int Info(string[] args)
     {
         RequireCount(args, 2, "info requires an input PDF.");
-        using Document document = Document.LoadFromFile(args[1]);
+        using Document document = LoadDocument(args, 1);
         Console.WriteLine($"PDF version:        {document.PdfVersion}");
         Console.WriteLine($"Pages:              {document.Pages}");
         Console.WriteLine($"Encrypted:          {YesNo(document.IsEncrypted)}");
+        Console.WriteLine($"Locked:             {YesNo(document.IsLocked)}");
+        if (document.EncryptionInfo is { } encryption)
+        {
+            Console.WriteLine($"Security revision:  {encryption.Revision}");
+            Console.WriteLine($"Encryption:         {encryption.StreamAlgorithm}");
+            Console.WriteLine($"Key length:         {encryption.KeyLengthBits} bits");
+        }
         Console.WriteLine($"Linearized:         {YesNo(document.IsLinearized)}");
         Console.WriteLine($"Xref repaired:      {YesNo(document.XrefWasRepaired)}");
+        if (document.IsLocked)
+        {
+            WriteDiagnostics(document);
+            return 0;
+        }
+
         Console.WriteLine($"Page mode:          {document.PageMode}");
         Console.WriteLine($"Page layout:        {document.PageLayout}");
         Console.WriteLine($"Form type:          {document.FormType}");
@@ -56,15 +69,15 @@ internal static class Cli
             Console.WriteLine($"Update ID:          {id.UpdateId}");
         }
 
-        foreach (PdfDiagnostic diagnostic in document.Diagnostics)
-            Console.Error.WriteLine($"{diagnostic.Severity}: {diagnostic.Code}: {diagnostic.Message}");
+        WriteDiagnostics(document);
         return 0;
     }
 
     private static int Text(string[] args)
     {
         RequireCount(args, 2, "text requires an input PDF.");
-        using Document document = Document.LoadFromFile(args[1]);
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
         bool raw = args.Contains("--raw", StringComparer.Ordinal);
         int? pageNumber = GetPageOption(args);
         if (pageNumber is not null)
@@ -91,7 +104,8 @@ internal static class Cli
         RequireCount(args, 3, "attachments requires an input PDF and output directory.");
         string outputDirectory = Path.GetFullPath(args[2]);
         Directory.CreateDirectory(outputDirectory);
-        using Document document = Document.LoadFromFile(args[1]);
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
         foreach (EmbeddedFile file in document.EmbeddedFiles)
         {
             string safeName = Path.GetFileName(file.Name);
@@ -108,7 +122,8 @@ internal static class Cli
     private static int Svg(string[] args)
     {
         RequireCount(args, 3, "svg requires an input PDF and output SVG.");
-        using Document document = Document.LoadFromFile(args[1]);
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
         int pageNumber = GetPageOption(args) ?? 1;
         var options = new SvgRenderOptions
         {
@@ -139,6 +154,36 @@ internal static class Cli
         }
 
         return page;
+    }
+
+    private static Document LoadDocument(string[] args, int inputIndex) =>
+        Document.LoadFromFile(
+            args[inputIndex],
+            ownerPassword: GetStringOption(args, "--owner-password"),
+            userPassword: GetStringOption(args, "--user-password"));
+
+    private static string GetStringOption(string[] args, string option)
+    {
+        int index = Array.IndexOf(args, option);
+        if (index < 0)
+            return "";
+        if (index + 1 >= args.Length || args[index + 1].StartsWith("--", StringComparison.Ordinal))
+            throw new ArgumentException($"{option} requires a value.");
+        return args[index + 1];
+    }
+
+    private static void EnsureUnlocked(Document document)
+    {
+        if (document.IsLocked)
+        {
+            throw new PdfEncryptedException();
+        }
+    }
+
+    private static void WriteDiagnostics(Document document)
+    {
+        foreach (PdfDiagnostic diagnostic in document.Diagnostics)
+            Console.Error.WriteLine($"{diagnostic.Severity}: {diagnostic.Code}: {diagnostic.Message}");
     }
 
     private static int ToIndex(int pageNumber, Document document)
@@ -188,11 +233,15 @@ internal static class Cli
             poppler-net — managed-only Poppler 26.07 port (alpha)
 
             Usage:
-              poppler-net info <input.pdf>
-              poppler-net text <input.pdf> [--page N] [--raw]
-              poppler-net attachments <input.pdf> <output-dir>
-              poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds]
+              poppler-net info <input.pdf> [password options]
+              poppler-net text <input.pdf> [--page N] [--raw] [password options]
+              poppler-net attachments <input.pdf> <output-dir> [password options]
+              poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds] [password options]
               poppler-net version
+
+            Password options:
+              --user-password VALUE
+              --owner-password VALUE
 
             Page numbers accepted by the CLI are one-based.
             """);

@@ -9,8 +9,9 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.2.0-alpha.1` is a hardened foundation, not a claim that all
-of Poppler has already been translated.
+slices. Version `0.3.0-alpha.1` adds the Standard Security Handler to the
+hardened `0.2` foundation; it is not a claim that all of Poppler has already
+been translated.
 
 ## Implemented sequence
 
@@ -31,6 +32,8 @@ of Poppler has already been translated.
    native or mixed-mode NuGet assets.
 10. Harden header-relative offsets, incremental revisions, generation checks
     and damaged-xref/object-stream reconstruction.
+11. Port Standard Security Handler revisions 2–6, crypt-filter routing,
+    locked-document retry and permission flags.
 
 ## Upstream-to-managed map
 
@@ -45,7 +48,7 @@ of Poppler has already been translated.
 | `FileSpec` | `EmbeddedFile` | Implemented |
 | `TextOutputDev`, CMaps | `PdfTextExtractor` | Common Latin/Unicode path |
 | `Outline`, `Link` | — | Planned |
-| `Decrypt`, `SecurityHandler` | detection only | Planned |
+| `Decrypt`, `SecurityHandler` | `PdfStandardSecurityHandler`, `PdfCryptography` | R2–R6 implemented |
 | `Annot`, `Form` | detection only | Planned |
 | `Gfx`, `GfxState`, `Function` | content operation reader | Partial |
 | `SplashOutputDev`, Cairo | `SvgPageRenderer` | Diagnostic only |
@@ -58,16 +61,15 @@ of Poppler has already been translated.
 ## Next implementation slices
 
 1. Complete corpus/differential/fuzz gates for the parser foundation.
-2. Encryption revisions 2–6 and permission enforcement.
-3. Complete font engine: Type 1/CFF/TrueType parsing, shaping, substitution,
+2. Complete font engine: Type 1/CFF/TrueType parsing, shaping, substitution,
    vertical writing and glyph rasterization.
-4. Full graphics interpreter, transparency groups, shadings, patterns,
+3. Full graphics interpreter, transparency groups, shadings, patterns,
    clipping, blend modes and image masks.
-5. Managed JPEG, JPEG2000, JBIG2 and CCITT decoders.
-6. Annotations, AcroForm/XFA surface, actions, links and outlines.
-7. Color spaces, ICC profiles, spot colors and overprint.
-8. Digital signature validation through managed cryptography.
-9. Writer, advanced repair mode, fuzz corpus, PDF corpus differential tests
+4. Managed JPEG, JPEG2000, JBIG2 and CCITT decoders.
+5. Annotations, AcroForm/XFA surface, actions, links and outlines.
+6. Color spaces, ICC profiles, spot colors and overprint.
+7. Digital signature validation through managed cryptography.
+8. Writer, advanced repair mode, fuzz corpus, PDF corpus differential tests
    and API parity.
 
 Each slice should be compared against the same Poppler 26.07.0 fixture corpus;

@@ -7,20 +7,44 @@ namespace Poppler;
 /// <summary>Read-only managed representation of a PDF document.</summary>
 public sealed class Document : IDisposable
 {
-    public const string PortVersion = "0.2.0-alpha.1";
+    public const string PortVersion = "0.3.0-alpha.1";
     public const string UpstreamVersion = "26.07.0";
 
-    private readonly PdfDocumentCore _core;
-    private readonly PdfDictionary _catalog;
-    private readonly IReadOnlyList<PdfPageNode> _pageNodes;
-    private readonly PageLabelTree _pageLabels;
-    private readonly Lazy<IReadOnlyDictionary<string, string>> _information;
-    private readonly Lazy<IReadOnlyList<EmbeddedFile>> _embeddedFiles;
+    private readonly byte[] _data;
+    private readonly PdfReadOptions _options;
+    private PdfDocumentCore _core;
+    private PdfDictionary _catalog = EmptyDictionary();
+    private IReadOnlyList<PdfPageNode> _pageNodes = Array.Empty<PdfPageNode>();
+    private PageLabelTree? _pageLabels;
+    private Lazy<IReadOnlyDictionary<string, string>> _information =
+        new(EmptyInformation);
+    private Lazy<IReadOnlyList<EmbeddedFile>> _embeddedFiles =
+        new(() => Array.Empty<EmbeddedFile>());
     private bool _disposed;
 
-    private Document(byte[] data, PdfReadOptions options)
+    private Document(
+        byte[] data,
+        PdfReadOptions options,
+        string ownerPassword,
+        string userPassword)
     {
-        _core = new PdfDocumentCore(data, options);
+        _data = data;
+        _options = options;
+        _core = new PdfDocumentCore(data, options, ownerPassword, userPassword);
+        try
+        {
+            if (!_core.IsLocked)
+                InitializeUnlockedModel();
+        }
+        catch
+        {
+            _core.Dispose();
+            throw;
+        }
+    }
+
+    private void InitializeUnlockedModel()
+    {
         _catalog = _core.FindCatalog();
         _pageNodes = PdfPageTreeReader.Read(_core, _catalog);
         _pageLabels = new PageLabelTree(_catalog.GetValueOrNull("PageLabels"), _core);
@@ -32,14 +56,30 @@ public sealed class Document : IDisposable
     public string PdfVersion => _core.PdfVersion;
     public int Pages => _pageNodes.Count;
     public int PageCount => Pages;
-    public bool IsEncrypted => _core.Trailer.ContainsKey("Encrypt");
-    public bool IsLocked => IsEncrypted;
+    public bool IsEncrypted => _core.IsEncrypted;
+    public bool IsLocked => _core.IsLocked;
     public bool IsLinearized => _core.IsLinearized();
     public bool XrefWasRepaired => _core.XrefWasRepaired;
     public IReadOnlyList<PdfDiagnostic> Diagnostics => _core.Diagnostics;
-    public IReadOnlyDictionary<string, string> Information => _information.Value;
+    public PdfPasswordKind PasswordKind => _core.PasswordKind;
+    public PdfEncryptionInfo? EncryptionInfo => _core.EncryptionInfo;
+    public IReadOnlyDictionary<string, string> Information
+    {
+        get
+        {
+            EnsureUnlocked();
+            return _information.Value;
+        }
+    }
     public IEnumerable<string> InfoKeys => Information.Keys;
-    public IReadOnlyList<EmbeddedFile> EmbeddedFiles => _embeddedFiles.Value;
+    public IReadOnlyList<EmbeddedFile> EmbeddedFiles
+    {
+        get
+        {
+            EnsureUnlocked();
+            return _embeddedFiles.Value;
+        }
+    }
     public bool HasEmbeddedFiles => EmbeddedFiles.Count > 0;
 
     public string Title => GetInfo("Title");
@@ -51,31 +91,46 @@ public sealed class Document : IDisposable
     public DateTimeOffset? CreationDate => PdfDateParser.Parse(GetInfo("CreationDate"));
     public DateTimeOffset? ModificationDate => PdfDateParser.Parse(GetInfo("ModDate"));
 
-    public PageMode PageMode => _catalog.GetValueOrNull("PageMode").AsName(_core) switch
+    public PageMode PageMode
     {
-        "UseOutlines" => PageMode.UseOutlines,
-        "UseThumbs" => PageMode.UseThumbs,
-        "FullScreen" => PageMode.FullScreen,
-        "UseOC" => PageMode.UseOptionalContent,
-        "UseAttachments" => PageMode.UseAttachments,
-        _ => PageMode.UseNone
-    };
+        get
+        {
+            EnsureUnlocked();
+            return _catalog.GetValueOrNull("PageMode").AsName(_core) switch
+            {
+                "UseOutlines" => PageMode.UseOutlines,
+                "UseThumbs" => PageMode.UseThumbs,
+                "FullScreen" => PageMode.FullScreen,
+                "UseOC" => PageMode.UseOptionalContent,
+                "UseAttachments" => PageMode.UseAttachments,
+                _ => PageMode.UseNone
+            };
+        }
+    }
 
-    public PageLayout PageLayout => _catalog.GetValueOrNull("PageLayout").AsName(_core) switch
+    public PageLayout PageLayout
     {
-        "SinglePage" => PageLayout.SinglePage,
-        "OneColumn" => PageLayout.OneColumn,
-        "TwoColumnLeft" => PageLayout.TwoColumnLeft,
-        "TwoColumnRight" => PageLayout.TwoColumnRight,
-        "TwoPageLeft" => PageLayout.TwoPageLeft,
-        "TwoPageRight" => PageLayout.TwoPageRight,
-        _ => PageLayout.NoLayout
-    };
+        get
+        {
+            EnsureUnlocked();
+            return _catalog.GetValueOrNull("PageLayout").AsName(_core) switch
+            {
+                "SinglePage" => PageLayout.SinglePage,
+                "OneColumn" => PageLayout.OneColumn,
+                "TwoColumnLeft" => PageLayout.TwoColumnLeft,
+                "TwoColumnRight" => PageLayout.TwoColumnRight,
+                "TwoPageLeft" => PageLayout.TwoPageLeft,
+                "TwoPageRight" => PageLayout.TwoPageRight,
+                _ => PageLayout.NoLayout
+            };
+        }
+    }
 
     public FormType FormType
     {
         get
         {
+            EnsureUnlocked();
             PdfDictionary? form = _catalog.GetValueOrNull("AcroForm").AsDictionary(_core);
             if (form is null)
                 return FormType.None;
@@ -87,6 +142,7 @@ public sealed class Document : IDisposable
     {
         get
         {
+            EnsureUnlocked();
             PdfDictionary? names = _catalog.GetValueOrNull("Names").AsDictionary(_core);
             if (names?.ContainsKey("JavaScript") == true)
                 return true;
@@ -100,6 +156,7 @@ public sealed class Document : IDisposable
         get
         {
             EnsureNotDisposed();
+            EnsureUnlocked();
             PdfStream? metadata = _catalog.GetValueOrNull("Metadata").AsStream(_core);
             return metadata is null
                 ? ""
@@ -125,7 +182,7 @@ public sealed class Document : IDisposable
         }
     }
 
-    public Permission Permissions => IsEncrypted ? Permission.None : Permission.All;
+    public Permission Permissions => _core.Permissions;
 
     public static Document LoadFromFile(
         string fileName,
@@ -145,7 +202,11 @@ public sealed class Document : IDisposable
                 $"Input is {info.Length} bytes; limit is {effectiveOptions.MaximumInputBytes} bytes.");
         }
 
-        return new Document(File.ReadAllBytes(fileName), effectiveOptions);
+        return new Document(
+            File.ReadAllBytes(fileName),
+            effectiveOptions,
+            ownerPassword,
+            userPassword);
     }
 
     public static Document LoadFromData(
@@ -162,7 +223,7 @@ public sealed class Document : IDisposable
                 $"Input is {data.Length} bytes; limit is {effectiveOptions.MaximumInputBytes} bytes.");
         }
 
-        return new Document(data.ToArray(), effectiveOptions);
+        return new Document(data.ToArray(), effectiveOptions, ownerPassword, userPassword);
     }
 
     public static Document LoadFromStream(
@@ -184,23 +245,25 @@ public sealed class Document : IDisposable
             output.Write(buffer, 0, read);
         }
 
-        return new Document(output.ToArray(), effectiveOptions);
+        return new Document(output.ToArray(), effectiveOptions, ownerPassword, userPassword);
     }
 
     public Page CreatePage(int index)
     {
         EnsureNotDisposed();
+        EnsureUnlocked();
         if ((uint)index >= (uint)_pageNodes.Count)
             throw new ArgumentOutOfRangeException(nameof(index));
-        return new Page(this, _core, _pageNodes[index], index, _pageLabels.GetLabel(index));
+        return new Page(this, _core, _pageNodes[index], index, _pageLabels!.GetLabel(index));
     }
 
     public Page CreatePage(string label)
     {
         ArgumentNullException.ThrowIfNull(label);
+        EnsureUnlocked();
         for (int index = 0; index < Pages; index++)
         {
-            if (string.Equals(_pageLabels.GetLabel(index), label, StringComparison.Ordinal))
+            if (string.Equals(_pageLabels!.GetLabel(index), label, StringComparison.Ordinal))
                 return CreatePage(index);
         }
 
@@ -217,7 +280,52 @@ public sealed class Document : IDisposable
 
     public bool HasPermission(Permission permission) => (Permissions & permission) == permission;
 
-    public bool Unlock(string ownerPassword, string userPassword) => !IsEncrypted;
+    /// <summary>
+    /// Attempts to unlock the document and returns its new locking status:
+    /// <see langword="false"/> means the document is unlocked.
+    /// </summary>
+    public bool Unlock(string ownerPassword, string userPassword)
+    {
+        EnsureNotDisposed();
+        ArgumentNullException.ThrowIfNull(ownerPassword);
+        ArgumentNullException.ThrowIfNull(userPassword);
+        if (!IsLocked)
+            return false;
+
+        var candidate = new PdfDocumentCore(_data, _options, ownerPassword, userPassword);
+        if (candidate.IsLocked)
+        {
+            candidate.Dispose();
+            return true;
+        }
+
+        PdfDictionary candidateCatalog;
+        IReadOnlyList<PdfPageNode> candidatePageNodes;
+        PageLabelTree candidatePageLabels;
+        try
+        {
+            candidateCatalog = candidate.FindCatalog();
+            candidatePageNodes = PdfPageTreeReader.Read(candidate, candidateCatalog);
+            candidatePageLabels = new PageLabelTree(
+                candidateCatalog.GetValueOrNull("PageLabels"),
+                candidate);
+        }
+        catch
+        {
+            candidate.Dispose();
+            throw;
+        }
+
+        _core.Dispose();
+        _core = candidate;
+        _catalog = candidateCatalog;
+        _pageNodes = candidatePageNodes;
+        _pageLabels = candidatePageLabels;
+        _information = new Lazy<IReadOnlyDictionary<string, string>>(ReadInformation);
+        _embeddedFiles = new Lazy<IReadOnlyList<EmbeddedFile>>(
+            () => EmbeddedFileReader.Read(_core, _catalog));
+        return false;
+    }
 
     public void Save(string fileName) => SaveACopy(fileName);
 
@@ -228,9 +336,15 @@ public sealed class Document : IDisposable
         File.WriteAllBytes(fileName, _core.OriginalBytes.ToArray());
     }
 
-    public void Dispose() => _disposed = true;
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+        _core.Dispose();
+        _disposed = true;
+    }
 
-    internal bool Encrypted => IsEncrypted;
+    internal bool Locked => IsLocked;
 
     private IReadOnlyDictionary<string, string> ReadInformation()
     {
@@ -259,8 +373,22 @@ public sealed class Document : IDisposable
     private string GetInfo(string key) =>
         Information.TryGetValue(key, out string? value) ? value : "";
 
+    private void EnsureUnlocked()
+    {
+        EnsureNotDisposed();
+        if (IsLocked)
+            throw new PdfEncryptedException();
+    }
+
     private void EnsureNotDisposed()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
     }
+
+    private static PdfDictionary EmptyDictionary() =>
+        new(new Dictionary<string, PdfObject>(StringComparer.Ordinal));
+
+    private static IReadOnlyDictionary<string, string> EmptyInformation() =>
+        new ReadOnlyDictionary<string, string>(
+            new Dictionary<string, string>(StringComparer.Ordinal));
 }

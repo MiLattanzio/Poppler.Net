@@ -141,14 +141,19 @@ public sealed class PdfStream : PdfObject
 {
     private readonly byte[] _encodedBytes;
 
-    public PdfStream(PdfDictionary dictionary, ReadOnlySpan<byte> encodedBytes)
+    public PdfStream(
+        PdfDictionary dictionary,
+        ReadOnlySpan<byte> encodedBytes,
+        PdfReference? sourceReference = null)
     {
         Dictionary = dictionary ?? throw new ArgumentNullException(nameof(dictionary));
         _encodedBytes = encodedBytes.ToArray();
+        SourceReference = sourceReference;
     }
 
     public PdfDictionary Dictionary { get; }
     public ReadOnlyMemory<byte> EncodedBytes => _encodedBytes;
+    internal PdfReference? SourceReference { get; }
     public override string ToString() => $"{Dictionary} stream ({_encodedBytes.Length} bytes)";
 }
 

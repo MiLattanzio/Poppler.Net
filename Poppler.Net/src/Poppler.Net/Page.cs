@@ -99,7 +99,7 @@ public sealed class Page
 
     private IReadOnlyList<TextBox> Extract(TextLayout layout)
     {
-        if (_owner.Encrypted)
+        if (_owner.Locked)
             throw new PdfEncryptedException();
         return new PdfTextExtractor(_document, _node).Extract(layout);
     }

@@ -4,11 +4,12 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.2.0-alpha.1` foundation release is not a complete replacement for
+> This `0.3.0-alpha.1` security release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, basic text extraction and
-> an SVG diagnostic renderer. See
+> an SVG diagnostic renderer. It can now open Standard Security Handler
+> revisions 2–6 with user or owner passwords. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
@@ -26,6 +27,10 @@ restored NuGet graph. The production library itself has no package dependency;
 xUnit v3 is the first approved managed-only test dependency. See
 `VERIFICATION.md` for the checks completed in the creation environment.
 
+RC4, MD5, SHA-2 and AES are reached only through managed C# or the .NET
+cryptography API. The solution does not ship OpenSSL, a platform crypto library
+or any native cryptography asset.
+
 ## CLI
 
 ```bash
@@ -34,6 +39,10 @@ dotnet run --project src/Poppler.Net.Cli -- text input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- attachments input.pdf output-dir
 dotnet run --project src/Poppler.Net.Cli -- svg input.pdf page.svg --page 1
 ```
+
+Encrypted input accepts `--user-password VALUE` or `--owner-password VALUE`.
+Command-line values may be visible to other local processes; applications
+should normally pass secrets through the `Document` API instead.
 
 ## API
 
@@ -50,6 +59,22 @@ foreach (TextBox word in page.TextList())
 ```
 
 All page indices in the API are zero-based. CLI page numbers are one-based.
+
+Encrypted files can be opened directly:
+
+```csharp
+using var document = Document.LoadFromFile(
+    "protected.pdf",
+    userPassword: "secret");
+
+Console.WriteLine(document.EncryptionInfo?.Revision);
+Console.WriteLine(document.Permissions);
+```
+
+If no correct password is supplied, the returned document remains locked.
+`Unlock(ownerPassword, userPassword)` retries from the original bytes and,
+matching Poppler's C++ API, returns the document's new locking status
+(`false` means unlocked).
 
 ## Design
 
@@ -70,6 +95,11 @@ The `0.2` foundation additionally supports header-relative offsets after a
 leading transport prefix, validates object generations and compressed-object
 indices, and reconstructs xref/object streams during damaged-xref recovery.
 See [docs/FOUNDATION.md](docs/FOUNDATION.md).
+
+The `0.3` slice ports `SecurityHandler`/`Decrypt`: legacy password padding,
+RC4 object keys, AES-128/256, revision 6 hardened hashing, crypt filters,
+metadata exclusion and PDF permission flags. See
+[docs/SECURITY.md](docs/SECURITY.md).
 
 ## License and provenance
 

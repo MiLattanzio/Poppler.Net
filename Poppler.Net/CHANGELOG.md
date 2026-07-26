@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.3.0-alpha.1 — 2026-07-26
+
+- Ported Standard Security Handler revisions 2 through 6.
+- Added legacy owner/user validation, RC4-40/128, AES-128 and AES-256 object
+  decryption.
+- Added revision 6 hardened SHA-2 password hashing and AES-256 `/Perms`
+  validation diagnostics.
+- Added independent `StrF`, `StmF` and `EFF` selection, explicit `/Crypt`
+  filters and `EncryptMetadata false`.
+- Added locked-document loading and Poppler-compatible password retry.
+- Exposed encryption revision, algorithm, key length, password kind and PDF
+  permission flags.
+- Added CLI owner/user password options and locked-document information.
+- Added nine encrypted compatibility fixtures, including R2–R6 text and
+  embedded-file coverage.
+- Retained a package-free production library and the managed-only build policy.
+
 ## 0.2.0-alpha.1 — 2026-07-26
 
 - Pinned the build to .NET SDK 8.0.423 and added three-platform CI.

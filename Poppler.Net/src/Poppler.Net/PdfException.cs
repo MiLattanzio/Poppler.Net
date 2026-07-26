@@ -35,7 +35,7 @@ public sealed class PdfFormatException : PdfException
 public sealed class PdfEncryptedException : PdfException
 {
     public PdfEncryptedException()
-        : base("The PDF is encrypted. Password handling is not implemented in this managed alpha.")
+        : base("The PDF is encrypted and locked. Supply the correct owner or user password.")
     {
     }
 }

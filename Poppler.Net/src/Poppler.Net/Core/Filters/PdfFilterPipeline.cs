@@ -34,8 +34,10 @@ internal static class PdfFilterPipeline
                 "ASCIIHexDecode" or "AHx" => DecodeAsciiHex(current, options),
                 "ASCII85Decode" or "A85" => DecodeAscii85(current, options),
                 "RunLengthDecode" or "RL" => DecodeRunLength(current, options),
-                "Crypt" when parameter is null ||
-                             parameter.GetValueOrNull("Name").AsName(document) is null or "Identity" => current,
+                "Crypt" => document.DecryptExplicitStream(
+                    stream,
+                    current,
+                    parameter?.GetValueOrNull("Name").AsName(document) ?? "Identity"),
                 _ => throw new PdfUnsupportedFeatureException($"stream filter {name}")
             };
 

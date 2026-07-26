@@ -8,6 +8,20 @@ Document.LoadFromData(bytes, options: options);
 Document.LoadFromStream(stream, options: options);
 ```
 
+All three loaders accept `ownerPassword` and `userPassword`. A wrong or missing
+password returns a locked document so callers can inspect `IsEncrypted`,
+`IsLocked` and `EncryptionInfo`, then retry:
+
+```csharp
+using Document document = Document.LoadFromData(bytes);
+if (document.IsLocked && document.Unlock("", promptedUserPassword))
+    throw new InvalidOperationException("The password was not accepted.");
+```
+
+`Unlock` follows Poppler's C++ API and returns the new locked state:
+`false` means success. Protected properties and page creation throw
+`PdfEncryptedException` while the document remains locked.
+
 All loaders copy the input into owned managed memory. Configure upper bounds:
 
 ```csharp
@@ -25,6 +39,11 @@ var options = new PdfReadOptions
 `Document` exposes PDF version, page count, encryption/linearization state,
 document information, XMP, trailer IDs, viewer mode/layout, form type,
 JavaScript presence, permissions, diagnostics and embedded files.
+
+For encrypted documents, `EncryptionInfo` reports security-handler version and
+revision, key size, `StrF`, `StmF`, `EFF` algorithms and `EncryptMetadata`.
+`PasswordKind` distinguishes user and owner authentication. Owner access
+returns all permissions; user access maps the PDF `/P` bits.
 
 `Save` and `SaveACopy` currently preserve the original bytes. They do not
 serialize mutations.

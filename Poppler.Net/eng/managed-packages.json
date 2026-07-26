@@ -1,0 +1,7 @@
+{
+  "xunit.v3": {
+    "version": "3.2.2",
+    "scope": "tests",
+    "reason": "Managed xUnit.net v3 test framework and in-process runner."
+  }
+}

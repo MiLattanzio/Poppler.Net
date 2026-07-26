@@ -1,26 +1,37 @@
 # Verification record
 
-Verification performed on 2026-07-26 for `0.2.0-alpha.1`:
+Verification performed on 2026-07-26 for `0.3.0-alpha.1`:
 
-- 34 C# files (5,030 lines at the time of the check) parsed with the current
+- 38 C# files (6,394 lines at the time of the check) parsed with the current
   tree-sitter C# grammar: no syntax-error nodes.
 - four solution projects resolved to existing project files.
-- all six `.csproj`/property files parsed as XML; `global.json` and the managed
-  package manifest parsed as JSON; the CI workflow parsed as YAML.
-- local Markdown links resolved.
+- all six `.csproj`/property files parsed as XML; `global.json`, the managed
+  package manifest and encrypted-fixture manifest parsed as JSON; the CI
+  workflow parsed as YAML.
+- all local Markdown links resolved.
 - production source contained no `DllImport`, `LibraryImport`,
   `NativeLibrary`, unmanaged exports or external-process fallback.
 - production projects contained no `PackageReference`; the only direct
   package is test-only `xunit.v3` 3.2.2 and is centrally pinned.
-- the source tree contained no ELF, Mach-O, WebAssembly, native-library or
-  object-file asset.
+- the source tree contained no ELF, Mach-O, WebAssembly, native-library,
+  executable or object-file asset.
 - the shell build entry point passed `bash -n`.
-- classic, leading-prefix and incremental-update fixture shapes were accepted
-  by the locally available Poppler command-line tools.
+- all nine encrypted fixture hashes matched their manifest.
+- pypdf 6.10.0 independently recovered the expected metadata, text and
+  attachment bytes for R2–R6 with both user and owner passwords.
+- the R4 variant checks independently validated split string/stream filters,
+  an explicit `/Crypt` filter, an independent `EFF` and plaintext metadata
+  under `EncryptMetadata false`.
+- the locally available Poppler 26.05.0 tools opened the five standard R2–R6
+  fixtures with both passwords and recovered their page, text and embedded
+  file.
+- 43 xUnit cases are defined: the previous 18 foundation cases plus 25
+  security cases covering authentication, permissions, R2–R6 primitives,
+  metadata, attachments, crypt-filter routing and tampered `/Perms`.
 
 The creation environment does not contain `dotnet`, `csc` or MSBuild.
-Consequently, NuGet restore, C# compilation, the 18-test xUnit executable and
-the post-restore package-binary verifier could not be executed here. The
+Consequently, NuGet restore, C# compilation, the xUnit executable and the
+post-restore package-binary verifier could not be executed here. The
 three-platform CI definition and `build.sh`/`build.ps1` make all four checks
 mandatory on a machine with .NET SDK 8.0.423.
 
