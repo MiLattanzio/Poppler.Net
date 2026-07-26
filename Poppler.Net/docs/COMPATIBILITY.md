@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.6.0-alpha.1
+## Works in 0.7.0-alpha.1
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -60,6 +60,20 @@
 - Public backend-neutral `Page.Graphics` display lists.
 - Managed SVG vector output for paths, clipping, Form content, tiling patterns,
   axial/radial gradients, decoded Image XObjects and extracted text.
+- Managed full-page RGBA raster output and PNG encoding at configurable DPI,
+  Crop/Media/Bleed/Trim/Art page box and PDF page rotation.
+- Supersampled path fill/stroke and clip coverage at 1×, 2×, 4× or 8×,
+  adaptive cubic Bézier flattening, image sampling, gradients and colored
+  tiling patterns.
+- Straight-alpha compositing for the 16 standard separable/nonseparable PDF
+  blend modes.
+- Preserved Form transparency groups, isolated intermediate surfaces,
+  graphics-state Alpha/Luminosity soft masks and luminosity backdrop color.
+- Embedded TrueType `glyf` simple/composite outlines, common component
+  transforms, quadratic contour conversion and managed antialiased glyph
+  painting.
+- Public `PdfBitmap`, `Page.Render`, `RenderToPng`, `SavePng`,
+  `RasterRenderOptions` and CLI `render`.
 - Missing `%%EOF` and leading-prefix diagnostics.
 - Standard Security Handler `V=1/R=2`, `V=2/R=3`, `V=4/R=4` and
   `V=5/R=5–6`.
@@ -81,25 +95,26 @@
 - Encryption is read-only: saving preserves the original encrypted bytes and
   cannot change passwords, permissions or crypt filters.
 - Digital signatures are neither created nor validated.
-- Full-page raster rendering is not implemented; `0.6` exposes decoded Image
-  XObject pixels and PNG export but does not rasterize vector/text page content.
 - Inline images are not decoded.
-- Transparency groups, soft masks, knockout/isolation, overprint and exact PDF
-  blend compositing are deferred to the raster phase. SVG maps common blend
-  names and alpha values but is not a visual-conformance backend.
+- Knockout and non-isolated group backdrop interaction, soft-mask transfer
+  functions and overprint are incomplete. SVG remains a preview backend.
 - Uncolored tiling patterns, shading types 1 and 4–7, calculator functions and
   mesh shadings are not painted.
 - ICC LUT/device-link profiles, rendering intents, black-point compensation,
   proofing, spot-color calibration and overprint simulation are not
   implemented. ICCBased falls back to `/Alternate` outside common
   matrix/shaper profiles.
-- Text remains a separate extraction pass: glyph outlines, Type 3 CharProcs
-  and text nested in Form XObjects are not part of `Page.Graphics`.
+- Raster text remains a separate post-display-list pass: exact content
+  interleaving, text clipping/paint mode/color/transparency and text nested in
+  Form XObjects are not preserved.
 - Complex-script shaping, GSUB/GPOS, full bidi, raw CFF fallback, arbitrary
   external named CMaps and font substitution are not implemented.
-- Type 3 encodings and advances are read, but CharProcs are not rendered.
+- Type 1/CFF outlines and Type 3 CharProcs are not rasterized. Embedded
+  TrueType outlines are rasterized without hinting.
 - Vertical writing is supported for extraction and metrics; vertical glyph
-  forms and outlines await the rasterizer.
+  forms are not substituted.
+- Stroke cap/join/miter geometry and dash continuity use the first managed
+  approximation and are not yet pixel-equivalent to Splash in every case.
 - JPEG 2000 Part 2, unusual JPEG color transforms and malformed/extension
   streams outside the managed codec coverage remain unsupported.
 - Annotations, forms, optional content, actions, movie/sound and JavaScript are
@@ -115,5 +130,6 @@ indirect objects, 1,000,000 direct collection items, 250,000 CMap mappings,
 1,000,000 graphics operations, 250,000 display-list elements, 1,000,000 path
 segments, 100,000,000 decoded pixels per image, 32 image components, 16 MiB
 per ICC profile, 1,000,000 sampled-function samples, graphics stack depth 256,
-XObject depth 32, 33 shading stops, 10,000 pages, tree depth 128 and object
-recursion 64. Use `PdfReadOptions` to lower limits for server workloads.
+XObject depth 32, transparency-group depth 32, 100,000,000 rendered pixels,
+33 shading stops, 10,000 pages, tree depth 128 and object recursion 64. Use
+`PdfReadOptions` to lower limits for server workloads.

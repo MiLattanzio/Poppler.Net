@@ -18,6 +18,7 @@ internal sealed class PdfGraphicsInterpreter
     private readonly Dictionary<PdfReference, PdfBrush> _patternCache = new();
     private readonly HashSet<PdfReference> _activePatterns = new();
     private readonly HashSet<PdfReference> _activeForms = new();
+    private readonly HashSet<PdfReference> _activeSoftMasks = new();
     private readonly HashSet<string> _reportedDiagnostics = new(StringComparer.Ordinal);
     private int _operationCount;
     private int _elementCount;
@@ -130,7 +131,7 @@ internal sealed class PdfGraphicsInterpreter
                     SetDash(values, context);
                     break;
                 case "gs" when values.LastOrDefault() is PdfName stateName:
-                    ApplyExtendedState(resources, stateName.Value, context);
+                    ApplyExtendedState(resources, stateName.Value, context, depth);
                     break;
                 case "CS" when values.LastOrDefault() is PdfName strokeSpace:
                     context.StrokeColorSpace = ResolveColorSpace(
@@ -508,13 +509,67 @@ internal sealed class PdfGraphicsInterpreter
 
             PdfObject? childResources =
                 stream.Dictionary.GetValueOrNull("Resources") ?? resources;
-            Execute(
-                _document.Decode(stream),
-                childResources,
-                child,
-                output,
-                depth + 1,
-                source);
+            PdfDictionary? group = stream.Dictionary
+                .GetValueOrNull("Group")
+                .AsDictionary(_document);
+            bool transparencyGroup =
+                group?.GetValueOrNull("S").AsName(_document) == "Transparency";
+            if (transparencyGroup)
+            {
+                IReadOnlyList<PdfClipPath> parentClips = context.Clips.ToArray();
+                child.Clips.Clear();
+                if (stream.Dictionary.GetValueOrNull("BBox").AsRectangle(_document) is { } groupBox)
+                {
+                    child.Clips.Add(new PdfClipPath(
+                        RectanglePath(groupBox),
+                        child.Graphics.Transform,
+                        PdfFillRule.NonZero));
+                }
+
+                PdfGraphicsState boundaryState = context.Graphics;
+                child.Graphics = child.Graphics with
+                {
+                    FillAlpha = 1,
+                    StrokeAlpha = 1,
+                    BlendMode = "Normal",
+                    SoftMask = null
+                };
+                var elements = new List<PdfGraphicsElement>();
+                Execute(
+                    _document.Decode(stream),
+                    childResources,
+                    child,
+                    elements,
+                    depth + 1,
+                    source);
+                PdfObject? isolatedValue = group?.GetValueOrNull("I");
+                PdfObject? knockoutValue = group?.GetValueOrNull("K");
+                bool isolated =
+                    isolatedValue is not null &&
+                    isolatedValue.Resolve(_document) is PdfBoolean { Value: true };
+                bool knockout =
+                    knockoutValue is not null &&
+                    knockoutValue.Resolve(_document) is PdfBoolean { Value: true };
+                Emit(
+                    output,
+                    new PdfTransparencyGroupElement(
+                        elements,
+                        isolated,
+                        knockout,
+                        boundaryState,
+                        parentClips,
+                        source));
+            }
+            else
+            {
+                Execute(
+                    _document.Decode(stream),
+                    childResources,
+                    child,
+                    output,
+                    depth + 1,
+                    source);
+            }
         }
         finally
         {
@@ -701,7 +756,8 @@ internal sealed class PdfGraphicsInterpreter
     private void ApplyExtendedState(
         PdfDictionary? resources,
         string resourceName,
-        GraphicsContext context)
+        GraphicsContext context,
+        int depth)
     {
         PdfDictionary? dictionary = LookupResource(
                 resources,
@@ -749,9 +805,113 @@ internal sealed class PdfGraphicsInterpreter
         string? blendMode = ReadBlendMode(dictionary.GetValueOrNull("BM"));
         if (blendMode is not null)
             state = state with { BlendMode = blendMode };
+        PdfObject? softMaskObject = dictionary.GetValueOrNull("SMask");
+        if (softMaskObject is not null)
+        {
+            state = state with
+            {
+                SoftMask = softMaskObject.AsName(_document) == "None"
+                    ? null
+                    : ReadSoftMask(softMaskObject, resources, context, depth)
+            };
+        }
         if (dictionary.GetValueOrNull("D").AsArray(_document) is { Count: >= 2 } dash)
             state = state with { Dash = ReadDash(dash[0], dash[1]) };
         context.Graphics = state;
+    }
+
+    private PdfSoftMask? ReadSoftMask(
+        PdfObject value,
+        PdfDictionary? resources,
+        GraphicsContext context,
+        int depth)
+    {
+        if (depth >= _document.Options.MaximumTransparencyGroupDepth)
+            throw new PdfLimitException("Soft-mask nesting exceeds the configured limit.");
+        PdfDictionary? dictionary = value.AsDictionary(_document);
+        PdfObject? groupObject = dictionary?.GetValueOrNull("G");
+        PdfStream? stream = groupObject.AsStream(_document);
+        if (dictionary is null || stream is null)
+            return null;
+
+        PdfReference? reference = groupObject as PdfReference ?? stream.SourceReference;
+        if (reference is not null && !_activeSoftMasks.Add(reference))
+        {
+            ReportOnce(
+                "graphics.soft-mask.recursive",
+                "A recursive soft mask was skipped.");
+            return null;
+        }
+
+        try
+        {
+            GraphicsContext child = context.Clone();
+            child.Clips.Clear();
+            PdfMatrix matrix = PdfShadingReader.ReadMatrix(
+                stream.Dictionary.GetValueOrNull("Matrix"),
+                _document,
+                PdfMatrix.Identity);
+            child.Graphics = child.Graphics with
+            {
+                Transform = matrix.Multiply(child.Graphics.Transform),
+                FillAlpha = 1,
+                StrokeAlpha = 1,
+                BlendMode = "Normal",
+                SoftMask = null
+            };
+            if (stream.Dictionary.GetValueOrNull("BBox").AsRectangle(_document) is { } box)
+            {
+                child.Clips.Add(new PdfClipPath(
+                    RectanglePath(box),
+                    child.Graphics.Transform,
+                    PdfFillRule.NonZero));
+            }
+
+            var elements = new List<PdfGraphicsElement>();
+            PdfObject? childResources =
+                stream.Dictionary.GetValueOrNull("Resources") ?? resources;
+            Execute(
+                _document.Decode(stream),
+                childResources,
+                child,
+                elements,
+                depth + 1,
+                sourceResource: "SoftMask");
+            PdfSoftMaskMode mode =
+                dictionary.GetValueOrNull("S").AsName(_document) == "Luminosity"
+                    ? PdfSoftMaskMode.Luminosity
+                    : PdfSoftMaskMode.Alpha;
+            PdfColor backdrop = ReadBackdrop(dictionary.GetValueOrNull("BC"));
+            return new PdfSoftMask(mode, elements, backdrop);
+        }
+        finally
+        {
+            if (reference is not null)
+                _activeSoftMasks.Remove(reference);
+        }
+    }
+
+    private PdfColor ReadBackdrop(PdfObject? value)
+    {
+        PdfArray? array = value.AsArray(_document);
+        if (array is null)
+            return PdfColor.Black;
+        double[] components = array
+            .Select(item => item.AsNumber(_document))
+            .Where(number => number.HasValue)
+            .Select(number => number!.Value)
+            .ToArray();
+        return components.Length switch
+        {
+            1 => PdfColor.Gray(components[0]),
+            3 => PdfColor.Rgb(components[0], components[1], components[2]),
+            >= 4 => PdfColor.Cmyk(
+                components[0],
+                components[1],
+                components[2],
+                components[3]),
+            _ => PdfColor.Black
+        };
     }
 
     private void SetDash(IReadOnlyList<PdfObject> values, GraphicsContext context)

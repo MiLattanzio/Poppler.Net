@@ -15,8 +15,10 @@ public sealed record PdfReadOptions
     public int MaximumPathSegments { get; init; } = 1_000_000;
     public int MaximumGraphicsStateDepth { get; init; } = 256;
     public int MaximumXObjectDepth { get; init; } = 32;
+    public int MaximumTransparencyGroupDepth { get; init; } = 32;
     public int MaximumShadingStops { get; init; } = 33;
     public long MaximumImagePixels { get; init; } = 100_000_000;
+    public long MaximumRenderPixels { get; init; } = 100_000_000;
     public int MaximumImageComponents { get; init; } = 32;
     public int MaximumIccProfileBytes { get; init; } = 16 * 1024 * 1024;
     public int MaximumFunctionSamples { get; init; } = 1_000_000;
@@ -47,10 +49,14 @@ public sealed record PdfReadOptions
             throw new ArgumentOutOfRangeException(nameof(MaximumGraphicsStateDepth));
         if (MaximumXObjectDepth < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumXObjectDepth));
+        if (MaximumTransparencyGroupDepth < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumTransparencyGroupDepth));
         if (MaximumShadingStops < 2)
             throw new ArgumentOutOfRangeException(nameof(MaximumShadingStops));
         if (MaximumImagePixels < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumImagePixels));
+        if (MaximumRenderPixels < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumRenderPixels));
         if (MaximumImageComponents is < 1 or > 64)
             throw new ArgumentOutOfRangeException(nameof(MaximumImageComponents));
         if (MaximumIccProfileBytes < 128)

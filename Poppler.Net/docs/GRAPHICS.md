@@ -1,6 +1,6 @@
 # Managed graphics engine
 
-Version `0.6.0-alpha.1` retains the backend-neutral slice of Poppler
+Version `0.7.0-alpha.1` retains and extends the backend-neutral slice of Poppler
 26.07.0 `Gfx`, `GfxState`, `Function`, pattern and XObject behavior. It parses
 page content into immutable managed objects; it does not call Poppler, Cairo,
 FreeType or another native renderer.
@@ -13,14 +13,16 @@ list of:
 - `PdfPathElement` for filled and/or stroked paths;
 - `PdfImageElement` for Image XObject metadata and decoded pixels when the
   codec/color space is supported;
-- `PdfShadingElement` for directly painted gradients.
+- `PdfShadingElement` for directly painted gradients;
+- `PdfTransparencyGroupElement` for Form XObjects that declare a transparency
+  group.
 
 Every element retains a `PdfGraphicsState`, its active clipping paths and its
-source Form resource. Form XObjects are flattened into the page display list
-while preserving their resource path.
+source Form resource. Ordinary Form XObjects are flattened while transparency
+groups remain nested for intermediate-surface compositing.
 
-The managed SVG backend consumes the same list. The text extractor remains a
-separate pass until the font-outline and raster slices are available.
+The managed SVG and raster backends consume the same list. Text remains a
+separate extraction/raster pass in this alpha.
 
 ## Operators
 
@@ -33,7 +35,7 @@ separate pass until the font-outline and raster slices are available.
 | Clipping | `W`, `W*` |
 | Device color | `G`, `g`, `RG`, `rg`, `K`, `k`, `CS`, `cs`, `SC`, `sc`, `SCN`, `scn` |
 | Resources | `gs`, `Do`, `sh` |
-| `ExtGState` | `LW`, `LC`, `LJ`, `ML`, `D`, `CA`, `ca`, `BM` |
+| `ExtGState` | `LW`, `LC`, `LJ`, `ML`, `D`, `CA`, `ca`, `BM`, `SMask` |
 
 Clipping follows PDF delayed semantics: `W`/`W*` records the rule and the
 current path becomes part of the clip only when a path-ending operator is
@@ -48,6 +50,7 @@ Form XObjects support:
 - local `/Resources` with inherited fallback;
 - nested Form XObjects;
 - decoded Form content streams;
+- transparency `/Group`, `/I` and `/K`;
 - recursion detection and a configurable depth limit.
 
 Image XObjects record resource name, width, height, bits per component,
@@ -85,6 +88,7 @@ mesh shadings remain explicit limitations.
 | `MaximumPathSegments` | 1,000,000 |
 | `MaximumGraphicsStateDepth` | 256 |
 | `MaximumXObjectDepth` | 32 |
+| `MaximumTransparencyGroupDepth` | 32 |
 | `MaximumShadingStops` | 33 |
 
 Limit failures throw `PdfLimitException` and are covered by NUnit tests.
@@ -102,6 +106,7 @@ Limit failures throw `PdfLimitException` and are covered by NUnit tests.
 | exponential/stitching `Function` | `PdfShadingReader` |
 | `OutputDev` boundary | `PdfGraphicsElement` display list |
 | initial vector output backend | `SvgPageRenderer` |
+| initial Splash output backend | `PdfRasterRenderer` |
 
 The mapping is behavioral rather than a line-for-line transliteration:
 pointer-owned mutable Poppler objects become bounded managed values and

@@ -13,6 +13,7 @@ internal sealed partial class PdfFontDecoder
     private readonly PdfCMap _encodingCMap;
     private readonly PdfCidMetrics? _cidMetrics;
     private readonly PdfOpenTypeCmap? _openTypeCmap;
+    private readonly PdfTrueTypeFont? _trueTypeFont;
     private readonly ushort[]? _cidToGlyph;
     private readonly double[]? _widths;
     private readonly int _firstCharacter;
@@ -62,6 +63,7 @@ internal sealed partial class PdfFontDecoder
             _openTypeCmap = PdfOpenTypeCmap.TryParse(
                 fontProgram,
                 document.Options.MaximumCMapMappings);
+            _trueTypeFont = PdfTrueTypeFont.TryParse(fontProgram);
             if (fontProgram.Length >= 4 &&
                 fontProgram.AsSpan(0, 4).SequenceEqual("OTTO"u8))
             {
@@ -236,6 +238,27 @@ internal sealed partial class PdfFontDecoder
 
     public string Decode(ReadOnlySpan<byte> bytes) =>
         string.Concat(DecodeGlyphs(bytes).Select(glyph => glyph.Text));
+
+    internal bool TryGetGlyphOutline(
+        Rune rune,
+        out PdfGraphicsPath path,
+        out double advance,
+        out double ascent,
+        out double descent)
+    {
+        path = new PdfGraphicsPath(Array.Empty<PdfPathSegment>());
+        advance = 0;
+        ascent = _trueTypeFont?.Ascent ?? Ascent;
+        descent = _trueTypeFont?.Descent ?? Descent;
+        if (_trueTypeFont is null ||
+            _openTypeCmap is null ||
+            !_openTypeCmap.TryGetGlyph(rune.Value, out uint glyph))
+        {
+            return false;
+        }
+
+        return _trueTypeFont.TryGetGlyph(glyph, out path, out advance);
+    }
 
     private string DecodeSimple(byte value)
     {

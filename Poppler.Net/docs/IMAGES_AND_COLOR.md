@@ -59,10 +59,12 @@ nearest-neighbor sampling.
 - JPEG arithmetic coding, unusual JPEG color transforms and JPEG 2000 Part 2
   are not guaranteed by the selected managed codecs.
 - Inline images (`BI`/`ID`/`EI`) are not decoded.
-- Transparency groups, transfer functions and soft masks attached to graphics
-  state remain part of the page rasterizer phase.
-- The release extracts/embeds image pixels but does not rasterize an entire
-  PDF page. Vector output remains SVG.
+- Release `0.7` rasterizes Image XObjects and graphics-state Alpha/Luminosity
+  soft masks. Soft-mask transfer functions, knockout interaction and overprint
+  remain incomplete.
+- Release `0.7` adds full-page RGBA/PNG output; visual conformance remains
+  limited by the raster and font restrictions in
+  [RENDERING.md](RENDERING.md).
 
 ## Safety limits
 

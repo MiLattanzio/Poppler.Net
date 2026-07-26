@@ -23,6 +23,7 @@ internal static class Cli
                 "fonts" => Fonts(args),
                 "graphics" => Graphics(args),
                 "images" => Images(args),
+                "render" => Render(args),
                 "attachments" => Attachments(args),
                 "svg" => Svg(args),
                 "version" or "--version" => Version(),
@@ -169,7 +170,8 @@ internal static class Cli
                 $"page {page.Number}: {elements.Count} elements; " +
                 $"{elements.OfType<PdfPathElement>().Count()} paths, " +
                 $"{elements.OfType<PdfImageElement>().Count()} images, " +
-                $"{elements.OfType<PdfShadingElement>().Count()} shadings");
+                $"{elements.OfType<PdfShadingElement>().Count()} shadings, " +
+                $"{elements.OfType<PdfTransparencyGroupElement>().Count()} transparency groups");
         }
 
         return 0;
@@ -224,6 +226,23 @@ internal static class Cli
         return 0;
     }
 
+    private static int Render(string[] args)
+    {
+        RequireCount(args, 3, "render requires an input PDF and output PNG.");
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
+        int pageNumber = GetPageOption(args) ?? 1;
+        var options = new RasterRenderOptions
+        {
+            Dpi = GetDoubleOption(args, "--dpi") ?? 96,
+            Antialiasing = GetIntegerOption(args, "--antialias") ?? 4,
+            Transparent = args.Contains("--transparent", StringComparer.Ordinal)
+        };
+        document.CreatePage(ToIndex(pageNumber, document)).SavePng(args[2], options);
+        Console.WriteLine(Path.GetFullPath(args[2]));
+        return 0;
+    }
+
     private static int Version()
     {
         Console.WriteLine(
@@ -244,6 +263,43 @@ internal static class Cli
         }
 
         return page;
+    }
+
+    private static int? GetIntegerOption(string[] args, string option)
+    {
+        int index = Array.IndexOf(args, option);
+        if (index < 0)
+            return null;
+        if (index + 1 >= args.Length ||
+            !int.TryParse(
+                args[index + 1],
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out int value))
+        {
+            throw new ArgumentException($"{option} requires an integer value.");
+        }
+
+        return value;
+    }
+
+    private static double? GetDoubleOption(string[] args, string option)
+    {
+        int index = Array.IndexOf(args, option);
+        if (index < 0)
+            return null;
+        if (index + 1 >= args.Length ||
+            !double.TryParse(
+                args[index + 1],
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out double value) ||
+            !double.IsFinite(value))
+        {
+            throw new ArgumentException($"{option} requires a finite numeric value.");
+        }
+
+        return value;
     }
 
     private static Document LoadDocument(string[] args, int inputIndex) =>
@@ -331,6 +387,7 @@ internal static class Cli
               poppler-net fonts <input.pdf> [--page N] [password options]
               poppler-net graphics <input.pdf> [--page N] [password options]
               poppler-net images <input.pdf> <output-dir> [--page N] [password options]
+              poppler-net render <input.pdf> <output.png> [--page N] [--dpi N] [--antialias 1|2|4|8] [--transparent] [password options]
               poppler-net attachments <input.pdf> <output-dir> [password options]
               poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds] [--image-bounds] [password options]
               poppler-net version

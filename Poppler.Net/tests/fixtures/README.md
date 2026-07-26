@@ -45,3 +45,14 @@ a directly painted axial shading.
 
 `graphics-fixture.json` records its hash and coverage. Poppler 26.07.0
 successfully parses the page and `pdftocairo` renders a 420×400 reference image.
+
+## Rendering and transparency
+
+`rendering-transparency.pdf` is generated without a third-party PDF library by
+`generate_rendering_fixture.py`. Its first page covers Multiply, constant
+alpha, Alpha and Luminosity soft masks, an isolated Form transparency group and
+clipping. Its second page covers `/Rotate 90`.
+
+`rendering-fixture.json` records the deterministic hash and output dimensions.
+At 72 DPI the managed raster samples are compared with Poppler 26.05.0 output,
+including the isolated-group overlap and both soft-mask paths.

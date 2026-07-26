@@ -70,7 +70,8 @@ also apply to fonts and CMaps.
 
 ## Deliberate limits
 
-- no glyph-outline rasterization or font hinting;
+- release `0.7` rasterizes embedded TrueType `glyf` simple/composite outlines,
+  but not CFF/Type 1 outlines or font hinting;
 - no complex-script shaping, OpenType GSUB/GPOS processing or full Unicode
   Bidirectional Algorithm;
 - no system-font discovery or substitution;
@@ -81,5 +82,7 @@ also apply to fonts and CMaps.
 - Type 3 CharProcs are not rendered; their encodings and text advances are
   available for extraction.
 
-These limits belong to later font/raster and graphics slices. Recognizing an
-embedded font format does not imply that its glyph outlines are rendered.
+Raster text is currently a post-display-list pass, so exact PDF text paint
+mode, color, clipping, transparency, interleaving and Form-nested text remain
+future work. Recognizing a non-TrueType embedded font format does not imply
+that its glyph outlines are rendered.

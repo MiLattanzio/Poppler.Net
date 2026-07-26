@@ -4,18 +4,20 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.6.0-alpha.1` image/color release is not a complete replacement for
+> This `0.7.0-alpha.1` raster release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
 > extraction, a backend-neutral vector display list and an SVG vector
-> preview. It can open Standard Security Handler
+> preview and a managed RGBA page rasterizer. It can open Standard Security Handler
 > revisions 2–6 with user or owner passwords and decode common simple,
 > composite, CID and vertical text paths. The graphics slice interprets paths,
 > clipping, Form/Image XObjects, tiling patterns and axial/radial shadings.
 > The image slice decodes common raw and compressed Image XObjects, converts
 > calibrated and special color spaces to sRGB, exposes pixels, writes PNG and
-> embeds decoded images in SVG. See
+> embeds decoded images in SVG. The raster slice paints vector paths, images,
+> patterns, gradients and embedded TrueType glyph outlines with antialiasing,
+> PDF blend modes, transparency groups and Alpha/Luminosity soft masks. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
@@ -46,6 +48,7 @@ dotnet run --project src/Poppler.Net.Cli -- text input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- fonts input.pdf
 dotnet run --project src/Poppler.Net.Cli -- graphics input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- images input.pdf output-images
+dotnet run --project src/Poppler.Net.Cli -- render input.pdf page.png --page 1 --dpi 144
 dotnet run --project src/Poppler.Net.Cli -- attachments input.pdf output-dir
 dotnet run --project src/Poppler.Net.Cli -- svg input.pdf page.svg --page 1
 ```
@@ -58,6 +61,7 @@ should normally pass secrets through the `Document` API instead.
 
 ```csharp
 using Poppler;
+using Poppler.Rendering;
 
 using var document = Document.LoadFromFile("input.pdf");
 Console.WriteLine($"{document.Pages} pages, PDF {document.PdfVersion}");
@@ -75,6 +79,11 @@ foreach (PdfImage image in page.Images)
     Console.WriteLine($"{image.ResourceName}: {image.Width}x{image.Height}, stride {image.BytesPerRow}");
     image.SavePng($"{image.ResourceName}.png");
 }
+page.SavePng("page.png", new RasterRenderOptions
+{
+    Dpi = 144,
+    Antialiasing = 4
+});
 ```
 
 All page indices in the API are zero-based. CLI page numbers are one-based.
@@ -108,8 +117,9 @@ matching Poppler's C++ API, returns the document's new locking status
 - `Color/` ports calibrated, ICC matrix/shaper and special color conversion.
 - `Images/` decodes Image XObjects, masks and common PDF image codecs into
   tightly packed managed pixel buffers.
-- `Rendering/` consumes that display list in a managed SVG vector backend. It
-  is not yet the raster counterpart of Splash/Cairo.
+- `Rendering/` consumes that display list in managed SVG and RGBA/PNG
+  backends; its raster core maps the initial Splash path, image, antialiasing,
+  blend and transparency-group responsibilities.
 
 The implementation uses bounded allocations, recursion limits and decoded
 stream limits because PDFs are untrusted input. Defaults can be changed with
@@ -141,6 +151,12 @@ applies image masks and soft masks, evaluates sampled/exponential/stitching
 functions, converts CalGray/CalRGB/Lab/ICCBased/Indexed/Separation/DeviceN,
 and adds `Page.Images`, managed PNG export and SVG image embedding. See
 [docs/IMAGES_AND_COLOR.md](docs/IMAGES_AND_COLOR.md).
+
+The `0.7` slice adds managed page rasterization, supersampled coverage,
+straight-alpha PDF compositing, common separable and nonseparable blend modes,
+Form transparency groups, Alpha/Luminosity soft masks, page rotation and
+embedded TrueType outline painting. See
+[docs/RENDERING.md](docs/RENDERING.md).
 
 ## License and provenance
 

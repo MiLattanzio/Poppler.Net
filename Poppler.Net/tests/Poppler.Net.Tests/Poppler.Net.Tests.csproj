@@ -31,5 +31,8 @@
     <None Include="..\fixtures\images-color-fixture.json"
           Link="Fixtures\images-color-fixture.json"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\rendering-fixture.json"
+          Link="Fixtures\rendering-fixture.json"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

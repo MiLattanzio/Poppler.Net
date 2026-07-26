@@ -22,8 +22,9 @@ Changed for the managed port in July 2026:
   patterns and axial/radial shadings ported to a managed display list;
 - Image XObject decoding, masks, common PDF image codecs and calibrated/special
   color conversion added in managed code;
-- rendering scope remains an SVG vector backend plus decoded-image PNG export,
-  rather than a page raster engine in the alpha release.
+- a managed RGBA page raster, straight-alpha PDF blend compositor,
+  transparency groups, graphics-state soft masks and embedded TrueType outline
+  reader added without a native rendering dependency.
 
 Managed runtime dependencies introduced by release 0.6:
 

@@ -94,6 +94,9 @@ internal static class SvgPageRenderer
                     case PdfShadingElement shading:
                         RegisterBrush(shading.Shading, shading.State.Transform);
                         break;
+                    case PdfTransparencyGroupElement group:
+                        RegisterElements(group.Elements);
+                        break;
                 }
             }
         }
@@ -260,6 +263,9 @@ internal static class SvgPageRenderer
                     case PdfShadingElement shading:
                         WriteShading(shading, indent + openGroups);
                         break;
+                    case PdfTransparencyGroupElement group:
+                        WriteTransparencyGroup(group, indent + openGroups);
+                        break;
                 }
 
                 for (int index = openGroups - 1; index >= 0; index--)
@@ -376,6 +382,23 @@ internal static class SvgPageRenderer
             Attribute("fill-opacity", shading.State.FillAlpha);
             WriteBlendMode(shading.State.BlendMode);
             _svg.AppendLine("/>");
+        }
+
+        private void WriteTransparencyGroup(
+            PdfTransparencyGroupElement group,
+            int indent)
+        {
+            Indent(indent);
+            _svg.Append("<g");
+            Attribute("opacity", group.State.FillAlpha);
+            if (group.Isolated)
+                _svg.Append(" style=\"isolation:isolate\"");
+            else
+                WriteBlendMode(group.State.BlendMode);
+            _svg.AppendLine(">");
+            WriteElements(group.Elements, indent + 1);
+            Indent(indent);
+            _svg.AppendLine("</g>");
         }
 
         private void WriteText()

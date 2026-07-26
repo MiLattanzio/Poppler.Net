@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.7.0-alpha.1 — 2026-07-26
+
+- Added an internal pure-C# raster backend corresponding to the first
+  `SplashOutputDev`/Splash compositing slice.
+- Added public immutable `PdfBitmap` RGBA output plus `Page.Render`,
+  `RenderToPng`, `SavePng` and `RasterRenderOptions`.
+- Rasterized path fills/strokes, adaptive cubic Bézier flattening,
+  nonzero/even-odd fills, clipping, decoded images, axial/radial shadings and
+  colored tiling patterns.
+- Added 1×, 2×, 4× and 8× supersampled coverage antialiasing, page-box/DPI
+  sizing, page rotation, transparent or configurable solid backgrounds and
+  bounded render surfaces.
+- Added PDF straight-alpha compositing for Normal, Multiply, Screen, Overlay,
+  Darken, Lighten, ColorDodge, ColorBurn, HardLight, SoftLight, Difference,
+  Exclusion, Hue, Saturation, Color and Luminosity blend modes.
+- Preserved Form transparency groups in the display list and added isolated
+  group compositing, Alpha/Luminosity soft masks and backdrop handling.
+- Added a bounded managed TrueType `glyf`/`loca`/`hmtx` reader with simple and
+  composite glyph outlines, quadratic-to-cubic conversion and raster text
+  painting for embedded TrueType fonts.
+- Added the CLI `render` command with DPI, antialiasing, transparency and page
+  selection options.
+- Added a deterministic two-page rendering fixture and differential samples
+  verified against Poppler 26.05.0, including blend, alpha, both soft-mask
+  modes, isolated groups, clipping and page rotation.
+- Added 17 NUnit cases, bringing the suite to 100 passing cases, without adding
+  a runtime package or native asset.
+
 ## 0.6.0-alpha.1 — 2026-07-26
 
 - Added `Page.Images` and immutable `PdfImage` objects with exact tightly

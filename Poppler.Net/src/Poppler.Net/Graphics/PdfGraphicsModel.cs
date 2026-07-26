@@ -241,6 +241,34 @@ public sealed record PdfGraphicsState
     public double FillAlpha { get; init; } = 1;
     public double StrokeAlpha { get; init; } = 1;
     public string BlendMode { get; init; } = "Normal";
+    public PdfSoftMask? SoftMask { get; init; }
+}
+
+public enum PdfSoftMaskMode
+{
+    Alpha,
+    Luminosity
+}
+
+/// <summary>
+/// A transparency-group-backed soft mask read from an extended graphics state.
+/// </summary>
+public sealed record PdfSoftMask
+{
+    public PdfSoftMask(
+        PdfSoftMaskMode mode,
+        IEnumerable<PdfGraphicsElement> elements,
+        PdfColor backdrop)
+    {
+        ArgumentNullException.ThrowIfNull(elements);
+        Mode = mode;
+        Elements = new ReadOnlyCollection<PdfGraphicsElement>(elements.ToArray());
+        Backdrop = backdrop;
+    }
+
+    public PdfSoftMaskMode Mode { get; }
+    public IReadOnlyList<PdfGraphicsElement> Elements { get; }
+    public PdfColor Backdrop { get; }
 }
 
 public abstract record PdfGraphicsElement(
@@ -273,6 +301,20 @@ public sealed record PdfImageElement(
 public sealed record PdfShadingElement(
     string ResourceName,
     PdfGradientBrush Shading,
+    PdfGraphicsState State,
+    IReadOnlyList<PdfClipPath> ClipPaths,
+    string? SourceResource = null)
+    : PdfGraphicsElement(State, ClipPaths, SourceResource);
+
+/// <summary>
+/// A Form XObject whose group dictionary declares a PDF transparency group.
+/// Child elements are composited on an intermediate surface before the result
+/// is painted into the parent surface.
+/// </summary>
+public sealed record PdfTransparencyGroupElement(
+    IReadOnlyList<PdfGraphicsElement> Elements,
+    bool Isolated,
+    bool Knockout,
     PdfGraphicsState State,
     IReadOnlyList<PdfClipPath> ClipPaths,
     string? SourceResource = null)

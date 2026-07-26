@@ -9,10 +9,14 @@ namespace Poppler.Text;
 internal sealed class PdfOpenTypeCmap
 {
     private readonly Dictionary<uint, int> _unicodeByGlyph;
+    private readonly Dictionary<int, uint> _glyphByUnicode;
 
     private PdfOpenTypeCmap(Dictionary<uint, int> unicodeByGlyph)
     {
         _unicodeByGlyph = unicodeByGlyph;
+        _glyphByUnicode = new Dictionary<int, uint>();
+        foreach ((uint glyph, int scalar) in unicodeByGlyph)
+            _glyphByUnicode.TryAdd(scalar, glyph);
     }
 
     public static PdfOpenTypeCmap? TryParse(ReadOnlySpan<byte> bytes, int maximumMappings)
@@ -98,6 +102,9 @@ internal sealed class PdfOpenTypeCmap
 
     public bool TryGetUnicode(uint glyphId, out int scalar) =>
         _unicodeByGlyph.TryGetValue(glyphId, out scalar);
+
+    public bool TryGetGlyph(int scalar, out uint glyphId) =>
+        _glyphByUnicode.TryGetValue(scalar, out glyphId);
 
     private static bool ParseFormat12(
         ReadOnlySpan<byte> table,

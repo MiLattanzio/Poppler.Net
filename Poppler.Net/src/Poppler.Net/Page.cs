@@ -14,6 +14,7 @@ public sealed class Page
     private readonly Lazy<IReadOnlyList<TextBox>> _physicalText;
     private readonly Lazy<IReadOnlyList<TextBox>> _rawText;
     private readonly Lazy<IReadOnlyList<TextBox>> _readingOrderText;
+    private readonly Lazy<IReadOnlyDictionary<string, PdfFontDecoder>> _fontDecoders;
     private readonly Lazy<IReadOnlyList<FontInfo>> _fonts;
     private readonly Lazy<IReadOnlyList<PdfGraphicsElement>> _graphics;
     private readonly Lazy<IReadOnlyList<PdfImage>> _images;
@@ -36,9 +37,10 @@ public sealed class Page
             () => Extract(TextLayout.RawOrder));
         _readingOrderText = new Lazy<IReadOnlyList<TextBox>>(
             () => Extract(TextLayout.NonRawNonPhysical));
+        _fontDecoders = new Lazy<IReadOnlyDictionary<string, PdfFontDecoder>>(
+            () => PdfFontCollection.Read(_document, _node));
         _fonts = new Lazy<IReadOnlyList<FontInfo>>(
-            () => PdfFontCollection
-                .Read(_document, _node)
+            () => _fontDecoders.Value
                 .Values
                 .Select(font => font.Info)
                 .OrderBy(font => font.ResourceName, StringComparer.Ordinal)
@@ -125,7 +127,27 @@ public sealed class Page
         File.WriteAllText(fileName, RenderToSvg(options));
     }
 
+    public PdfBitmap Render(RasterRenderOptions? options = null)
+    {
+        if (_owner.Locked)
+            throw new PdfEncryptedException();
+        return PdfRasterRenderer.Render(this, options ?? new RasterRenderOptions());
+    }
+
+    public byte[] RenderToPng(RasterRenderOptions? options = null) =>
+        Render(options).ToPngBytes();
+
+    public void SavePng(string fileName, RasterRenderOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+        Render(options).SavePng(fileName);
+    }
+
     internal PdfRectangle CropBox => _node.CropBox;
+    internal PdfReadOptions ReadOptions => _document.Options;
+    internal PdfFontDecoder? FindFont(string name) =>
+        _fontDecoders.Value.Values.FirstOrDefault(
+            font => string.Equals(font.Name, name, StringComparison.Ordinal));
 
     private IReadOnlyList<TextBox> Extract(TextLayout layout)
     {

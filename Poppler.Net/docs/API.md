@@ -37,6 +37,8 @@ var options = new PdfReadOptions
     MaximumIccProfileBytes = 4 * 1024 * 1024,
     MaximumFunctionSamples = 250_000,
     MaximumXObjectDepth = 16,
+    MaximumTransparencyGroupDepth = 16,
+    MaximumRenderPixels = 25_000_000,
     MaximumPages = 2_000,
     AttemptXrefRepair = false
 };
@@ -87,8 +89,7 @@ foreach (FontInfo font in page.Fonts)
 `FontInfo` reports Type 1, CFF, TrueType, OpenType, CID and Type 3 resources,
 horizontal/vertical mode, subset state, embedded format/program byte length,
 collection and `ToUnicode` availability. For an unsupported font-stream filter
-the byte length is the retained encoded payload. This is inspection metadata,
-not a font-rasterization API.
+the byte length is the retained encoded payload.
 
 Each `TextBox` also reports `WritingMode` and `IsRightToLeft`.
 
@@ -108,6 +109,8 @@ foreach (PdfGraphicsElement element in graphics)
 `PdfShadingElement` exposes an axial or radial gradient. Paint is represented
 by `PdfSolidBrush`, `PdfTilingPatternBrush` or `PdfGradientBrush`; each element
 also retains the active clipping paths and source Form resource.
+`PdfTransparencyGroupElement` retains isolated/knockout flags and a nested
+display list. `PdfGraphicsState.SoftMask` exposes Alpha/Luminosity group masks.
 
 The display list is immutable from the caller's perspective and is evaluated
 lazily once per `Page`.
@@ -151,5 +154,30 @@ XObject unit-square bounds.
 
 The SVG backend covers paths, clipping, Form content, colored tiling patterns,
 axial/radial gradients and decoded Image XObjects embedded as managed PNG.
-It remains non-conformant until glyph outlines, transparency groups, full ICC
-color management and exact blend semantics are implemented.
+It remains a preview backend rather than the visual-conformance target.
+
+## Managed page raster
+
+```csharp
+using Poppler.Rendering;
+
+PdfBitmap bitmap = page.Render(new RasterRenderOptions
+{
+    Dpi = 144,
+    PageBox = PageBox.CropBox,
+    Antialiasing = 4,
+    Transparent = false,
+    IncludeText = true
+});
+
+ReadOnlyMemory<byte> rgba = bitmap.Data;
+page.SavePng("page.png", new RasterRenderOptions { Dpi = 144 });
+```
+
+`PdfBitmap` contains immutable, tightly packed, top-to-bottom straight-alpha
+RGBA rows. `Page.RenderToPng` returns encoded PNG bytes. The raster backend
+paints the graphics display list with clipping, images, gradients, patterns,
+PDF blend modes and graphics-state soft masks. It also paints embedded
+TrueType outlines in a managed post-pass. See
+[RENDERING.md](RENDERING.md) for the current text, stroke, group and color
+limits.
