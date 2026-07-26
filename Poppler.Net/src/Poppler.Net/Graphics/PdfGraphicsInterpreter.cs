@@ -1,5 +1,7 @@
 using Poppler.Core;
+using Poppler.Color;
 using Poppler.DocumentModel;
+using Poppler.Images;
 using PdfContentOperation = Poppler.Text.PdfContentOperation;
 using PdfContentReader = Poppler.Text.PdfContentReader;
 
@@ -131,31 +133,31 @@ internal sealed class PdfGraphicsInterpreter
                     ApplyExtendedState(resources, stateName.Value, context);
                     break;
                 case "CS" when values.LastOrDefault() is PdfName strokeSpace:
-                    context.StrokeColorSpace = ResolveColorSpaceName(
+                    context.StrokeColorSpace = ResolveColorSpace(
                         resources,
                         strokeSpace.Value);
                     break;
                 case "cs" when values.LastOrDefault() is PdfName fillSpace:
-                    context.FillColorSpace = ResolveColorSpaceName(
+                    context.FillColorSpace = ResolveColorSpace(
                         resources,
                         fillSpace.Value);
                     break;
                 case "G" when LastNumber(values) is { } strokeGray:
-                    context.StrokeColorSpace = "DeviceGray";
+                    context.StrokeColorSpace = PdfColorSpaceDefinition.DeviceGray;
                     context.Graphics = context.Graphics with
                     {
                         Stroke = new PdfSolidBrush(PdfColor.Gray(strokeGray))
                     };
                     break;
                 case "g" when LastNumber(values) is { } fillGray:
-                    context.FillColorSpace = "DeviceGray";
+                    context.FillColorSpace = PdfColorSpaceDefinition.DeviceGray;
                     context.Graphics = context.Graphics with
                     {
                         Fill = new PdfSolidBrush(PdfColor.Gray(fillGray))
                     };
                     break;
                 case "RG" when TryNumbers(values, 3, out double[] strokeRgb):
-                    context.StrokeColorSpace = "DeviceRGB";
+                    context.StrokeColorSpace = PdfColorSpaceDefinition.DeviceRgb;
                     context.Graphics = context.Graphics with
                     {
                         Stroke = new PdfSolidBrush(PdfColor.Rgb(
@@ -165,7 +167,7 @@ internal sealed class PdfGraphicsInterpreter
                     };
                     break;
                 case "rg" when TryNumbers(values, 3, out double[] fillRgb):
-                    context.FillColorSpace = "DeviceRGB";
+                    context.FillColorSpace = PdfColorSpaceDefinition.DeviceRgb;
                     context.Graphics = context.Graphics with
                     {
                         Fill = new PdfSolidBrush(PdfColor.Rgb(
@@ -175,7 +177,7 @@ internal sealed class PdfGraphicsInterpreter
                     };
                     break;
                 case "K" when TryNumbers(values, 4, out double[] strokeCmyk):
-                    context.StrokeColorSpace = "DeviceCMYK";
+                    context.StrokeColorSpace = PdfColorSpaceDefinition.DeviceCmyk;
                     context.Graphics = context.Graphics with
                     {
                         Stroke = new PdfSolidBrush(PdfColor.Cmyk(
@@ -186,7 +188,7 @@ internal sealed class PdfGraphicsInterpreter
                     };
                     break;
                 case "k" when TryNumbers(values, 4, out double[] fillCmyk):
-                    context.FillColorSpace = "DeviceCMYK";
+                    context.FillColorSpace = PdfColorSpaceDefinition.DeviceCmyk;
                     context.Graphics = context.Graphics with
                     {
                         Fill = new PdfSolidBrush(PdfColor.Cmyk(
@@ -427,10 +429,37 @@ internal sealed class PdfGraphicsInterpreter
             int height = stream.Dictionary.GetValueOrNull("Height").AsInteger(_document) ?? 0;
             int bits = stream.Dictionary.GetValueOrNull("BitsPerComponent").AsInteger(_document) ?? 1;
             string colorSpace = DescribeColorSpace(
-                stream.Dictionary.GetValueOrNull("ColorSpace"));
+                stream.Dictionary.GetValueOrNull("ColorSpace"),
+                resources);
             bool imageMask =
                 stream.Dictionary.GetValueOrNull("ImageMask")?.Resolve(_document)
                     is PdfBoolean { Value: true };
+            PdfImage? image = null;
+            try
+            {
+                PdfColor maskColor = context.Graphics.Fill is PdfSolidBrush solid
+                    ? solid.Color
+                    : PdfColor.Black;
+                image = PdfImageDecoder.Decode(
+                    resourceName,
+                    stream,
+                    resources,
+                    _document,
+                    maskColor);
+            }
+            catch (PdfUnsupportedFeatureException exception)
+            {
+                ReportOnce(
+                    $"graphics.image.unsupported.{resourceName}",
+                    $"Image /{resourceName} was not decoded: {exception.Message}");
+            }
+            catch (PdfFormatException exception)
+            {
+                ReportOnce(
+                    $"graphics.image.invalid.{resourceName}",
+                    $"Image /{resourceName} is invalid: {exception.Message}");
+            }
+
             Emit(
                 output,
                 new PdfImageElement(
@@ -440,6 +469,7 @@ internal sealed class PdfGraphicsInterpreter
                     Math.Max(0, bits),
                     colorSpace,
                     imageMask,
+                    image,
                     context.Graphics,
                     context.Clips.ToArray(),
                     source));
@@ -532,7 +562,8 @@ internal sealed class PdfGraphicsInterpreter
         bool pattern,
         int depth)
     {
-        string colorSpace = stroke ? context.StrokeColorSpace : context.FillColorSpace;
+        PdfColorSpaceDefinition? colorSpace =
+            stroke ? context.StrokeColorSpace : context.FillColorSpace;
         PdfBrush? brush = null;
         if (pattern && values.LastOrDefault() is PdfName patternName)
         {
@@ -590,7 +621,7 @@ internal sealed class PdfGraphicsInterpreter
             {
                 ReportOnce(
                     "graphics.pattern.uncolored",
-                    "Uncolored tiling patterns are detected but not painted in 0.5.");
+                    "Uncolored tiling patterns are detected but not yet painted.");
                 return null;
             }
 
@@ -652,30 +683,19 @@ internal sealed class PdfGraphicsInterpreter
 
     private static PdfBrush? ReadSolidColor(
         IReadOnlyList<PdfObject> values,
-        string colorSpace)
+        PdfColorSpaceDefinition? colorSpace)
     {
+        if (colorSpace is null)
+            return null;
         double[] numbers = values
             .OfType<PdfNumber>()
             .Select(number => number.Value)
             .Where(double.IsFinite)
             .ToArray();
-        return colorSpace switch
-        {
-            "DeviceGray" when numbers.Length >= 1 =>
-                new PdfSolidBrush(PdfColor.Gray(numbers[^1])),
-            "DeviceRGB" when numbers.Length >= 3 =>
-                new PdfSolidBrush(PdfColor.Rgb(
-                    numbers[^3],
-                    numbers[^2],
-                    numbers[^1])),
-            "DeviceCMYK" when numbers.Length >= 4 =>
-                new PdfSolidBrush(PdfColor.Cmyk(
-                    numbers[^4],
-                    numbers[^3],
-                    numbers[^2],
-                    numbers[^1])),
-            _ => null
-        };
+        if (numbers.Length < colorSpace.Components)
+            return null;
+        double[] components = numbers[^colorSpace.Components..];
+        return new PdfSolidBrush(colorSpace.Convert(components));
     }
 
     private void ApplyExtendedState(
@@ -774,43 +794,25 @@ internal sealed class PdfGraphicsInterpreter
         };
     }
 
-    private string ResolveColorSpaceName(PdfDictionary? resources, string name)
+    private PdfColorSpaceDefinition? ResolveColorSpace(
+        PdfDictionary? resources,
+        string name)
     {
-        if (name is "DeviceGray" or "G" or "DeviceRGB" or "RGB" or
-            "DeviceCMYK" or "CMYK" or "Pattern")
-        {
-            return NormalizeColorSpaceName(name);
-        }
-
-        PdfObject? value = LookupResource(resources, "ColorSpace", name);
-        PdfObject? resolved = value?.Resolve(_document);
-        string? resolvedName = resolved switch
-        {
-            PdfName direct => direct.Value,
-            PdfArray { Count: > 0 } array => array[0].AsName(_document),
-            _ => null
-        };
-        return NormalizeColorSpaceName(resolvedName ?? name);
+        PdfObject value = name is "DeviceGray" or "G" or "DeviceRGB" or "RGB" or
+            "DeviceCMYK" or "CMYK" or "Pattern"
+            ? new PdfName(name)
+            : LookupResource(resources, "ColorSpace", name) ?? new PdfName(name);
+        return PdfColorSpaceDefinition.Parse(value, resources, _document);
     }
 
-    private static string NormalizeColorSpaceName(string name) => name switch
+    private string DescribeColorSpace(PdfObject? value, PdfDictionary? resources)
     {
-        "G" => "DeviceGray",
-        "RGB" => "DeviceRGB",
-        "CMYK" => "DeviceCMYK",
-        _ => name
-    };
-
-    private string DescribeColorSpace(PdfObject? value)
-    {
+        PdfColorSpaceDefinition? definition =
+            PdfColorSpaceDefinition.Parse(value, resources, _document);
+        if (definition is not null)
+            return definition.Name;
         PdfObject? resolved = value?.Resolve(_document);
-        return resolved switch
-        {
-            PdfName name => name.Value,
-            PdfArray { Count: > 0 } array =>
-                array[0].AsName(_document) ?? "Unknown",
-            _ => "Unknown"
-        };
+        return resolved is PdfName name ? name.Value : "Unknown";
     }
 
     private PdfObject? LookupResource(
@@ -939,8 +941,10 @@ internal sealed class PdfGraphicsInterpreter
     private sealed class GraphicsContext
     {
         public PdfGraphicsState Graphics { get; set; } = new();
-        public string FillColorSpace { get; set; } = "DeviceGray";
-        public string StrokeColorSpace { get; set; } = "DeviceGray";
+        public PdfColorSpaceDefinition? FillColorSpace { get; set; } =
+            PdfColorSpaceDefinition.DeviceGray;
+        public PdfColorSpaceDefinition? StrokeColorSpace { get; set; } =
+            PdfColorSpaceDefinition.DeviceGray;
         public List<PdfClipPath> Clips { get; } = new();
 
         public static GraphicsContext Create() => new();

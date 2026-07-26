@@ -22,6 +22,7 @@ internal static class Cli
                 "text" => Text(args),
                 "fonts" => Fonts(args),
                 "graphics" => Graphics(args),
+                "images" => Images(args),
                 "attachments" => Attachments(args),
                 "svg" => Svg(args),
                 "version" or "--version" => Version(),
@@ -174,6 +175,39 @@ internal static class Cli
         return 0;
     }
 
+    private static int Images(string[] args)
+    {
+        RequireCount(args, 3, "images requires an input PDF and output directory.");
+        string outputDirectory = Path.GetFullPath(args[2]);
+        Directory.CreateDirectory(outputDirectory);
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
+        int? pageNumber = GetPageOption(args);
+        IEnumerable<Page> pages = pageNumber is null
+            ? Enumerable.Range(0, document.Pages).Select(document.CreatePage)
+            : new[] { document.CreatePage(ToIndex(pageNumber.Value, document)) };
+        int total = 0;
+        foreach (Page page in pages)
+        {
+            int imageNumber = 0;
+            foreach (PdfImage image in page.Images)
+            {
+                imageNumber++;
+                string fileName =
+                    $"page-{page.Number:0000}-image-{imageNumber:0000}.png";
+                string path = UniquePath(outputDirectory, fileName);
+                image.SavePng(path);
+                Console.WriteLine(
+                    $"{image.ResourceName} -> {path} " +
+                    $"({image.Width}x{image.Height}, {image.ColorSpace}, {image.Compression})");
+                total++;
+            }
+        }
+
+        Console.WriteLine($"{total} decoded image(s).");
+        return 0;
+    }
+
     private static int Svg(string[] args)
     {
         RequireCount(args, 3, "svg requires an input PDF and output SVG.");
@@ -296,6 +330,7 @@ internal static class Cli
               poppler-net text <input.pdf> [--page N] [--raw|--reading-order] [password options]
               poppler-net fonts <input.pdf> [--page N] [password options]
               poppler-net graphics <input.pdf> [--page N] [password options]
+              poppler-net images <input.pdf> <output-dir> [--page N] [password options]
               poppler-net attachments <input.pdf> <output-dir> [password options]
               poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds] [--image-bounds] [password options]
               poppler-net version

@@ -4,7 +4,10 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
+    <PackageVersion Include="CoreJ2K" Version="2.3.3.91" />
+    <PackageVersion Include="JBig2Decoder.NETStandard" Version="1.5.2" />
     <PackageVersion Include="NUnit" Version="4.6.1" />
     <PackageVersion Include="NUnitLite" Version="4.6.1" />
+    <PackageVersion Include="StbImageSharp" Version="2.30.15" />
   </ItemGroup>
 </Project>

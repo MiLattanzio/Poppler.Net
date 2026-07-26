@@ -1,10 +1,17 @@
 using System.Buffers;
 using System.IO.Compression;
+using Poppler.Images;
 
 namespace Poppler.Core.Filters;
 
 internal static class PdfFilterPipeline
 {
+    internal sealed record ImageSource(
+        byte[] Bytes,
+        string? TerminalFilter,
+        PdfDictionary? Parameters,
+        PdfImageCompression Compression);
+
     public static byte[] Decode(
         PdfStream stream,
         PdfDocumentCore document,
@@ -49,6 +56,83 @@ internal static class PdfFilterPipeline
 
         EnsureLimit(current.Length, options.MaximumDecodedStreamBytes);
         return current;
+    }
+
+    public static ImageSource DecodeImageSource(
+        PdfStream stream,
+        PdfDocumentCore document,
+        PdfReadOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        byte[] current = stream.EncodedBytes.ToArray();
+        IReadOnlyList<PdfObject> filters = GetSequence(
+            stream.Dictionary.GetValueOrNull("Filter"),
+            document);
+        IReadOnlyList<PdfObject> parameters = GetSequence(
+            stream.Dictionary.GetValueOrNull("DecodeParms"),
+            document);
+        PdfImageCompression compression = PdfImageCompression.Raw;
+
+        for (int index = 0; index < filters.Count; index++)
+        {
+            string? name = filters[index].AsName(document);
+            PdfDictionary? parameter = index < parameters.Count
+                ? parameters[index].AsDictionary(document)
+                : null;
+            if (name is "DCTDecode" or "DCT" or "JPXDecode" or
+                "JBIG2Decode" or "CCITTFaxDecode" or "CCF")
+            {
+                if (index != filters.Count - 1)
+                {
+                    throw new PdfUnsupportedFeatureException(
+                        "a filter following an image compression filter");
+                }
+
+                PdfImageCompression terminalCompression = name switch
+                {
+                    "DCTDecode" or "DCT" => PdfImageCompression.Jpeg,
+                    "JPXDecode" => PdfImageCompression.Jpeg2000,
+                    "JBIG2Decode" => PdfImageCompression.Jbig2,
+                    _ => PdfImageCompression.CcittFax
+                };
+                EnsureLimit(current.Length, options.MaximumDecodedStreamBytes);
+                return new ImageSource(current, name, parameter, terminalCompression);
+            }
+
+            current = name switch
+            {
+                null => current,
+                "FlateDecode" or "Fl" => DecodeFlate(current, options),
+                "LZWDecode" or "LZW" => LzwDecoder.Decode(
+                    current,
+                    parameter?.GetValueOrNull("EarlyChange").AsInteger(document) ?? 1,
+                    options.MaximumDecodedStreamBytes),
+                "ASCIIHexDecode" or "AHx" => DecodeAsciiHex(current, options),
+                "ASCII85Decode" or "A85" => DecodeAscii85(current, options),
+                "RunLengthDecode" or "RL" => DecodeRunLength(current, options),
+                "Crypt" => document.DecryptExplicitStream(
+                    stream,
+                    current,
+                    parameter?.GetValueOrNull("Name").AsName(document) ?? "Identity"),
+                _ => throw new PdfUnsupportedFeatureException($"stream filter {name}")
+            };
+            compression = name switch
+            {
+                "FlateDecode" or "Fl" => PdfImageCompression.Flate,
+                "LZWDecode" or "LZW" => PdfImageCompression.Lzw,
+                "RunLengthDecode" or "RL" => PdfImageCompression.RunLength,
+                _ => compression
+            };
+            if (parameter is not null &&
+                name is ("FlateDecode" or "Fl" or "LZWDecode" or "LZW"))
+            {
+                current = PdfPredictor.Decode(current, parameter, document, options);
+            }
+
+            EnsureLimit(current.Length, options.MaximumDecodedStreamBytes);
+        }
+
+        return new ImageSource(current, null, null, compression);
     }
 
     private static IReadOnlyList<PdfObject> GetSequence(PdfObject? value, PdfDocumentCore document)

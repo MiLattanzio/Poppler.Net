@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.6.0-alpha.1 — 2026-07-26
+
+- Added `Page.Images` and immutable `PdfImage` objects with exact tightly
+  packed `BytesPerRow`, `Gray8`, `Rgb24` and straight-alpha `Rgba32` pixels.
+- Added managed decoding for raw/Flate/LZW/RunLength samples, DCT/JPEG through
+  StbImageSharp, JPEG 2000 through CoreJ2K, JBIG2 through
+  JBig2Decoder.NETStandard and an internal CCITT MH/Group 3/Group 4 decoder.
+- Added 1/2/4/8/16-bit sample unpacking, `/Decode`, image masks, explicit
+  masks, color-key masks, `/SMask` and `JBIG2Globals`.
+- Added CalGray, CalRGB, Lab, ICCBased common matrix/shaper, Indexed,
+  Separation and DeviceN conversion to managed sRGB.
+- Added bounded PDF function types 0, 2 and 3 for sampled tint transforms and
+  shadings.
+- Added dependency-free managed PNG encoding, `PdfImage.SavePng`, CLI
+  `images` extraction and PNG embedding in the SVG backend.
+- Added image-pixel/component, ICC-profile and sampled-function resource
+  limits.
+- Added a deterministic 12-image fixture and 17 NUnit cases, bringing the
+  suite to 83 passing cases.
+- Verified Release compilation under .NET SDK 8.0.423 and the complete
+  restored package graph with the managed-only verifier.
+
 ## 0.5.0-alpha.1 — 2026-07-26
 
 - Added a managed `Gfx`/`GfxState` slice that produces a public,

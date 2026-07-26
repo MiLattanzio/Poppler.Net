@@ -1,6 +1,6 @@
 # Managed graphics engine
 
-Version `0.5.0-alpha.1` ports the first backend-neutral slice of Poppler
+Version `0.6.0-alpha.1` retains the backend-neutral slice of Poppler
 26.07.0 `Gfx`, `GfxState`, `Function`, pattern and XObject behavior. It parses
 page content into immutable managed objects; it does not call Poppler, Cairo,
 FreeType or another native renderer.
@@ -11,7 +11,8 @@ FreeType or another native renderer.
 list of:
 
 - `PdfPathElement` for filled and/or stroked paths;
-- `PdfImageElement` for Image XObject metadata;
+- `PdfImageElement` for Image XObject metadata and decoded pixels when the
+  codec/color space is supported;
 - `PdfShadingElement` for directly painted gradients.
 
 Every element retains a `PdfGraphicsState`, its active clipping paths and its
@@ -50,8 +51,9 @@ Form XObjects support:
 - recursion detection and a configurable depth limit.
 
 Image XObjects record resource name, width, height, bits per component,
-color-space name, mask flag and CTM. Pixel decoding belongs to release `0.6`;
-SVG can draw the transformed unit-square boundary for diagnostics.
+color-space name, mask flag and CTM. Release `0.6` also attaches a decoded
+`PdfImage` and embeds it as PNG in SVG. Unsupported images remain visible as
+metadata elements and diagnostics rather than aborting the full display list.
 
 ## Patterns and shading
 
@@ -63,13 +65,14 @@ Shading patterns and direct `sh` painting support:
 
 - axial shading type 2;
 - radial shading type 3;
-- DeviceGray, DeviceRGB and DeviceCMYK;
-- function type 2 exponential interpolation;
+- device, calibrated and special color spaces supported by the `0.6` color
+  pipeline;
+- function type 0 sampled and type 2 exponential interpolation;
 - function type 3 stitching, including function arrays;
 - `/Extend` flags and bounded generated stops.
 
-Uncolored tiling patterns, sampled/calculator functions and function/triangle/
-patch mesh shadings remain explicit limitations.
+Uncolored tiling patterns, calculator functions and function/triangle/patch
+mesh shadings remain explicit limitations.
 
 ## Resource limits
 

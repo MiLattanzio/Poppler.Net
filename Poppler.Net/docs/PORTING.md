@@ -9,10 +9,10 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.5.0-alpha.1` adds the first backend-neutral graphics
-interpreter on top of the hardened `0.2` foundation, `0.3` security handler
-and `0.4` font/text layer; it is not a claim that all of Poppler has already
-been translated.
+slices. Version `0.6.0-alpha.1` adds managed image decoding and the first
+calibrated/special color pipeline on top of the hardened `0.2` foundation,
+`0.3` security handler, `0.4` font/text layer and `0.5` graphics interpreter;
+it is not a claim that all of Poppler has already been translated.
 
 ## Implemented sequence
 
@@ -40,6 +40,8 @@ been translated.
 13. Port vector `Gfx`/`GfxState` responsibilities into an immutable public
     display list: CTMs, paths, clips, Form/Image XObjects, tiling patterns and
     axial/radial shading functions.
+14. Port Image XObject sample decoding, masks, PNG export, calibrated/special
+    color spaces, ICC matrix/shaper profiles and common compressed codecs.
 
 ## Upstream-to-managed map
 
@@ -48,7 +50,7 @@ been translated.
 | `Object`, `Array`, `Dict`, `Ref` | `PdfObject` hierarchy | Implemented |
 | `Lexer`, `Parser` | `PdfSyntaxReader` | Implemented |
 | `XRef`, `Hints`, `Linearization` | `PdfCrossReference`, detection | Substantial; repair remains partial |
-| `Stream`, `FlateStream` | `PdfFilterPipeline` | Common filters implemented |
+| `Stream`, `FlateStream`, image streams | `PdfFilterPipeline`, `PdfImageDecoder` | Common filters and image terminal codecs implemented |
 | `PDFDoc`, `Catalog`, `Page` | `Document`, `Page` | Read-only core implemented |
 | `PageLabelInfo` | `PageLabelTree` | Implemented |
 | `FileSpec` | `EmbeddedFile` | Implemented |
@@ -58,11 +60,13 @@ been translated.
 | `Outline`, `Link` | — | Planned |
 | `Decrypt`, `SecurityHandler` | `PdfStandardSecurityHandler`, `PdfCryptography` | R2–R6 implemented |
 | `Annot`, `Form` | detection only | Planned |
-| `Gfx`, `GfxState`, `Function` | `PdfGraphicsInterpreter`, graphics model, `PdfShadingReader` | Vector slice: paths, clips, XObjects, tiling and type 2/3 shadings |
-| `SplashOutputDev`, Cairo | `SvgPageRenderer` | Managed vector backend; no raster output |
+| `Gfx`, `GfxState`, `Function` | `PdfGraphicsInterpreter`, graphics model, `PdfFunction`, `PdfShadingReader` | Vector slice plus sampled/exponential/stitching functions |
+| `ImageStream`, `DCTStream`, `JPXStream`, `JBIG2Stream`, `CCITTFaxStream` | `PdfImageDecoder`, `CcittFaxDecoder` | Managed Image XObject decoding |
+| `GfxColorSpace`, common ICC transforms | `PdfColorSpaceDefinition`, `PdfIccProfile` | Device, calibrated, indexed, spot and common matrix/shaper profiles |
+| `SplashOutputDev`, Cairo | `SvgPageRenderer`, `PngEncoder` | Managed SVG backend and image PNG export; no page rasterizer |
 | FreeType/font rasterization and shaping | — | Planned |
-| JPEG/JPEG2000/JBIG2/CCITT | pass-through stream data | Planned decode |
-| color management/overprint | — | Planned |
+| JPEG/JPEG2000/JBIG2/CCITT | managed package codecs plus internal CCITT decoder | Image XObjects implemented; inline images deferred |
+| color management/overprint | managed common color conversions | No LUT ICC, proofing or overprint |
 | signatures/NSS/GPGME | — | Planned |
 | PDF mutation and incremental save | byte-for-byte copy only | Planned |
 
@@ -71,13 +75,12 @@ been translated.
 1. Complete corpus/differential/fuzz gates for the parser foundation.
 2. Complete font engine: raw CFF charset/encoding parsing, complex shaping,
    predefined external CMaps, font substitution and glyph rasterization.
-3. Extend the graphics interpreter with transparency groups, soft masks,
-   uncolored/mesh patterns, remaining functions and image masks.
-4. Managed JPEG, JPEG2000, JBIG2 and CCITT decoders.
+3. Extend the graphics interpreter with transparency groups, group soft masks,
+   uncolored/mesh patterns, calculator functions and inline images.
+4. Add LUT-based ICC profiles, proofing, rendering intents and overprint.
 5. Annotations, AcroForm/XFA surface, actions, links and outlines.
-6. Color spaces, ICC profiles, spot colors and overprint.
-7. Digital signature validation through managed cryptography.
-8. Writer, advanced repair mode, fuzz corpus, PDF corpus differential tests
+6. Digital signature validation through managed cryptography.
+7. Writer, advanced repair mode, fuzz corpus, PDF corpus differential tests
    and API parity.
 
 Each slice should be compared against the same Poppler 26.07.0 fixture corpus;

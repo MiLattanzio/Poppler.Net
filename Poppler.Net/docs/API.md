@@ -32,6 +32,10 @@ var options = new PdfReadOptions
     MaximumCMapMappings = 100_000,
     MaximumGraphicsElements = 100_000,
     MaximumPathSegments = 250_000,
+    MaximumImagePixels = 25_000_000,
+    MaximumImageComponents = 8,
+    MaximumIccProfileBytes = 4 * 1024 * 1024,
+    MaximumFunctionSamples = 250_000,
     MaximumXObjectDepth = 16,
     MaximumPages = 2_000,
     AttemptXrefRepair = false
@@ -99,13 +103,31 @@ foreach (PdfGraphicsElement element in graphics)
 ```
 
 `PdfPathElement` exposes path segments, fill rule and paint mode.
-`PdfImageElement` exposes Image XObject metadata without decoding its pixels.
+`PdfImageElement` exposes Image XObject metadata and its optional decoded
+`PdfImage`.
 `PdfShadingElement` exposes an axial or radial gradient. Paint is represented
 by `PdfSolidBrush`, `PdfTilingPatternBrush` or `PdfGradientBrush`; each element
 also retains the active clipping paths and source Form resource.
 
 The display list is immutable from the caller's perspective and is evaluated
 lazily once per `Page`.
+
+## Decoded images
+
+```csharp
+foreach (PdfImage image in page.Images)
+{
+    Console.WriteLine(
+        $"{image.ResourceName}: {image.Width}x{image.Height}, " +
+        $"{image.Format}, stride={image.BytesPerRow}");
+    ReadOnlyMemory<byte> pixels = image.Data;
+    image.SavePng(Path.Combine(outputDirectory, image.ResourceName + ".png"));
+}
+```
+
+`Gray8`, `Rgb24` and straight-alpha `Rgba32` rows are top-to-bottom and
+tightly packed. `BytesPerRow` is always exact. `Compression` reports the PDF
+image source family; `ColorSpace` reports the source color-space description.
 
 ## Attachments
 
@@ -124,10 +146,10 @@ paths. The bundled CLI does this automatically.
 
 `Page.RenderToSvg` and `Page.SaveSvg` render the managed graphics display list
 plus extracted text. `SvgRenderOptions` can independently disable vector
-graphics or text, draw extraction bounds and draw Image XObject unit-square
-bounds.
+graphics, decoded images or text, draw extraction bounds and draw Image
+XObject unit-square bounds.
 
-The SVG backend covers paths, clipping, Form content, colored tiling patterns
-and axial/radial gradients. It is useful for inspection and vector workflows,
-but remains non-conformant until images, glyph outlines, transparency groups,
-full color management and exact blend semantics are implemented.
+The SVG backend covers paths, clipping, Form content, colored tiling patterns,
+axial/radial gradients and decoded Image XObjects embedded as managed PNG.
+It remains non-conformant until glyph outlines, transparency groups, full ICC
+color management and exact blend semantics are implemented.

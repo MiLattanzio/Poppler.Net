@@ -20,7 +20,18 @@ Changed for the managed port in July 2026:
   text layout ported to managed C#;
 - path construction, graphics state, clipping, Form/Image XObjects, tiling
   patterns and axial/radial shadings ported to a managed display list;
-- rendering scope remains an SVG vector backend rather than a raster engine in
-  the alpha release.
+- Image XObject decoding, masks, common PDF image codecs and calibrated/special
+  color conversion added in managed code;
+- rendering scope remains an SVG vector backend plus decoded-image PNG export,
+  rather than a page raster engine in the alpha release.
+
+Managed runtime dependencies introduced by release 0.6:
+
+- CoreJ2K 2.3.3.91, BSD-3-Clause, including the upstream JJ2000 notice;
+- JBig2Decoder.NETStandard 1.5.2, MIT;
+- StbImageSharp 2.30.15, public domain.
+
+These dependencies are fetched from NuGet and are not copied into the source
+ZIP. Their package and upstream license notices apply when restored.
 
 The complete upstream GPL notices remain authoritative. See `LICENSE`.

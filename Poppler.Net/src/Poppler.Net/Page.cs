@@ -16,6 +16,7 @@ public sealed class Page
     private readonly Lazy<IReadOnlyList<TextBox>> _readingOrderText;
     private readonly Lazy<IReadOnlyList<FontInfo>> _fonts;
     private readonly Lazy<IReadOnlyList<PdfGraphicsElement>> _graphics;
+    private readonly Lazy<IReadOnlyList<PdfImage>> _images;
 
     internal Page(
         Document owner,
@@ -44,6 +45,12 @@ public sealed class Page
                 .ToArray());
         _graphics = new Lazy<IReadOnlyList<PdfGraphicsElement>>(
             ExtractGraphics);
+        _images = new Lazy<IReadOnlyList<PdfImage>>(
+            () => Graphics
+                .OfType<PdfImageElement>()
+                .Select(element => element.Image)
+                .OfType<PdfImage>()
+                .ToArray());
     }
 
     public int Index { get; }
@@ -53,6 +60,7 @@ public sealed class Page
     public double Duration => _node.Dictionary.GetValueOrNull("Dur").AsNumber(_document) ?? -1;
     public IReadOnlyList<FontInfo> Fonts => _fonts.Value;
     public IReadOnlyList<PdfGraphicsElement> Graphics => _graphics.Value;
+    public IReadOnlyList<PdfImage> Images => _images.Value;
 
     public PageOrientation Orientation => Rotation switch
     {

@@ -1,4 +1,5 @@
 using Poppler.Core;
+using Poppler.Color;
 
 namespace Poppler.Graphics;
 
@@ -39,12 +40,13 @@ internal static class PdfShadingReader
         if (coordinates is null)
             return false;
 
-        PdfColorSpace colorSpace = ReadColorSpace(
+        PdfColorSpaceDefinition? colorSpace = PdfColorSpaceDefinition.Parse(
             dictionary.GetValueOrNull("ColorSpace"),
+            resources: null,
             document);
-        int componentCount = ComponentCount(colorSpace);
-        if (componentCount == 0)
+        if (colorSpace is null)
             return false;
+        int componentCount = colorSpace.Components;
 
         (bool extendStart, bool extendEnd) = ReadExtend(
             dictionary.GetValueOrNull("Extend"),
@@ -56,7 +58,7 @@ internal static class PdfShadingReader
         {
             double offset = index / (double)(stopCount - 1);
             double[] components = Evaluate(function, offset, componentCount, document, 0);
-            stops.Add(new PdfGradientStop(offset, CreateColor(colorSpace, components)));
+            stops.Add(new PdfGradientStop(offset, colorSpace.Convert(components)));
         }
 
         brush = new PdfGradientBrush(
@@ -95,6 +97,19 @@ internal static class PdfShadingReader
             while (combined.Count < componentCount)
                 combined.Add(combined.Count == 0 ? input : combined[^1]);
             return combined.Take(componentCount).ToArray();
+        }
+
+        PdfFunction? parsed = PdfFunction.Create(
+            resolved,
+            document,
+            expectedInputCount: 1,
+            expectedOutputCount: componentCount,
+            depth);
+        if (parsed is not null)
+        {
+            Span<double> functionInput = stackalloc double[1];
+            functionInput[0] = input;
+            return parsed.Evaluate(functionInput, componentCount);
         }
 
         PdfDictionary? dictionary = resolved switch
@@ -188,45 +203,6 @@ internal static class PdfShadingReader
             document,
             depth + 1);
     }
-
-    private static PdfColorSpace ReadColorSpace(PdfObject? value, PdfDocumentCore document)
-    {
-        PdfObject? resolved = value?.Resolve(document);
-        string? name = resolved switch
-        {
-            PdfName direct => direct.Value,
-            PdfArray { Count: > 0 } array => array[0].AsName(document),
-            _ => null
-        };
-        return name switch
-        {
-            "DeviceGray" or "G" => PdfColorSpace.DeviceGray,
-            "DeviceRGB" or "RGB" => PdfColorSpace.DeviceRgb,
-            "DeviceCMYK" or "CMYK" => PdfColorSpace.DeviceCmyk,
-            _ => PdfColorSpace.Unknown
-        };
-    }
-
-    private static int ComponentCount(PdfColorSpace colorSpace) => colorSpace switch
-    {
-        PdfColorSpace.DeviceGray => 1,
-        PdfColorSpace.DeviceRgb => 3,
-        PdfColorSpace.DeviceCmyk => 4,
-        _ => 0
-    };
-
-    private static PdfColor CreateColor(PdfColorSpace colorSpace, IReadOnlyList<double> values) =>
-        colorSpace switch
-        {
-            PdfColorSpace.DeviceGray => PdfColor.Gray(values[0]),
-            PdfColorSpace.DeviceRgb => PdfColor.Rgb(values[0], values[1], values[2]),
-            PdfColorSpace.DeviceCmyk => PdfColor.Cmyk(
-                values[0],
-                values[1],
-                values[2],
-                values[3]),
-            _ => PdfColor.Black
-        };
 
     private static (bool Start, bool End) ReadExtend(
         PdfObject? value,

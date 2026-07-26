@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.5.0-alpha.1
+## Works in 0.6.0-alpha.1
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -41,15 +41,25 @@
   selection.
 - Recursive Form XObjects with matrices, BBox clipping, local/inherited
   resources and bounded recursion.
-- Image XObject metadata entries (dimensions, bit depth, color-space name and
-  image-mask flag).
+- Image XObject metadata plus decoded `Gray8`, `Rgb24` or straight-alpha
+  `Rgba32` pixels with exact tightly packed row strides.
+- Packed 1, 2, 4, 8 and 16-bit image samples, `/Decode` arrays, Flate/LZW/
+  RunLength/predictor input and unfiltered data.
+- DCT/JPEG, JPX/JPEG 2000 Part 1, JBIG2 with `JBIG2Globals`, CCITT Modified
+  Huffman, Group 3 and Group 4 Image XObjects through managed decoders.
+- Image masks, explicit masks, color-key masks and luminosity soft masks.
+- CalGray, CalRGB, Lab, common matrix/shaper ICCBased, Indexed, Separation and
+  DeviceN conversion to managed sRGB.
+- PDF function types 0 sampled, 2 exponential and 3 stitching for tint
+  transforms and gradient stops.
+- Public `Page.Images`, managed PNG encoding, CLI image extraction and SVG
+  image embedding.
 - Colored tiling patterns and shading patterns.
 - Type 2 axial and type 3 radial shadings in device color spaces using
   exponential and stitching functions.
 - Public backend-neutral `Page.Graphics` display lists.
 - Managed SVG vector output for paths, clipping, Form content, tiling patterns,
-  axial/radial gradients and optional Image XObject bounds, plus extracted
-  text.
+  axial/radial gradients, decoded Image XObjects and extracted text.
 - Missing `%%EOF` and leading-prefix diagnostics.
 - Standard Security Handler `V=1/R=2`, `V=2/R=3`, `V=4/R=4` and
   `V=5/R=5–6`.
@@ -71,16 +81,18 @@
 - Encryption is read-only: saving preserves the original encrypted bytes and
   cannot change passwords, permissions or crypt filters.
 - Digital signatures are neither created nor validated.
-- Raster rendering and pixel output are not implemented.
-- SVG does not decode Image XObject pixels, inline images or image masks; it
-  can optionally draw their unit-square bounds.
+- Full-page raster rendering is not implemented; `0.6` exposes decoded Image
+  XObject pixels and PNG export but does not rasterize vector/text page content.
+- Inline images are not decoded.
 - Transparency groups, soft masks, knockout/isolation, overprint and exact PDF
   blend compositing are deferred to the raster phase. SVG maps common blend
   names and alpha values but is not a visual-conformance backend.
-- Uncolored tiling patterns, shading types 1 and 4–7, sampled/calculator
-  shading functions and mesh shadings are not painted.
-- Device colors use direct managed RGB approximations. CalGray, CalRGB, Lab,
-  ICCBased, Indexed, Separation and DeviceN belong to the 0.6 color slice.
+- Uncolored tiling patterns, shading types 1 and 4–7, calculator functions and
+  mesh shadings are not painted.
+- ICC LUT/device-link profiles, rendering intents, black-point compensation,
+  proofing, spot-color calibration and overprint simulation are not
+  implemented. ICCBased falls back to `/Alternate` outside common
+  matrix/shaper profiles.
 - Text remains a separate extraction pass: glyph outlines, Type 3 CharProcs
   and text nested in Form XObjects are not part of `Page.Graphics`.
 - Complex-script shaping, GSUB/GPOS, full bidi, raw CFF fallback, arbitrary
@@ -88,8 +100,8 @@
 - Type 3 encodings and advances are read, but CharProcs are not rendered.
 - Vertical writing is supported for extraction and metrics; vertical glyph
   forms and outlines await the rasterizer.
-- JPEG, JPEG2000, JBIG2 and CCITT payloads are not decoded by the public
-  `GetDecodedBytes` path.
+- JPEG 2000 Part 2, unusual JPEG color transforms and malformed/extension
+  streams outside the managed codec coverage remain unsupported.
 - Annotations, forms, optional content, actions, movie/sound and JavaScript are
   not executed. Presence detection is metadata only.
 - Saving produces a byte-for-byte copy; object mutation is not implemented.
@@ -101,6 +113,7 @@
 Default limits are 256 MiB input, 256 MiB decoded per stream, 1,000,000
 indirect objects, 1,000,000 direct collection items, 250,000 CMap mappings,
 1,000,000 graphics operations, 250,000 display-list elements, 1,000,000 path
-segments, graphics stack depth 256, XObject depth 32, 33 shading stops, 10,000
-pages, tree depth 128 and object recursion 64. Use `PdfReadOptions` to lower
-limits for server workloads.
+segments, 100,000,000 decoded pixels per image, 32 image components, 16 MiB
+per ICC profile, 1,000,000 sampled-function samples, graphics stack depth 256,
+XObject depth 32, 33 shading stops, 10,000 pages, tree depth 128 and object
+recursion 64. Use `PdfReadOptions` to lower limits for server workloads.

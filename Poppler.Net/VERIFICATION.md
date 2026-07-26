@@ -1,59 +1,46 @@
 # Verification record
 
-Verification performed on 2026-07-26 for `0.5.0-alpha.1`:
+Verification performed on 2026-07-26 for `0.6.0-alpha.1`:
 
-- 53 C# files (10,636 lines at the time of the check) parsed with the current
-  tree-sitter C# grammar: no syntax-error nodes.
-- the user corrections were preserved: revision 6 selects SHA-2 through
+- .NET SDK 8.0.423 restored and compiled all four solution projects in Release
+  with warnings treated as errors.
+- NUnitLite executed 83 tests: 83 passed, 0 failed, 0 warnings, 0 skipped.
+- the managed-only verifier accepted production source and every asset in the
+  complete restored NuGet graph, including the three runtime codecs.
+- the user corrections remain intact: revision 6 selects SHA-2 through
   `int va = selector % 3`, and every NUnit exception assertion explicitly
   casts its lambda to `Action`.
-- both CA2014 sites identified by the user now allocate their 1-byte and
-  16-byte `stackalloc` spans once before their loops; a source scan found no
-  `stackalloc` inside a loop body.
-- four solution projects resolved to existing project files.
-- all six `.csproj`/property files parsed as XML; all five JSON manifests and
-  the CI workflow parsed successfully.
-- all links in 14 local Markdown files resolved.
-- production source contained no `DllImport`, `LibraryImport`,
-  `NativeLibrary`, unmanaged exports or external-process fallback.
-- production projects contained no `PackageReference`; the direct test-only
-  packages remain centrally pinned NUnit 4.6.1 and NUnitLite 4.6.1.
-- the source tree contained no ELF, Mach-O, WebAssembly, native-library,
-  executable or object-file asset.
-- the shell build entry point passed `bash -n`.
-- all nine encrypted fixture hashes matched their manifest and the independent
-  verifier recovered expected R2–R6 metadata, text and attachment bytes.
-- the two deterministic font-fixture hashes matched
-  `font-fixtures.json`.
-- Poppler 24.02.0 identified the font fixtures as embedded subset CID
-  TrueType and CID Type 0C OpenType resources without `ToUnicode`, and
-  extracted `ABC` from both.
-- pypdf 6.10.0 independently extracted `ABC` from both font fixtures.
-- regenerating both font fixtures twice produced identical byte hashes.
-- the deterministic graphics fixture hash matched
-  `graphics-fixture.json`; regenerating it twice produced identical PDF and
-  manifest hashes.
-- Poppler 24.02.0 parsed the graphics fixture as a one-page 420×400 PDF and
-  `pdftocairo` produced a 420×400 RGB reference PNG containing its paths,
-  clip, Form/Image XObjects, tiling pattern and axial/radial shadings.
-- 66 NUnit cases are defined: 57 prior foundation/security/font/text cases
-  plus nine matrix, path, clipping, XObject, pattern, shading, SVG and graphics
-  resource-limit cases.
+- the two CA2014 sites previously identified allocate their reusable
+  `stackalloc` spans before their loops; no `stackalloc` occurs inside a loop
+  body.
+- the deterministic image/color fixture contains 12 decoded Image XObjects:
+  raw RGB, Indexed, Separation, DeviceN sampled tint, Lab, ICCBased,
+  DCT/JPEG, JPX/JPEG 2000, CCITT Group 3 and Group 4, JBIG2 and an RGB image
+  with soft mask.
+- fixture assertions verify exact raw/indexed/tint pixels, calibrated/ICC
+  conversion ranges, JPEG/JPX output, CCITT rows, JBIG2 dimensions/content,
+  straight-alpha soft masks, PNG structure and SVG embedding.
+- the same fixture exercises Separation and Lab colors on graphics paths so
+  image and vector paint use the same color-space implementation.
+- `pdfinfo` parsed the fixture as a one-page PDF 1.7 document measuring
+  600×800 points, and `pdfimages -list` identified all expected image
+  encodings and color spaces.
+- regenerating the image/color fixture updates a SHA-256 manifest and produces
+  deterministic PDF bytes for the installed generator versions.
+- all nine encrypted fixture hashes, both embedded-font fixture hashes and the
+  graphics fixture hash continue to match their manifests.
+- project/XML/JSON/YAML structure, local Markdown links, shell syntax and
+  forbidden-interoperability source scans pass.
 
-The creation environment does not contain `dotnet`, `csc` or MSBuild.
-Consequently, NuGet restore, C# compilation, the NUnitLite executable and the
-post-restore package-binary verifier could not be executed here. The
-three-platform CI definition and `build.sh`/`build.ps1` make all four checks
-mandatory on a machine with .NET SDK 8.0.423.
-
-This ZIP is therefore a source release candidate, not a verified binary
-release. Run the following before publishing its NuGet package:
+The environment's normal `dotnet` CLI startup cannot reliably inspect its
+process namespace. Verification therefore invoked the SDK's managed MSBuild,
+NUnitLite and verifier assemblies through the .NET 8 host. This executes the
+same compiler, projects and managed test assemblies without changing build
+inputs. The standard user entry point remains:
 
 ```bash
 ./build.sh Release
 ```
 
-The command restores, compiles with warnings as errors, inspects the entire
-restored NuGet graph for native or mixed-mode code, runs the NUnitLite suite
-and packs the library. This limitation is recorded explicitly rather than
-presenting syntax-only checks as a successful build.
+It restores, compiles with warnings as errors, inspects the complete NuGet
+graph, runs NUnitLite and packs the library.

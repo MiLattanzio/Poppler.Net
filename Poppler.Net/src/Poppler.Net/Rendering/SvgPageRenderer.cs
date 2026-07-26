@@ -332,16 +332,31 @@ internal static class SvgPageRenderer
 
         private void WriteImage(PdfImageElement image, int indent)
         {
-            if (!_options.DrawImageBounds)
-                return;
-            Indent(indent);
-            _svg.Append("<rect x=\"0\" y=\"0\" width=\"1\" height=\"1\" fill=\"none\" ");
-            _svg.Append("stroke=\"#7c3aed\" stroke-width=\"0.5\" transform=\"");
-            _svg.Append(Matrix(image.State.Transform));
-            _svg.Append("\"><title>");
-            _svg.Append(Escape(
-                $"Image /{image.ResourceName}: {image.Width}x{image.Height}, {image.ColorSpace}"));
-            _svg.AppendLine("</title></rect>");
+            if (_options.IncludeImages && image.Image is { } decoded)
+            {
+                Indent(indent);
+                _svg.Append("<image x=\"0\" y=\"0\" width=\"1\" height=\"1\" ");
+                _svg.Append("preserveAspectRatio=\"none\" href=\"data:image/png;base64,");
+                _svg.Append(Convert.ToBase64String(decoded.ToPngBytes()));
+                _svg.Append("\" transform=\"");
+                _svg.Append(Matrix(image.State.Transform));
+                _svg.Append(" matrix(1 0 0 -1 0 1)\"");
+                Attribute("opacity", image.State.FillAlpha);
+                WriteBlendMode(image.State.BlendMode);
+                _svg.AppendLine("/>");
+            }
+
+            if (_options.DrawImageBounds)
+            {
+                Indent(indent);
+                _svg.Append("<rect x=\"0\" y=\"0\" width=\"1\" height=\"1\" fill=\"none\" ");
+                _svg.Append("stroke=\"#7c3aed\" stroke-width=\"0.5\" transform=\"");
+                _svg.Append(Matrix(image.State.Transform));
+                _svg.Append("\"><title>");
+                _svg.Append(Escape(
+                    $"Image /{image.ResourceName}: {image.Width}x{image.Height}, {image.ColorSpace}"));
+                _svg.AppendLine("</title></rect>");
+            }
         }
 
         private void WriteShading(PdfShadingElement shading, int indent)

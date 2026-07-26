@@ -2,7 +2,7 @@
   <PropertyGroup>
     <AssemblyName>Poppler.Net</AssemblyName>
     <RootNamespace>Poppler</RootNamespace>
-    <Version>0.5.0-alpha.1</Version>
+    <Version>0.6.0-alpha.1</Version>
     <AssemblyVersion>26.7.0.0</AssemblyVersion>
     <FileVersion>26.7.0.0</FileVersion>
     <Description>Managed-only port of the Poppler 26.07.0 PDF engine.</Description>
@@ -11,7 +11,13 @@
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="CoreJ2K" />
+    <PackageReference Include="JBig2Decoder.NETStandard" />
+    <PackageReference Include="StbImageSharp" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="README.md" Link="README.md" />
     <None Include="..\..\LICENSE" Pack="true" PackagePath="" Link="LICENSE" />
+    <None Include="..\..\NOTICE.md" Pack="true" PackagePath="" Link="NOTICE.md" />
   </ItemGroup>
 </Project>

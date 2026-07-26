@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.5.0-alpha.1` graphics release is not a complete replacement for
+> This `0.6.0-alpha.1` image/color release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -12,7 +12,10 @@ process invocation, or native NuGet dependency.
 > preview. It can open Standard Security Handler
 > revisions 2–6 with user or owner passwords and decode common simple,
 > composite, CID and vertical text paths. The graphics slice interprets paths,
-> clipping, Form/Image XObjects, tiling patterns and axial/radial shadings. See
+> clipping, Form/Image XObjects, tiling patterns and axial/radial shadings.
+> The image slice decodes common raw and compressed Image XObjects, converts
+> calibrated and special color spaces to sRGB, exposes pixels, writes PNG and
+> embeds decoded images in SVG. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
@@ -26,9 +29,9 @@ dotnet run --project tests/Poppler.Net.Tests -- --noresult
 
 `./build.sh` performs restore, Release build, NUnitLite regression tests and
 NuGet packaging. It also rejects native or mixed-mode binaries anywhere in the
-restored NuGet graph. The production library itself has no package dependency;
-NUnit and its in-process NUnitLite runner are approved test-only managed
-dependencies. See
+restored NuGet graph. The production library uses three audited managed
+runtime packages for JPEG, JPEG 2000 and JBIG2. NUnit and its in-process
+NUnitLite runner are approved test-only managed dependencies. See
 `VERIFICATION.md` for the checks completed in the creation environment.
 
 RC4, MD5, SHA-2 and AES are reached only through managed C# or the .NET
@@ -42,6 +45,7 @@ dotnet run --project src/Poppler.Net.Cli -- info input.pdf
 dotnet run --project src/Poppler.Net.Cli -- text input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- fonts input.pdf
 dotnet run --project src/Poppler.Net.Cli -- graphics input.pdf --page 1
+dotnet run --project src/Poppler.Net.Cli -- images input.pdf output-images
 dotnet run --project src/Poppler.Net.Cli -- attachments input.pdf output-dir
 dotnet run --project src/Poppler.Net.Cli -- svg input.pdf page.svg --page 1
 ```
@@ -66,6 +70,11 @@ foreach (FontInfo font in page.Fonts)
     Console.WriteLine($"{font.Name}: {font.Type}, {font.EmbeddedFormat}");
 foreach (PdfGraphicsElement element in page.Graphics)
     Console.WriteLine($"{element.GetType().Name}: {element.State.Transform}");
+foreach (PdfImage image in page.Images)
+{
+    Console.WriteLine($"{image.ResourceName}: {image.Width}x{image.Height}, stride {image.BytesPerRow}");
+    image.SavePng($"{image.ResourceName}.png");
+}
 ```
 
 All page indices in the API are zero-based. CLI page numbers are one-based.
@@ -96,6 +105,9 @@ matching Poppler's C++ API, returns the document's new locking status
   encodings, `GfxFont`, CID metrics and `ToUnicode`/encoding CMaps.
 - `Graphics/` is the first managed slice of `Gfx`, `GfxState`, `Function`,
   patterns and Form XObjects and produces a backend-neutral display list.
+- `Color/` ports calibrated, ICC matrix/shaper and special color conversion.
+- `Images/` decodes Image XObjects, masks and common PDF image codecs into
+  tightly packed managed pixel buffers.
 - `Rendering/` consumes that display list in a managed SVG vector backend. It
   is not yet the raster counterpart of Splash/Cairo.
 
@@ -123,6 +135,12 @@ The `0.5` slice interprets vector paths and painting state, clipping, device
 colors, common `ExtGState` entries, Form/Image XObjects, colored tiling
 patterns and type 2/3 shadings. See
 [docs/GRAPHICS.md](docs/GRAPHICS.md).
+
+The `0.6` slice decodes raw/predictor, JPEG, JPEG 2000, JBIG2 and CCITT images,
+applies image masks and soft masks, evaluates sampled/exponential/stitching
+functions, converts CalGray/CalRGB/Lab/ICCBased/Indexed/Separation/DeviceN,
+and adds `Page.Images`, managed PNG export and SVG image embedding. See
+[docs/IMAGES_AND_COLOR.md](docs/IMAGES_AND_COLOR.md).
 
 ## License and provenance
 

@@ -47,12 +47,20 @@ public enum PdfColorSpace
     DeviceGray,
     DeviceRgb,
     DeviceCmyk,
+    CalGray,
+    CalRgb,
+    Lab,
+    IccBased,
+    Indexed,
+    Separation,
+    DeviceN,
     Pattern
 }
 
 /// <summary>
-/// A color in one of the device color spaces supported by the 0.5 graphics
-/// slice. Calibrated and ICC color conversion is intentionally deferred.
+/// A color converted from a PDF source color space. Device values retain
+/// their native components; calibrated, ICC and special colors are represented
+/// by their managed RGB conversion.
 /// </summary>
 public readonly record struct PdfColor(
     PdfColorSpace Space,
@@ -256,6 +264,7 @@ public sealed record PdfImageElement(
     int BitsPerComponent,
     string ColorSpace,
     bool IsImageMask,
+    PdfImage? Image,
     PdfGraphicsState State,
     IReadOnlyList<PdfClipPath> ClipPaths,
     string? SourceResource = null)
