@@ -2,6 +2,7 @@ using Poppler.Core;
 using Poppler.Color;
 using Poppler.DocumentModel;
 using Poppler.Images;
+using Poppler.Text;
 using PdfContentOperation = Poppler.Text.PdfContentOperation;
 using PdfContentReader = Poppler.Text.PdfContentReader;
 
@@ -19,9 +20,11 @@ internal sealed class PdfGraphicsInterpreter
     private readonly HashSet<PdfReference> _activePatterns = new();
     private readonly HashSet<PdfReference> _activeForms = new();
     private readonly HashSet<PdfReference> _activeSoftMasks = new();
+    private readonly HashSet<PdfReference> _activeType3Glyphs = new();
     private readonly HashSet<string> _reportedDiagnostics = new(StringComparer.Ordinal);
     private int _operationCount;
     private int _elementCount;
+    private int _inlineImageCount;
 
     public PdfGraphicsInterpreter(PdfDocumentCore document, PdfPageNode page)
     {
@@ -55,6 +58,10 @@ internal sealed class PdfGraphicsInterpreter
             throw new PdfLimitException("Form or pattern nesting exceeds the configured limit.");
 
         PdfDictionary? resources = resourcesObject.AsDictionary(_document);
+        IReadOnlyDictionary<string, PdfFontDecoder> fonts =
+            PdfFontCollection.Read(_document, resourcesObject);
+        PdfFontDecoder fallbackFont = PdfFontDecoder.CreateFallback(_document);
+        context.Text.Font ??= fallbackFont;
         var stack = new Stack<GraphicsContext>();
         var path = new PdfPathBuilder();
         PdfFillRule? pendingClip = null;
@@ -133,31 +140,36 @@ internal sealed class PdfGraphicsInterpreter
                 case "gs" when values.LastOrDefault() is PdfName stateName:
                     ApplyExtendedState(resources, stateName.Value, context, depth);
                     break;
-                case "CS" when values.LastOrDefault() is PdfName strokeSpace:
+                case "CS" when !context.InType3Glyph &&
+                                    values.LastOrDefault() is PdfName strokeSpace:
                     context.StrokeColorSpace = ResolveColorSpace(
                         resources,
                         strokeSpace.Value);
                     break;
-                case "cs" when values.LastOrDefault() is PdfName fillSpace:
+                case "cs" when !context.InType3Glyph &&
+                                    values.LastOrDefault() is PdfName fillSpace:
                     context.FillColorSpace = ResolveColorSpace(
                         resources,
                         fillSpace.Value);
                     break;
-                case "G" when LastNumber(values) is { } strokeGray:
+                case "G" when !context.InType3Glyph &&
+                                   LastNumber(values) is { } strokeGray:
                     context.StrokeColorSpace = PdfColorSpaceDefinition.DeviceGray;
                     context.Graphics = context.Graphics with
                     {
                         Stroke = new PdfSolidBrush(PdfColor.Gray(strokeGray))
                     };
                     break;
-                case "g" when LastNumber(values) is { } fillGray:
+                case "g" when !context.InType3Glyph &&
+                                   LastNumber(values) is { } fillGray:
                     context.FillColorSpace = PdfColorSpaceDefinition.DeviceGray;
                     context.Graphics = context.Graphics with
                     {
                         Fill = new PdfSolidBrush(PdfColor.Gray(fillGray))
                     };
                     break;
-                case "RG" when TryNumbers(values, 3, out double[] strokeRgb):
+                case "RG" when !context.InType3Glyph &&
+                                    TryNumbers(values, 3, out double[] strokeRgb):
                     context.StrokeColorSpace = PdfColorSpaceDefinition.DeviceRgb;
                     context.Graphics = context.Graphics with
                     {
@@ -167,7 +179,8 @@ internal sealed class PdfGraphicsInterpreter
                             strokeRgb[2]))
                     };
                     break;
-                case "rg" when TryNumbers(values, 3, out double[] fillRgb):
+                case "rg" when !context.InType3Glyph &&
+                                    TryNumbers(values, 3, out double[] fillRgb):
                     context.FillColorSpace = PdfColorSpaceDefinition.DeviceRgb;
                     context.Graphics = context.Graphics with
                     {
@@ -177,7 +190,8 @@ internal sealed class PdfGraphicsInterpreter
                             fillRgb[2]))
                     };
                     break;
-                case "K" when TryNumbers(values, 4, out double[] strokeCmyk):
+                case "K" when !context.InType3Glyph &&
+                                   TryNumbers(values, 4, out double[] strokeCmyk):
                     context.StrokeColorSpace = PdfColorSpaceDefinition.DeviceCmyk;
                     context.Graphics = context.Graphics with
                     {
@@ -188,7 +202,8 @@ internal sealed class PdfGraphicsInterpreter
                             strokeCmyk[3]))
                     };
                     break;
-                case "k" when TryNumbers(values, 4, out double[] fillCmyk):
+                case "k" when !context.InType3Glyph &&
+                                   TryNumbers(values, 4, out double[] fillCmyk):
                     context.FillColorSpace = PdfColorSpaceDefinition.DeviceCmyk;
                     context.Graphics = context.Graphics with
                     {
@@ -199,16 +214,16 @@ internal sealed class PdfGraphicsInterpreter
                             fillCmyk[3]))
                     };
                     break;
-                case "SC":
+                case "SC" when !context.InType3Glyph:
                     SetGenericColor(values, context, resources, stroke: true, pattern: false, depth);
                     break;
-                case "sc":
+                case "sc" when !context.InType3Glyph:
                     SetGenericColor(values, context, resources, stroke: false, pattern: false, depth);
                     break;
-                case "SCN":
+                case "SCN" when !context.InType3Glyph:
                     SetGenericColor(values, context, resources, stroke: true, pattern: true, depth);
                     break;
-                case "scn":
+                case "scn" when !context.InType3Glyph:
                     SetGenericColor(values, context, resources, stroke: false, pattern: true, depth);
                     break;
                 case "m" when TryNumbers(values, 2, out double[] move):
@@ -367,8 +382,480 @@ internal sealed class PdfGraphicsInterpreter
                         output,
                         sourceResource);
                     break;
+                case "BI" when operation.InlineImageDictionary is not null:
+                    PaintInlineImage(
+                        operation,
+                        resources,
+                        context,
+                        output,
+                        sourceResource);
+                    break;
+                case "BT":
+                    context.Text.InTextObject = true;
+                    context.Text.TextMatrix = PdfMatrix.Identity;
+                    context.Text.LineMatrix = PdfMatrix.Identity;
+                    context.Text.PendingClips.Clear();
+                    break;
+                case "ET":
+                    context.Text.InTextObject = false;
+                    context.Clips.AddRange(context.Text.PendingClips);
+                    context.Text.PendingClips.Clear();
+                    break;
+                case "Tf" when values.Count >= 2 &&
+                                    values[^2] is PdfName fontName &&
+                                    LastNumber(values) is { } fontSize:
+                    context.Text.Font =
+                        fonts.GetValueOrDefault(fontName.Value, fallbackFont);
+                    context.Text.FontResourceName = fontName.Value;
+                    context.Text.FontSize = fontSize;
+                    break;
+                case "Tm" when TryNumbers(values, 6, out double[] textMatrix):
+                    context.Text.TextMatrix = new PdfMatrix(
+                        textMatrix[0], textMatrix[1], textMatrix[2],
+                        textMatrix[3], textMatrix[4], textMatrix[5]);
+                    context.Text.LineMatrix = context.Text.TextMatrix;
+                    break;
+                case "Td" when TryLastPair(values, out double tdX, out double tdY):
+                    MoveText(context.Text, tdX, tdY);
+                    break;
+                case "TD" when TryLastPair(values, out double tdx, out double tdy):
+                    context.Text.Leading = -tdy;
+                    MoveText(context.Text, tdx, tdy);
+                    break;
+                case "T*":
+                    MoveText(context.Text, 0, -context.Text.Leading);
+                    break;
+                case "Tc" when LastNumber(values) is { } characterSpacing:
+                    context.Text.CharacterSpacing = characterSpacing;
+                    break;
+                case "Tw" when LastNumber(values) is { } wordSpacing:
+                    context.Text.WordSpacing = wordSpacing;
+                    break;
+                case "Tz" when LastNumber(values) is { } horizontalScale:
+                    context.Text.HorizontalScale = horizontalScale / 100.0;
+                    break;
+                case "TL" when LastNumber(values) is { } leading:
+                    context.Text.Leading = leading;
+                    break;
+                case "Ts" when LastNumber(values) is { } rise:
+                    context.Text.Rise = rise;
+                    break;
+                case "Tr" when LastInteger(values) is { } renderingMode &&
+                                    renderingMode is >= 0 and <= 7:
+                    context.Text.RenderingMode = (PdfTextRenderingMode)renderingMode;
+                    break;
+                case "Tj" when context.Text.InTextObject &&
+                                    values.LastOrDefault() is PdfString shownText:
+                    ShowText(
+                        shownText,
+                        context,
+                        output,
+                        resources,
+                        depth,
+                        sourceResource);
+                    break;
+                case "TJ" when context.Text.InTextObject &&
+                                    values.LastOrDefault() is PdfArray textArray:
+                    ShowTextArray(
+                        textArray,
+                        context,
+                        output,
+                        resources,
+                        depth,
+                        sourceResource);
+                    break;
+                case "'" when context.Text.InTextObject &&
+                                   values.LastOrDefault() is PdfString quoteText:
+                    MoveText(context.Text, 0, -context.Text.Leading);
+                    ShowText(
+                        quoteText,
+                        context,
+                        output,
+                        resources,
+                        depth,
+                        sourceResource);
+                    break;
+                case "\"" when context.Text.InTextObject &&
+                                      values.Count >= 3 &&
+                                      values[^1] is PdfString doubleQuoteText &&
+                                      values[^2] is PdfNumber quoteCharacterSpacing &&
+                                      values[^3] is PdfNumber quoteWordSpacing:
+                    context.Text.WordSpacing = quoteWordSpacing.Value;
+                    context.Text.CharacterSpacing = quoteCharacterSpacing.Value;
+                    MoveText(context.Text, 0, -context.Text.Leading);
+                    ShowText(
+                        doubleQuoteText,
+                        context,
+                        output,
+                        resources,
+                        depth,
+                        sourceResource);
+                    break;
             }
         }
+    }
+
+    private void ShowTextArray(
+        PdfArray array,
+        GraphicsContext context,
+        List<PdfGraphicsElement> output,
+        PdfDictionary? resources,
+        int depth,
+        string? sourceResource)
+    {
+        foreach (PdfObject item in array)
+        {
+            if (item is PdfString text)
+            {
+                ShowText(
+                    text,
+                    context,
+                    output,
+                    resources,
+                    depth,
+                    sourceResource);
+            }
+            else if (item is PdfNumber adjustment)
+            {
+                double movement =
+                    -adjustment.Value / 1000.0 * context.Text.FontSize;
+                context.Text.TextMatrix =
+                    context.Text.Font?.WritingMode == FontWritingMode.Vertical
+                        ? context.Text.TextMatrix.Translate(0, movement)
+                        : context.Text.TextMatrix.Translate(
+                            movement * context.Text.HorizontalScale,
+                            0);
+            }
+        }
+    }
+
+    private void ShowText(
+        PdfString value,
+        GraphicsContext context,
+        List<PdfGraphicsElement> output,
+        PdfDictionary? resources,
+        int depth,
+        string? sourceResource)
+    {
+        PdfFontDecoder? font = context.Text.Font;
+        if (font is null)
+            return;
+        IReadOnlyList<PdfDecodedGlyph> decoded =
+            font.DecodeGlyphs(value.Bytes.Span);
+        if (decoded.Count == 0)
+            return;
+
+        var placements = new List<PdfTextGlyphPlacement>(decoded.Count);
+        var type3Programs = new List<(
+            PdfTextGlyphPlacement Placement,
+            byte[] Program,
+            PdfMatrix FontMatrix,
+            PdfObject? Resources,
+            string GlyphName)>();
+        foreach (PdfDecodedGlyph glyph in decoded)
+        {
+            PdfMatrix transform = CreateGlyphTransform(
+                glyph,
+                context.Text,
+                context.Graphics.Transform,
+                font.WritingMode);
+            var placement = new PdfTextGlyphPlacement(glyph, transform);
+            placements.Add(placement);
+            if (font.TryGetType3GlyphProgram(
+                    glyph,
+                    out byte[] type3Program,
+                    out PdfMatrix type3Matrix,
+                    out PdfObject? type3Resources,
+                    out string glyphName))
+            {
+                type3Programs.Add((
+                    placement,
+                    type3Program,
+                    type3Matrix,
+                    type3Resources,
+                    glyphName));
+            }
+            if (ClipsText(context.Text.RenderingMode) &&
+                font.TryGetGlyphOutline(
+                    glyph,
+                    out PdfGraphicsPath outline,
+                    out _,
+                    out _,
+                    out _))
+            {
+                context.Text.PendingClips.Add(new PdfClipPath(
+                    outline,
+                    transform,
+                    PdfFillRule.NonZero));
+            }
+
+            double spacing =
+                context.Text.CharacterSpacing +
+                (glyph.IsWordSpace ? context.Text.WordSpacing : 0);
+            if (font.WritingMode == FontWritingMode.Vertical)
+            {
+                double advance =
+                    glyph.AdvanceY / 1000.0 * context.Text.FontSize -
+                    spacing;
+                context.Text.TextMatrix =
+                    context.Text.TextMatrix.Translate(0, advance);
+            }
+            else
+            {
+                double advance =
+                    (glyph.AdvanceX / 1000.0 * context.Text.FontSize + spacing) *
+                    context.Text.HorizontalScale;
+                context.Text.TextMatrix =
+                    context.Text.TextMatrix.Translate(advance, 0);
+            }
+        }
+
+        Emit(
+            output,
+            new PdfTextElement(
+                string.Concat(decoded.Select(glyph => glyph.Text)),
+                context.Text.FontResourceName,
+                font.Name,
+                context.Text.FontSize,
+                context.Text.RenderingMode,
+                font,
+                placements,
+                context.Graphics,
+                context.Clips.ToArray(),
+                sourceResource));
+
+        if (type3Programs.Count > 0 &&
+            context.Text.RenderingMode is not (
+                PdfTextRenderingMode.Invisible or
+                PdfTextRenderingMode.Clip))
+        {
+            foreach (var glyph in type3Programs)
+            {
+                PaintType3Glyph(
+                    glyph.Placement,
+                    glyph.Program,
+                    glyph.FontMatrix,
+                    glyph.Resources ?? resources,
+                    glyph.GlyphName,
+                    context,
+                    output,
+                    depth,
+                    sourceResource);
+            }
+        }
+    }
+
+    private void PaintType3Glyph(
+        PdfTextGlyphPlacement placement,
+        byte[] program,
+        PdfMatrix fontMatrix,
+        PdfObject? resources,
+        string glyphName,
+        GraphicsContext context,
+        List<PdfGraphicsElement> output,
+        int depth,
+        string? parentSource)
+    {
+        if (depth >= _document.Options.MaximumXObjectDepth)
+            throw new PdfLimitException("Type 3 glyph nesting exceeds the configured limit.");
+        PdfReference? reference = resources as PdfReference;
+        if (reference is not null && !_activeType3Glyphs.Add(reference))
+        {
+            ReportOnce(
+                "graphics.type3.recursive",
+                "A recursive Type 3 glyph was skipped.");
+            return;
+        }
+
+        try
+        {
+            GraphicsContext child = context.Clone();
+            child.Graphics = child.Graphics with
+            {
+                Transform = fontMatrix.Multiply(placement.Transform)
+            };
+            child.Text.InTextObject = false;
+            child.Text.PendingClips.Clear();
+            child.InType3Glyph = true;
+            string source = parentSource is null
+                ? $"Type3:{glyphName}"
+                : $"{parentSource}/Type3:{glyphName}";
+            Execute(
+                program,
+                resources,
+                child,
+                output,
+                depth + 1,
+                source);
+        }
+        finally
+        {
+            if (reference is not null)
+                _activeType3Glyphs.Remove(reference);
+        }
+    }
+
+    private static PdfMatrix CreateGlyphTransform(
+        PdfDecodedGlyph glyph,
+        TextContext text,
+        PdfMatrix ctm,
+        FontWritingMode writingMode)
+    {
+        double originX = 0;
+        double originY = text.Rise;
+        if (writingMode == FontWritingMode.Vertical)
+        {
+            originX -= glyph.OriginX / 1000.0 * text.FontSize;
+            originY -= glyph.OriginY / 1000.0 * text.FontSize;
+        }
+
+        var fontScale = new PdfMatrix(
+            text.FontSize * text.HorizontalScale,
+            0,
+            0,
+            text.FontSize,
+            originX,
+            originY);
+        return fontScale
+            .Multiply(text.TextMatrix)
+            .Multiply(ctm);
+    }
+
+    private static bool ClipsText(PdfTextRenderingMode mode) =>
+        mode is PdfTextRenderingMode.FillAndClip or
+            PdfTextRenderingMode.StrokeAndClip or
+            PdfTextRenderingMode.FillStrokeAndClip or
+            PdfTextRenderingMode.Clip;
+
+    private static void MoveText(TextContext text, double x, double y)
+    {
+        text.LineMatrix = text.LineMatrix.Translate(x, y);
+        text.TextMatrix = text.LineMatrix;
+    }
+
+    private void PaintInlineImage(
+        PdfContentOperation operation,
+        PdfDictionary? resources,
+        GraphicsContext context,
+        List<PdfGraphicsElement> output,
+        string? parentSource)
+    {
+        PdfDictionary dictionary =
+            ExpandInlineImageDictionary(operation.InlineImageDictionary!);
+        string resourceName = $"InlineImage{++_inlineImageCount}";
+        string source = parentSource is null
+            ? resourceName
+            : $"{parentSource}/{resourceName}";
+        var stream = new PdfStream(dictionary, operation.InlineImageData.Span);
+        int width = dictionary.GetValueOrNull("Width").AsInteger(_document) ?? 0;
+        int height = dictionary.GetValueOrNull("Height").AsInteger(_document) ?? 0;
+        bool imageMask =
+            dictionary.GetValueOrNull("ImageMask") is PdfBoolean { Value: true };
+        int bits = imageMask
+            ? 1
+            : dictionary.GetValueOrNull("BitsPerComponent").AsInteger(_document) ?? 0;
+        string colorSpace = DescribeColorSpace(
+            dictionary.GetValueOrNull("ColorSpace"),
+            resources);
+        PdfImage? image = null;
+        try
+        {
+            PdfColor maskColor = context.Graphics.Fill is PdfSolidBrush solid
+                ? solid.Color
+                : PdfColor.Black;
+            image = PdfImageDecoder.Decode(
+                resourceName,
+                stream,
+                resources,
+                _document,
+                maskColor);
+        }
+        catch (PdfUnsupportedFeatureException exception)
+        {
+            ReportOnce(
+                "graphics.inline-image.unsupported",
+                $"An inline image was not decoded: {exception.Message}");
+        }
+        catch (PdfFormatException exception)
+        {
+            ReportOnce(
+                "graphics.inline-image.invalid",
+                $"An inline image is invalid: {exception.Message}");
+        }
+
+        Emit(
+            output,
+            new PdfImageElement(
+                resourceName,
+                Math.Max(0, width),
+                Math.Max(0, height),
+                Math.Max(0, bits),
+                colorSpace,
+                imageMask,
+                image,
+                context.Graphics,
+                context.Clips.ToArray(),
+                source));
+    }
+
+    private static PdfDictionary ExpandInlineImageDictionary(
+        PdfDictionary source)
+    {
+        var values = new Dictionary<string, PdfObject>(StringComparer.Ordinal);
+        foreach ((string key, PdfObject value) in source)
+        {
+            string expandedKey = key switch
+            {
+                "BPC" => "BitsPerComponent",
+                "CS" => "ColorSpace",
+                "D" => "Decode",
+                "DP" => "DecodeParms",
+                "F" => "Filter",
+                "H" => "Height",
+                "IM" => "ImageMask",
+                "I" => "Interpolate",
+                "W" => "Width",
+                _ => key
+            };
+            values[expandedKey] = ExpandInlineImageValue(expandedKey, value);
+        }
+
+        return new PdfDictionary(values);
+    }
+
+    private static PdfObject ExpandInlineImageValue(string key, PdfObject value)
+    {
+        if (value is PdfArray array)
+        {
+            return new PdfArray(
+                array.Select(item => ExpandInlineImageValue(key, item)));
+        }
+        if (value is not PdfName name)
+            return value;
+        string expanded = key switch
+        {
+            "ColorSpace" => name.Value switch
+            {
+                "G" => "DeviceGray",
+                "RGB" => "DeviceRGB",
+                "CMYK" => "DeviceCMYK",
+                "I" => "Indexed",
+                _ => name.Value
+            },
+            "Filter" => name.Value switch
+            {
+                "AHx" => "ASCIIHexDecode",
+                "A85" => "ASCII85Decode",
+                "LZW" => "LZWDecode",
+                "Fl" => "FlateDecode",
+                "RL" => "RunLengthDecode",
+                "CCF" => "CCITTFaxDecode",
+                "DCT" => "DCTDecode",
+                _ => name.Value
+            },
+            _ => name.Value
+        };
+        return new PdfName(expanded);
     }
 
     private void FinishPath(
@@ -1089,6 +1576,27 @@ internal sealed class PdfGraphicsInterpreter
             ? number.Value
             : null;
 
+    private static bool TryLastPair(
+        IReadOnlyList<PdfObject> values,
+        out double first,
+        out double second)
+    {
+        first = 0;
+        second = 0;
+        if (values.Count < 2 ||
+            values[^2] is not PdfNumber firstNumber ||
+            values[^1] is not PdfNumber secondNumber ||
+            !double.IsFinite(firstNumber.Value) ||
+            !double.IsFinite(secondNumber.Value))
+        {
+            return false;
+        }
+
+        first = firstNumber.Value;
+        second = secondNumber.Value;
+        return true;
+    }
+
     private static int? LastInteger(IReadOnlyList<PdfObject> values) =>
         values.LastOrDefault() is PdfNumber { IsInteger: true } number &&
         number.Value is >= int.MinValue and <= int.MaxValue
@@ -1106,6 +1614,8 @@ internal sealed class PdfGraphicsInterpreter
         public PdfColorSpaceDefinition? StrokeColorSpace { get; set; } =
             PdfColorSpaceDefinition.DeviceGray;
         public List<PdfClipPath> Clips { get; } = new();
+        public TextContext Text { get; set; } = new();
+        public bool InType3Glyph { get; set; }
 
         public static GraphicsContext Create() => new();
 
@@ -1115,9 +1625,49 @@ internal sealed class PdfGraphicsInterpreter
             {
                 Graphics = Graphics,
                 FillColorSpace = FillColorSpace,
-                StrokeColorSpace = StrokeColorSpace
+                StrokeColorSpace = StrokeColorSpace,
+                Text = Text.Clone(),
+                InType3Glyph = InType3Glyph
             };
             clone.Clips.AddRange(Clips);
+            return clone;
+        }
+    }
+
+    private sealed class TextContext
+    {
+        public bool InTextObject { get; set; }
+        public PdfMatrix TextMatrix { get; set; } = PdfMatrix.Identity;
+        public PdfMatrix LineMatrix { get; set; } = PdfMatrix.Identity;
+        public PdfFontDecoder? Font { get; set; }
+        public string FontResourceName { get; set; } = "Fallback";
+        public double FontSize { get; set; } = 12;
+        public double CharacterSpacing { get; set; }
+        public double WordSpacing { get; set; }
+        public double HorizontalScale { get; set; } = 1;
+        public double Leading { get; set; }
+        public double Rise { get; set; }
+        public PdfTextRenderingMode RenderingMode { get; set; }
+        public List<PdfClipPath> PendingClips { get; } = new();
+
+        public TextContext Clone()
+        {
+            var clone = new TextContext
+            {
+                InTextObject = InTextObject,
+                TextMatrix = TextMatrix,
+                LineMatrix = LineMatrix,
+                Font = Font,
+                FontResourceName = FontResourceName,
+                FontSize = FontSize,
+                CharacterSpacing = CharacterSpacing,
+                WordSpacing = WordSpacing,
+                HorizontalScale = HorizontalScale,
+                Leading = Leading,
+                Rise = Rise,
+                RenderingMode = RenderingMode
+            };
+            clone.PendingClips.AddRange(PendingClips);
             return clone;
         }
     }

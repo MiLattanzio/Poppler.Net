@@ -42,7 +42,8 @@ internal static class SvgPageRenderer
 
         public string Render()
         {
-            IReadOnlyList<PdfGraphicsElement> graphics = _options.IncludeVectorGraphics
+            IReadOnlyList<PdfGraphicsElement> graphics =
+                _options.IncludeVectorGraphics || _options.IncludeText
                 ? _page.Graphics
                 : Array.Empty<PdfGraphicsElement>();
             RegisterElements(graphics);
@@ -73,8 +74,6 @@ internal static class SvgPageRenderer
             WriteElements(graphics, indent: 2);
             _svg.AppendLine("  </g>");
 
-            if (_options.IncludeText)
-                WriteText();
             _svg.AppendLine("</svg>");
             return _svg.ToString();
         }
@@ -90,6 +89,10 @@ internal static class SvgPageRenderer
                     case PdfPathElement path:
                         RegisterBrush(path.State.Fill, PdfMatrix.Identity);
                         RegisterBrush(path.State.Stroke, PdfMatrix.Identity);
+                        break;
+                    case PdfTextElement text:
+                        RegisterBrush(text.State.Fill, PdfMatrix.Identity);
+                        RegisterBrush(text.State.Stroke, PdfMatrix.Identity);
                         break;
                     case PdfShadingElement shading:
                         RegisterBrush(shading.Shading, shading.State.Transform);
@@ -255,16 +258,24 @@ internal static class SvgPageRenderer
                 switch (element)
                 {
                     case PdfPathElement path:
-                        WritePath(path, indent + openGroups);
+                        if (_options.IncludeVectorGraphics)
+                            WritePath(path, indent + openGroups);
                         break;
                     case PdfImageElement image:
-                        WriteImage(image, indent + openGroups);
+                        if (_options.IncludeVectorGraphics)
+                            WriteImage(image, indent + openGroups);
+                        break;
+                    case PdfTextElement text:
+                        if (_options.IncludeText)
+                            WriteTextElement(text, indent + openGroups);
                         break;
                     case PdfShadingElement shading:
-                        WriteShading(shading, indent + openGroups);
+                        if (_options.IncludeVectorGraphics)
+                            WriteShading(shading, indent + openGroups);
                         break;
                     case PdfTransparencyGroupElement group:
-                        WriteTransparencyGroup(group, indent + openGroups);
+                        if (_options.IncludeVectorGraphics || _options.IncludeText)
+                            WriteTransparencyGroup(group, indent + openGroups);
                         break;
                 }
 
@@ -401,54 +412,57 @@ internal static class SvgPageRenderer
             _svg.AppendLine("</g>");
         }
 
-        private void WriteText()
+        private void WriteTextElement(PdfTextElement element, int indent)
         {
-            foreach (TextBox box in _page.TextList())
+            if (element.Font.IsType3 ||
+                element.RenderingMode is PdfTextRenderingMode.Invisible or
+                PdfTextRenderingMode.Clip)
             {
-                if (string.IsNullOrEmpty(box.Text))
+                return;
+            }
+            bool fill = element.RenderingMode is
+                PdfTextRenderingMode.Fill or
+                PdfTextRenderingMode.FillAndStroke or
+                PdfTextRenderingMode.FillAndClip or
+                PdfTextRenderingMode.FillStrokeAndClip;
+            bool stroke = element.RenderingMode is
+                PdfTextRenderingMode.Stroke or
+                PdfTextRenderingMode.FillAndStroke or
+                PdfTextRenderingMode.StrokeAndClip or
+                PdfTextRenderingMode.FillStrokeAndClip;
+            string family = NormalizeFontFamily(element.FontName);
+            foreach (Text.PdfTextGlyphPlacement placement in element.Glyphs)
+            {
+                if (string.IsNullOrEmpty(placement.Glyph.Text))
                     continue;
-                double x = box.BoundingBox.Left - Math.Min(_crop.Left, _crop.Right);
-                double baseline = Math.Max(_crop.Bottom, _crop.Top) - box.BoundingBox.Bottom;
-                string fontFamily = NormalizeFontFamily(box.FontName);
-                _svg.Append("  <text x=\"");
-                _svg.Append(Format(x));
-                _svg.Append("\" y=\"");
-                _svg.Append(Format(baseline));
-                _svg.Append("\" font-family=\"");
-                _svg.Append(Escape(fontFamily));
-                _svg.Append("\" font-size=\"");
-                _svg.Append(Format(Math.Abs(box.FontSize)));
+                Indent(indent);
+                _svg.Append("<text x=\"0\" y=\"0\" font-family=\"");
+                _svg.Append(Escape(family));
+                _svg.Append("\" font-size=\"1\" transform=\"");
+                _svg.Append(Matrix(placement.Transform));
                 _svg.Append("\" fill=\"");
-                _svg.Append(Escape(_options.Foreground));
+                _svg.Append(fill
+                    ? Brush(element.State.Fill, PdfMatrix.Identity)
+                    : "none");
+                _svg.Append("\" stroke=\"");
+                _svg.Append(stroke
+                    ? Brush(element.State.Stroke, PdfMatrix.Identity)
+                    : "none");
                 _svg.Append('"');
-                if (box.Rotation != 0)
+                if (fill)
+                    Attribute("fill-opacity", element.State.FillAlpha);
+                if (stroke)
                 {
-                    _svg.Append(" transform=\"rotate(");
-                    _svg.Append(Format(-box.Rotation));
-                    _svg.Append(' ');
-                    _svg.Append(Format(x));
-                    _svg.Append(' ');
-                    _svg.Append(Format(baseline));
-                    _svg.Append(")\"");
+                    Attribute(
+                        "stroke-width",
+                        element.State.LineWidth /
+                        Math.Max(1, Math.Abs(element.FontSize)));
+                    Attribute("stroke-opacity", element.State.StrokeAlpha);
                 }
-
+                WriteBlendMode(element.State.BlendMode);
                 _svg.Append(" xml:space=\"preserve\">");
-                _svg.Append(Escape(box.Text));
+                _svg.Append(Escape(placement.Glyph.Text));
                 _svg.AppendLine("</text>");
-
-                if (_options.DrawTextBounds)
-                {
-                    double boxY = Math.Max(_crop.Bottom, _crop.Top) - box.BoundingBox.Top;
-                    _svg.Append("  <rect x=\"");
-                    _svg.Append(Format(x));
-                    _svg.Append("\" y=\"");
-                    _svg.Append(Format(boxY));
-                    _svg.Append("\" width=\"");
-                    _svg.Append(Format(box.BoundingBox.Width));
-                    _svg.Append("\" height=\"");
-                    _svg.Append(Format(box.BoundingBox.Height));
-                    _svg.AppendLine("\" fill=\"none\" stroke=\"#e11d48\" stroke-width=\"0.5\"/>");
-                }
             }
         }
 

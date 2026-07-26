@@ -1,6 +1,6 @@
 # Managed graphics engine
 
-Version `0.7.0-alpha.2` retains and extends the backend-neutral slice of Poppler
+Version `0.8.0-alpha.1` retains and extends the backend-neutral slice of Poppler
 26.07.0 `Gfx`, `GfxState`, `Function`, pattern and XObject behavior. It parses
 page content into immutable managed objects; it does not call Poppler, Cairo,
 FreeType or another native renderer.
@@ -13,6 +13,8 @@ list of:
 - `PdfPathElement` for filled and/or stroked paths;
 - `PdfImageElement` for Image XObject metadata and decoded pixels when the
   codec/color space is supported;
+- `PdfTextElement` for a text-showing operation, its font, source glyph count,
+  rendering mode and graphics state;
 - `PdfShadingElement` for directly painted gradients;
 - `PdfTransparencyGroupElement` for Form XObjects that declare a transparency
   group.
@@ -21,8 +23,8 @@ Every element retains a `PdfGraphicsState`, its active clipping paths and its
 source Form resource. Ordinary Form XObjects are flattened while transparency
 groups remain nested for intermediate-surface compositing.
 
-The managed SVG and raster backends consume the same list. Text remains a
-separate extraction/raster pass in this alpha.
+The managed SVG and raster backends consume the same list. Text, paths, Forms,
+images and shadings therefore preserve their exact content-stream ordering.
 
 ## Operators
 
@@ -36,6 +38,9 @@ separate extraction/raster pass in this alpha.
 | Device color | `G`, `g`, `RG`, `rg`, `K`, `k`, `CS`, `cs`, `SC`, `sc`, `SCN`, `scn` |
 | Resources | `gs`, `Do`, `sh` |
 | `ExtGState` | `LW`, `LC`, `LJ`, `ML`, `D`, `CA`, `ca`, `BM`, `SMask` |
+| Text state | `BT`, `ET`, `Tf`, `Tm`, `Td`, `TD`, `T*`, `Tc`, `Tw`, `Tz`, `TL`, `Ts`, `Tr` |
+| Text showing | `Tj`, `TJ`, `'`, `"` |
+| Inline images | `BI`, `ID`, `EI` |
 
 Clipping follows PDF delayed semantics: `W`/`W*` records the rule and the
 current path becomes part of the clip only when a path-ending operator is
@@ -53,7 +58,7 @@ Form XObjects support:
 - transparency `/Group`, `/I` and `/K`;
 - recursion detection and a configurable depth limit.
 
-Image XObjects record resource name, width, height, bits per component,
+Image XObjects and inline images record resource name, width, height, bits per component,
 color-space name, mask flag and CTM. Release `0.6` also attaches a decoded
 `PdfImage` and embeds it as PNG in SVG. Unsupported images remain visible as
 metadata elements and diagnostics rather than aborting the full display list.
@@ -104,7 +109,7 @@ Limit failures throw `PdfLimitException` and are covered by NUnit tests.
 | `GfxTilingPattern` | `PdfTilingPatternBrush` |
 | `GfxAxialShading`/`GfxRadialShading` | `PdfGradientBrush` |
 | exponential/stitching `Function` | `PdfShadingReader` |
-| `OutputDev` boundary | `PdfGraphicsElement` display list |
+| `OutputDev` boundary | `PdfGraphicsElement` display list, including `PdfTextElement` |
 | initial vector output backend | `SvgPageRenderer` |
 | initial Splash output backend | `PdfRasterRenderer` |
 

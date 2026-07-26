@@ -104,6 +104,9 @@ foreach (PdfGraphicsElement element in graphics)
 ```
 
 `PdfPathElement` exposes path segments, fill rule and paint mode.
+`PdfTextElement` exposes decoded text, font resource/name/size, glyph count and
+the selected `PdfTextRenderingMode`; source codes and glyph matrices remain
+internal so subset-font selection cannot be corrupted by a Unicode round trip.
 `PdfImageElement` exposes Image XObject metadata and its optional decoded
 `PdfImage`.
 `PdfShadingElement` exposes an axial or radial gradient. Paint is represented
@@ -167,7 +170,9 @@ PdfBitmap bitmap = page.Render(new RasterRenderOptions
     PageBox = PageBox.CropBox,
     Antialiasing = 4,
     Transparent = false,
-    IncludeText = true
+    IncludeText = true,
+    UseFontSubstitution = true,
+    FontDirectories = new[] { "application-fonts" }
 });
 
 ReadOnlyMemory<byte> rgba = bitmap.Data;
@@ -177,8 +182,8 @@ page.SavePng("page.png", new RasterRenderOptions { Dpi = 144 });
 `PdfBitmap` contains immutable, tightly packed, top-to-bottom straight-alpha
 RGBA rows. `Page.RenderToPng` returns encoded PNG bytes. The raster backend
 paints the graphics display list with clipping, images, gradients, patterns,
-PDF blend modes and graphics-state soft masks. It also paints embedded
-TrueType outlines in a source-code-aware managed post-pass and preserves
-explicit device text colors. See
+PDF blend modes and graphics-state soft masks. Text is painted at its exact
+display-list position from embedded TrueType, CFF1/Type 2 or Type 1 outlines,
+Type 3 CharProcs, or optional managed font-file substitution. See
 [RENDERING.md](RENDERING.md) for the current text, stroke, group and color
 limits.

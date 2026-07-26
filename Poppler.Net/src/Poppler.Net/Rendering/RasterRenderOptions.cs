@@ -22,14 +22,31 @@ public sealed record RasterRenderOptions
     public bool Transparent { get; init; }
 
     /// <summary>
-    /// Rasterize embedded TrueType glyph outlines after the graphics display
-    /// list. Unsupported font programs are left out rather than substituted by
-    /// a platform-dependent native font.
+    /// Rasterize text elements in their exact position inside the graphics
+    /// display list. Embedded TrueType, CFF and Type 1 outlines are interpreted
+    /// by managed readers; Type 3 character procedures are handled by the
+    /// graphics interpreter.
     /// </summary>
     public bool IncludeText { get; init; } = true;
 
-    /// <summary>Fallback color used by the first managed text-outline slice.</summary>
+    /// <summary>
+    /// Retained for source compatibility with 0.7 alpha callers. Text now
+    /// uses the fill and stroke brushes captured in its graphics state.
+    /// </summary>
     public PdfColor TextColor { get; init; } = PdfColor.Black;
+
+    /// <summary>
+    /// Resolve missing Base-14 and other non-embedded fonts from managed font
+    /// files. No platform font API or native rasterizer is used.
+    /// </summary>
+    public bool UseFontSubstitution { get; init; } = true;
+
+    /// <summary>
+    /// Optional font roots searched before standard operating-system font
+    /// folders. Files are parsed by the managed TrueType/CFF readers.
+    /// </summary>
+    public IReadOnlyList<string> FontDirectories { get; init; } =
+        Array.Empty<string>();
 
     internal void Validate()
     {

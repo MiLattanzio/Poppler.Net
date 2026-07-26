@@ -8,12 +8,16 @@ namespace Poppler.Text;
 internal sealed partial class PdfFontDecoder
 {
     private readonly Dictionary<byte, string> _differences = new();
+    private readonly Dictionary<byte, string> _differenceNames = new();
     private readonly Dictionary<byte, string> _programEncoding = new();
+    private readonly Dictionary<byte, string> _programEncodingNames = new();
     private readonly PdfCMap _toUnicode;
     private readonly PdfCMap _encodingCMap;
     private readonly PdfCidMetrics? _cidMetrics;
     private readonly PdfOpenTypeCmap? _openTypeCmap;
     private readonly PdfTrueTypeFont? _trueTypeFont;
+    private readonly PdfCffFont? _cffFont;
+    private readonly PdfType1Font? _type1Font;
     private readonly ushort[]? _cidToGlyph;
     private readonly double[]? _widths;
     private readonly int _firstCharacter;
@@ -23,6 +27,11 @@ internal sealed partial class PdfFontDecoder
     private readonly bool _cidToGlyphIdentity;
     private readonly string _simpleEncoding;
     private readonly string? _collection;
+    private readonly PdfDocumentCore _document;
+    private readonly PdfDictionary? _type3CharProcs;
+    private readonly PdfObject? _type3Resources;
+    private readonly global::Poppler.PdfMatrix _type3FontMatrix =
+        global::Poppler.PdfMatrix.Identity;
 
     public PdfFontDecoder(
         string resourceName,
@@ -32,6 +41,7 @@ internal sealed partial class PdfFontDecoder
         ArgumentNullException.ThrowIfNull(resourceName);
         ArgumentNullException.ThrowIfNull(dictionary);
         ArgumentNullException.ThrowIfNull(document);
+        _document = document;
 
         string declaredSubtype =
             dictionary.GetValueOrNull("Subtype").AsName(document) ?? "Unknown";
@@ -46,6 +56,13 @@ internal sealed partial class PdfFontDecoder
 
         string effectiveSubtype =
             effectiveDictionary.GetValueOrNull("Subtype").AsName(document) ?? declaredSubtype;
+        if (declaredSubtype == "Type3")
+        {
+            _type3CharProcs =
+                dictionary.GetValueOrNull("CharProcs").AsDictionary(document);
+            _type3Resources = dictionary.GetValueOrNull("Resources");
+            _type3FontMatrix = ReadType3Matrix(dictionary, document);
+        }
         Name =
             dictionary.GetValueOrNull("BaseFont").AsName(document) ??
             effectiveDictionary.GetValueOrNull("BaseFont").AsName(document) ??
@@ -57,13 +74,19 @@ internal sealed partial class PdfFontDecoder
         (EmbeddedFontFormat embeddedFormat, byte[]? fontProgram) =
             ReadEmbeddedFont(descriptor, document);
         EmbeddedFontFormat actualFormat = embeddedFormat;
-        if (fontProgram is { Length: > 0 } &&
-            embeddedFormat is EmbeddedFontFormat.TrueType or EmbeddedFontFormat.OpenType)
+        if (fontProgram is { Length: > 0 })
         {
-            _openTypeCmap = PdfOpenTypeCmap.TryParse(
-                fontProgram,
-                document.Options.MaximumCMapMappings);
-            _trueTypeFont = PdfTrueTypeFont.TryParse(fontProgram);
+            if (embeddedFormat is EmbeddedFontFormat.TrueType or EmbeddedFontFormat.OpenType)
+            {
+                _openTypeCmap = PdfOpenTypeCmap.TryParse(
+                    fontProgram,
+                    document.Options.MaximumCMapMappings);
+                _trueTypeFont = PdfTrueTypeFont.TryParse(fontProgram);
+            }
+            if (embeddedFormat is EmbeddedFontFormat.Cff or EmbeddedFontFormat.OpenType)
+                _cffFont = PdfCffFont.TryParse(fontProgram);
+            if (embeddedFormat == EmbeddedFontFormat.Type1)
+                _type1Font = PdfType1Font.TryParse(fontProgram);
             if (fontProgram.Length >= 4 &&
                 fontProgram.AsSpan(0, 4).SequenceEqual("OTTO"u8))
             {
@@ -152,6 +175,7 @@ internal sealed partial class PdfFontDecoder
     public FontWritingMode WritingMode => Info.WritingMode;
     public double Ascent { get; }
     public double Descent { get; }
+    internal bool IsType3 => Info.Type == PdfFontType.Type3;
 
     public static PdfFontDecoder CreateFallback(PdfDocumentCore document) =>
         new(
@@ -250,14 +274,18 @@ internal sealed partial class PdfFontDecoder
         advance = 0;
         ascent = _trueTypeFont?.Ascent ?? Ascent;
         descent = _trueTypeFont?.Descent ?? Descent;
-        if (_trueTypeFont is null ||
-            _openTypeCmap is null ||
-            !_openTypeCmap.TryGetGlyph(rune.Value, out uint glyph))
+        if (_openTypeCmap is not null &&
+            _openTypeCmap.TryGetGlyph(rune.Value, out uint glyph))
         {
-            return false;
+            if (_trueTypeFont?.TryGetGlyph(glyph, out path, out advance) == true)
+                return true;
+            if (_cffFont?.TryGetGlyph(glyph, out path, out advance) == true)
+                return true;
         }
 
-        return _trueTypeFont.TryGetGlyph(glyph, out path, out advance);
+        if (_cffFont?.TryGetGlyph(rune, out path, out advance) == true)
+            return true;
+        return _type1Font?.TryGetGlyph(rune, out path, out advance) == true;
     }
 
     internal bool TryGetGlyphOutline(
@@ -271,8 +299,6 @@ internal sealed partial class PdfFontDecoder
         advance = 0;
         ascent = _trueTypeFont?.Ascent ?? Ascent;
         descent = _trueTypeFont?.Descent ?? Descent;
-        if (_trueTypeFont is null)
-            return false;
 
         uint glyph;
         if (_composite)
@@ -289,6 +315,13 @@ internal sealed partial class PdfFontDecoder
             }
             else
             {
+                if (_cffFont?.TryGetGlyphByCid(
+                        decoded.Cid,
+                        out path,
+                        out advance) == true)
+                {
+                    return true;
+                }
                 return false;
             }
         }
@@ -302,15 +335,85 @@ internal sealed partial class PdfFontDecoder
         else
         {
             Rune first = decoded.Text.EnumerateRunes().FirstOrDefault();
-            if (first.Value == 0 ||
-                _openTypeCmap is null ||
-                !_openTypeCmap.TryGetGlyph(first.Value, out glyph))
+            if (first.Value == 0)
             {
                 return false;
             }
+            if (_openTypeCmap is null ||
+                !_openTypeCmap.TryGetGlyph(first.Value, out glyph))
+            {
+                if (_cffFont?.TryGetGlyph(first, out path, out advance) == true)
+                    return true;
+                return _type1Font?.TryGetGlyph(first, out path, out advance) == true;
+            }
         }
 
-        return _trueTypeFont.TryGetGlyph(glyph, out path, out advance);
+        if (_trueTypeFont?.TryGetGlyph(glyph, out path, out advance) == true)
+            return true;
+        if (_cffFont?.TryGetGlyph(glyph, out path, out advance) == true)
+            return true;
+        if (_composite &&
+            _cffFont?.TryGetGlyphByCid(decoded.Cid, out path, out advance) == true)
+        {
+            return true;
+        }
+        Rune fallback = decoded.Text.EnumerateRunes().FirstOrDefault();
+        if (fallback.Value != 0 &&
+            _type1Font?.TryGetGlyph(fallback, out path, out advance) == true)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    internal bool TryGetType3GlyphProgram(
+        PdfDecodedGlyph decoded,
+        out byte[] program,
+        out global::Poppler.PdfMatrix fontMatrix,
+        out PdfObject? resources,
+        out string glyphName)
+    {
+        program = Array.Empty<byte>();
+        fontMatrix = _type3FontMatrix;
+        resources = _type3Resources;
+        glyphName = "";
+        if (!IsType3 ||
+            decoded.CharacterCode > byte.MaxValue ||
+            _type3CharProcs is null)
+        {
+            return false;
+        }
+
+        byte code = (byte)decoded.CharacterCode;
+        glyphName = _differenceNames.GetValueOrDefault(code) ??
+                    _programEncodingNames.GetValueOrDefault(code) ??
+                    FindType3GlyphName(decoded.Text);
+        if (string.IsNullOrEmpty(glyphName) ||
+            _type3CharProcs.GetValueOrNull(glyphName).AsStream(_document) is not { } stream)
+        {
+            return false;
+        }
+
+        program = _document.Decode(stream);
+        return true;
+    }
+
+    private string FindType3GlyphName(string text)
+    {
+        if (_type3CharProcs is null)
+            return "";
+        foreach (string name in _type3CharProcs.Keys)
+        {
+            if (string.Equals(
+                    PdfGlyphNames.ToUnicode(name),
+                    text,
+                    StringComparison.Ordinal))
+            {
+                return name;
+            }
+        }
+
+        return "";
     }
 
     private string DecodeSimple(byte value)
@@ -436,6 +539,7 @@ internal sealed partial class PdfFontDecoder
             else if (resolved is PdfName name && current is >= 0 and <= 255)
             {
                 _differences[(byte)current] = PdfGlyphNames.ToUnicode(name.Value);
+                _differenceNames[(byte)current] = name.Value;
                 current++;
             }
         }
@@ -453,6 +557,7 @@ internal sealed partial class PdfFontDecoder
                     out byte code))
             {
                 _programEncoding[code] = PdfGlyphNames.ToUnicode(match.Groups[2].Value);
+                _programEncodingNames[code] = match.Groups[2].Value;
             }
         }
     }
@@ -584,6 +689,27 @@ internal sealed partial class PdfFontDecoder
             : 0;
         double scale = Math.Sqrt(a * a + b * b);
         return scale * 1000;
+    }
+
+    private static global::Poppler.PdfMatrix ReadType3Matrix(
+        PdfDictionary dictionary,
+        PdfDocumentCore document)
+    {
+        PdfArray? values =
+            dictionary.GetValueOrNull("FontMatrix").AsArray(document);
+        if (values is not { Count: >= 6 })
+            return new global::Poppler.PdfMatrix(0.001, 0, 0, 0.001, 0, 0);
+        var numbers = new double[6];
+        for (int index = 0; index < numbers.Length; index++)
+        {
+            double? value = values[index].AsNumber(document);
+            if (!value.HasValue || !double.IsFinite(value.Value))
+                return new global::Poppler.PdfMatrix(0.001, 0, 0, 0.001, 0, 0);
+            numbers[index] = value.Value;
+        }
+        return new global::Poppler.PdfMatrix(
+            numbers[0], numbers[1], numbers[2],
+            numbers[3], numbers[4], numbers[5]);
     }
 
     private static double NormalizeMetric(double? value, double fallback) =>

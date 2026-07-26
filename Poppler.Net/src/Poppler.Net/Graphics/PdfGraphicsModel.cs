@@ -36,6 +36,9 @@ public readonly record struct PdfMatrix(
         E * other.A + F * other.C + other.E,
         E * other.B + F * other.D + other.F);
 
+    public PdfMatrix Translate(double x, double y) =>
+        new PdfMatrix(1, 0, 0, 1, x, y).Multiply(this);
+
     public override string ToString() => string.Create(
         CultureInfo.InvariantCulture,
         $"[{A:0.###} {B:0.###} {C:0.###} {D:0.###} {E:0.###} {F:0.###}]");
@@ -134,6 +137,19 @@ public enum PdfPaintMode
     None = 0,
     Fill = 1,
     Stroke = 2
+}
+
+/// <summary>The eight PDF text rendering modes selected by the Tr operator.</summary>
+public enum PdfTextRenderingMode
+{
+    Fill = 0,
+    Stroke = 1,
+    FillAndStroke = 2,
+    Invisible = 3,
+    FillAndClip = 4,
+    StrokeAndClip = 5,
+    FillStrokeAndClip = 6,
+    Clip = 7
 }
 
 public sealed record PdfDashPattern
@@ -297,6 +313,46 @@ public sealed record PdfImageElement(
     IReadOnlyList<PdfClipPath> ClipPaths,
     string? SourceResource = null)
     : PdfGraphicsElement(State, ClipPaths, SourceResource);
+
+/// <summary>
+/// A text-showing operation retained at its exact position in the page display
+/// list. Glyph source codes stay internal so subset-font selection remains
+/// lossless without exposing parser implementation details.
+/// </summary>
+public sealed record PdfTextElement : PdfGraphicsElement
+{
+    internal PdfTextElement(
+        string text,
+        string fontResourceName,
+        string fontName,
+        double fontSize,
+        PdfTextRenderingMode renderingMode,
+        Text.PdfFontDecoder font,
+        IReadOnlyList<Text.PdfTextGlyphPlacement> glyphs,
+        PdfGraphicsState state,
+        IReadOnlyList<PdfClipPath> clipPaths,
+        string? sourceResource = null)
+        : base(state, clipPaths, sourceResource)
+    {
+        Text = text;
+        FontResourceName = fontResourceName;
+        FontName = fontName;
+        FontSize = fontSize;
+        RenderingMode = renderingMode;
+        Font = font;
+        Glyphs = glyphs;
+    }
+
+    public string Text { get; }
+    public string FontResourceName { get; }
+    public string FontName { get; }
+    public double FontSize { get; }
+    public PdfTextRenderingMode RenderingMode { get; }
+    public int GlyphCount => Glyphs.Count;
+
+    internal Text.PdfFontDecoder Font { get; }
+    internal IReadOnlyList<Text.PdfTextGlyphPlacement> Glyphs { get; }
+}
 
 public sealed record PdfShadingElement(
     string ResourceName,

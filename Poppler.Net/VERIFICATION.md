@@ -1,13 +1,13 @@
 # Verification record
 
-Verification performed on 2026-07-26 for `0.7.0-alpha.2`:
+Verification performed on 2026-07-26 for `0.8.0-alpha.1`:
 
 - .NET SDK 8.0.423 restored and compiled all four solution projects in Release
   with warnings treated as errors.
-- NUnitLite executed 101 tests: 101 passed, 0 failed, 0 warnings, 0 skipped.
+- NUnitLite executed 108 tests: 108 passed, 0 failed, 0 warnings, 0 skipped.
 - the managed-only verifier accepted production source and every asset in the
   complete restored NuGet graph, including the three runtime codecs.
-- `Poppler.Net.0.7.0-alpha.2.nupkg` was produced successfully; its manifest
+- `Poppler.Net.0.8.0-alpha.1.nupkg` was produced successfully; its manifest
   contains the three pinned managed codec dependencies and no native/runtime
   asset.
 - the user corrections remain intact: revision 6 selects SHA-2 through
@@ -39,6 +39,19 @@ Verification performed on 2026-07-26 for `0.7.0-alpha.2`:
 - a separate embedded TrueType fixture uses only `cmap` format 0, arbitrary
   PDF codes `01`–`03`, `ToUnicode` and an RGB fill color; managed rendering
   paints the expected orange `ABC` directly from the retained source codes.
+- the `0.8` graphics fixture retains two text runs and one raw RGB inline image
+  among seven display-list elements. Assertions verify that a blue vector
+  overlay follows Base-14 `ABC`, that the image samples are exactly red/green
+  and that the Type 3 CharProc inherits the expected blue paint.
+- Base-14 substitution was exercised with an explicit fixture directory and
+  no platform font API. Disabling substitution removes the non-embedded text.
+- the OpenType/CFF fixture renders distinct `A`, `B` and `C` Type 2 outlines;
+  the embedded PFB Type 1 fixture renders distinct `A`, `B` and `C` outlines
+  and applies a `Tr 7` text clip to a blue path.
+- managed/Poppler 26.05.0 normalized mean absolute errors at 72 DPI are
+  `0.00322099` for the mixed compatibility fixture, `0.000470635` for Type 1
+  and `0.0000252752` for OpenType/CFF. All three pairs were also inspected
+  visually so an aggregate pixel count cannot hide a missing glyph.
 - the three-page Prince `drylab.pdf` compatibility sample uses five embedded
   TrueType subsets with format 0 CMaps. Managed output at 96 DPI was visually
   checked page-by-page against Poppler output: title/body/footer text,
@@ -56,6 +69,9 @@ Verification performed on 2026-07-26 for `0.7.0-alpha.2`:
   graphics fixture hash continue to match their manifests.
 - project/XML/JSON/YAML structure, local Markdown links, shell syntax and
   forbidden-interoperability source scans pass.
+- the source archive contains 137 files, including 74 C# sources and 16,886
+  lines of production C#; it excludes `bin`, `obj`, NuGet packages, generated
+  bytecode, executables and native artifacts.
 
 The environment's normal `dotnet` CLI startup cannot reliably inspect its
 process namespace. Verification therefore invoked the SDK's managed MSBuild,

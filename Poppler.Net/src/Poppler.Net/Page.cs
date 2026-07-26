@@ -145,9 +145,6 @@ public sealed class Page
 
     internal PdfRectangle CropBox => _node.CropBox;
     internal PdfReadOptions ReadOptions => _document.Options;
-    internal PdfFontDecoder? FindFont(string name) =>
-        _fontDecoders.Value.Values.FirstOrDefault(
-            font => string.Equals(font.Name, name, StringComparison.Ordinal));
 
     private IReadOnlyList<TextBox> Extract(TextLayout layout)
     {

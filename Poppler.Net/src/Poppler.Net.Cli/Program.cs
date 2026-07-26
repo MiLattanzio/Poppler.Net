@@ -169,6 +169,7 @@ internal static class Cli
             Console.WriteLine(
                 $"page {page.Number}: {elements.Count} elements; " +
                 $"{elements.OfType<PdfPathElement>().Count()} paths, " +
+                $"{elements.OfType<PdfTextElement>().Count()} text runs, " +
                 $"{elements.OfType<PdfImageElement>().Count()} images, " +
                 $"{elements.OfType<PdfShadingElement>().Count()} shadings, " +
                 $"{elements.OfType<PdfTransparencyGroupElement>().Count()} transparency groups");
@@ -236,7 +237,10 @@ internal static class Cli
         {
             Dpi = GetDoubleOption(args, "--dpi") ?? 96,
             Antialiasing = GetIntegerOption(args, "--antialias") ?? 4,
-            Transparent = args.Contains("--transparent", StringComparer.Ordinal)
+            Transparent = args.Contains("--transparent", StringComparer.Ordinal),
+            UseFontSubstitution =
+                !args.Contains("--no-font-substitution", StringComparer.Ordinal),
+            FontDirectories = GetStringOptions(args, "--font-dir")
         };
         document.CreatePage(ToIndex(pageNumber, document)).SavePng(args[2], options);
         Console.WriteLine(Path.GetFullPath(args[2]));
@@ -318,6 +322,25 @@ internal static class Cli
         return args[index + 1];
     }
 
+    private static IReadOnlyList<string> GetStringOptions(
+        string[] args,
+        string option)
+    {
+        var values = new List<string>();
+        for (int index = 0; index < args.Length; index++)
+        {
+            if (!string.Equals(args[index], option, StringComparison.Ordinal))
+                continue;
+            if (index + 1 >= args.Length ||
+                args[index + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                throw new ArgumentException($"{option} requires a value.");
+            }
+            values.Add(args[++index]);
+        }
+        return values;
+    }
+
     private static void EnsureUnlocked(Document document)
     {
         if (document.IsLocked)
@@ -387,7 +410,7 @@ internal static class Cli
               poppler-net fonts <input.pdf> [--page N] [password options]
               poppler-net graphics <input.pdf> [--page N] [password options]
               poppler-net images <input.pdf> <output-dir> [--page N] [password options]
-              poppler-net render <input.pdf> <output.png> [--page N] [--dpi N] [--antialias 1|2|4|8] [--transparent] [password options]
+              poppler-net render <input.pdf> <output.png> [--page N] [--dpi N] [--antialias 1|2|4|8] [--transparent] [--font-dir PATH] [--no-font-substitution] [password options]
               poppler-net attachments <input.pdf> <output-dir> [password options]
               poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds] [--image-bounds] [password options]
               poppler-net version

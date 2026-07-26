@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.7.0-alpha.2` raster release is not a complete replacement for
+> This `0.8.0-alpha.1` compatibility release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -15,10 +15,11 @@ process invocation, or native NuGet dependency.
 > clipping, Form/Image XObjects, tiling patterns and axial/radial shadings.
 > The image slice decodes common raw and compressed Image XObjects, converts
 > calibrated and special color spaces to sRGB, exposes pixels, writes PNG and
-> embeds decoded images in SVG. The raster slice paints vector paths, images,
-> patterns, gradients and embedded TrueType glyph outlines with antialiasing,
-> source-code-aware subset-font mapping, device text colors, PDF blend modes,
-> transparency groups and Alpha/Luminosity soft masks. See
+> embeds decoded images in SVG. The raster slice paints paths, images,
+> patterns, gradients and text in exact content-stream order. Managed outline
+> readers cover embedded TrueType, CFF1/Type 2 and Type 1 programs; Type 3
+> CharProcs, text paint/clip modes, inline images and file-based Base-14
+> substitution are also integrated. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
@@ -50,6 +51,7 @@ dotnet run --project src/Poppler.Net.Cli -- fonts input.pdf
 dotnet run --project src/Poppler.Net.Cli -- graphics input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- images input.pdf output-images
 dotnet run --project src/Poppler.Net.Cli -- render input.pdf page.png --page 1 --dpi 144
+dotnet run --project src/Poppler.Net.Cli -- render input.pdf page.png --font-dir fonts
 dotnet run --project src/Poppler.Net.Cli -- attachments input.pdf output-dir
 dotnet run --project src/Poppler.Net.Cli -- svg input.pdf page.svg --page 1
 ```
@@ -160,6 +162,12 @@ embedded TrueType outline painting. Alpha 2 additionally retains original PDF
 character codes/CIDs for glyph selection, reads TrueType `cmap` format 0
 subsets and preserves DeviceGray/DeviceRGB/DeviceCMYK text colors. See
 [docs/RENDERING.md](docs/RENDERING.md).
+
+The `0.8` slice moves text into the graphics display list, preserves exact
+text/vector/image ordering, executes text inside Forms, implements all `Tr`
+fill/stroke/clip modes and decodes raw inline images. It adds managed CFF1
+Type 2 and Type 1 charstring outline readers, Type 3 CharProc execution and
+optional managed font-file substitution for Base-14/non-embedded fonts.
 
 ## License and provenance
 

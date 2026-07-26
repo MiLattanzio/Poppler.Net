@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.8.0-alpha.1 — 2026-07-26
+
+- Moved text-showing operators into `PdfGraphicsInterpreter` and added public
+  `PdfTextElement` entries in exact content-stream order, including text in
+  Form XObjects and transparency groups.
+- Added all eight PDF `Tr` rendering modes, managed glyph fill/stroke,
+  invisible text and accumulated text clipping.
+- Added bounded managed CFF1/Type 2 and PFA/PFB Type 1 charstring
+  interpreters, including common subroutine and flex behavior.
+- Executed Type 3 CharProcs as nested graphics programs with their font
+  matrix, resources and inherited text paint state.
+- Added optional managed font-file substitution for Base-14 and other
+  non-embedded fonts. Explicit `RasterRenderOptions.FontDirectories` take
+  priority over standard operating-system font folders; no native font API or
+  rasterizer is used.
+- Decoded raw inline images and abbreviated PDF image dictionary names while
+  retaining them at the correct display-list position.
+- Added CLI `--font-dir`, `--no-font-substitution` and text-run counts in the
+  `graphics` command.
+- Added deterministic Base-14, inline-image, Type 3, Type 1 and text-clipping
+  fixtures plus seven rendering regressions, bringing the suite to 108 NUnit
+  cases.
+- Visually verified CFF, Type 1, Type 3, inline-image and interleaving output
+  against Poppler, and rechecked the three-page `drylab.pdf` sample.
+
 ## 0.7.0-alpha.2 — 2026-07-26
 
 - Fixed missing raster text in TrueType subsets whose sfnt contains only a

@@ -76,20 +76,23 @@ also apply to fonts and CMaps.
 
 ## Deliberate limits
 
-- release `0.7` rasterizes embedded TrueType `glyf` simple/composite outlines,
-  but not CFF/Type 1 outlines or font hinting;
+- release `0.8` rasterizes common embedded TrueType, CFF1/Type 2 and Type 1
+  outlines, plus Type 3 CharProcs, but not CFF2, rare charstring operators,
+  hinting or Type 1 `seac`;
 - no complex-script shaping, OpenType GSUB/GPOS processing or full Unicode
   Bidirectional Algorithm;
-- no system-font discovery or substitution;
-- no raw CFF charset/encoding fallback when `ToUnicode` is absent;
-- no encrypted/eexec Type 1 encoding recovery beyond the clear-text section;
+- managed file substitution is available, but it is simpler than
+  Fontconfig/FreeType matching and depends on local files unless explicit
+  `FontDirectories` are supplied;
+- raw CFF charset/encoding fallback is partial when `ToUnicode` is absent;
+- encrypted/eexec Type 1 programs are decoded, but uncommon OtherSubrs and
+  synthetic/flex behavior remain partial;
 - no external `poppler-data` CMap packs and no arbitrary named `usecmap`
   inheritance beyond Identity-H/Identity-V;
-- Type 3 CharProcs are not rendered; their encodings and text advances are
-  available for extraction.
+- advanced Type 3 color/glyph behavior and text clipping through Type 3
+  outlines remain partial.
 
-Raster text is currently a post-display-list pass. Explicit DeviceGray,
-DeviceRGB and DeviceCMYK fill colors are retained, but exact PDF text paint
-mode, special/pattern colors, clipping, transparency, interleaving and
-Form-nested text remain future work. Recognizing a non-TrueType embedded font
-format does not imply that its glyph outlines are rendered.
+Raster text is now part of the graphics display list, including Form-nested
+text, exact operator interleaving and all eight fill/stroke/clip modes. Pattern
+and special-color text inherit the limits of the corresponding vector brush;
+shaping and vertical glyph substitution remain future work.

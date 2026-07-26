@@ -9,6 +9,7 @@ internal sealed class PdfRasterRenderer
     private readonly PdfMatrix _deviceTransform;
     private readonly Dictionary<PdfClipPath, RasterPath> _clipCache = new();
     private readonly Dictionary<PdfSoftMask, RasterSurface> _softMaskCache = new();
+    private readonly PdfFontSubstitutionResolver _fontSubstitution;
     private readonly int _samples;
 
     private PdfRasterRenderer(
@@ -24,6 +25,7 @@ internal sealed class PdfRasterRenderer
         Width = width;
         Height = height;
         _samples = options.Antialiasing;
+        _fontSubstitution = new PdfFontSubstitutionResolver(options);
     }
 
     private int Width { get; }
@@ -75,118 +77,95 @@ internal sealed class PdfRasterRenderer
             ? RasterColor.Transparent
             : RasterColor.FromPdf(_options.Background));
         RenderElements(surface, _page.Graphics, depth: 0);
-        if (_options.IncludeText)
-            RenderText(surface);
         return new PdfBitmap(Width, Height, surface.Pixels);
     }
 
-    private void RenderText(RasterSurface surface)
+    private void RenderText(RasterSurface surface, PdfTextElement element)
     {
-        foreach (TextBox box in _page.TextList(TextLayout.RawOrder))
+        if (!_options.IncludeText ||
+            element.RenderingMode is PdfTextRenderingMode.Invisible or
+                PdfTextRenderingMode.Clip)
         {
-            Text.PdfFontDecoder? font = _page.FindFont(box.FontName);
-            if (font is null || string.IsNullOrEmpty(box.Text))
-                continue;
-            var glyphs = new List<(PdfGraphicsPath? Path, double Advance)>();
-            double ascent = font.Ascent;
-            double descent = font.Descent;
-            if (box.DecodedGlyphs.Count > 0)
-            {
-                foreach (Text.PdfDecodedGlyph decoded in box.DecodedGlyphs)
-                {
-                    bool hasOutline = font.TryGetGlyphOutline(
-                        decoded,
-                        out PdfGraphicsPath outline,
-                        out double advance,
-                        out double glyphAscent,
-                        out double glyphDescent);
-                    double fallbackAdvance = Math.Abs(
-                        box.WritingMode == FontWritingMode.Vertical
-                            ? decoded.AdvanceY
-                            : decoded.AdvanceX) / 1000.0;
-                    glyphs.Add((
-                        hasOutline ? outline : null,
-                        Math.Max(0, advance > 0 ? advance : fallbackAdvance)));
-                    if (hasOutline)
-                    {
-                        ascent = glyphAscent;
-                        descent = glyphDescent;
-                    }
-                }
-            }
-            else
-            {
-                foreach (Rune rune in box.Text.EnumerateRunes())
-                {
-                    if (font.TryGetGlyphOutline(
-                            rune,
-                            out PdfGraphicsPath outline,
-                            out double advance,
-                            out double glyphAscent,
-                            out double glyphDescent))
-                    {
-                        glyphs.Add((outline, Math.Max(0, advance)));
-                        ascent = glyphAscent;
-                        descent = glyphDescent;
-                    }
-                    else
-                    {
-                        glyphs.Add((null, Rune.IsWhiteSpace(rune) ? 0.33 : 0.5));
-                    }
-                }
-            }
+            return;
+        }
 
-            double totalAdvance = glyphs.Sum(glyph => glyph.Advance);
-            double metricHeight = ascent - descent;
-            if (totalAdvance <= 1e-12 || metricHeight <= 1e-12)
-                continue;
-            int rotation = NormalizeRotation(box.Rotation);
-            double along = rotation is 90 or 270
-                ? box.BoundingBox.Height / totalAdvance
-                : box.BoundingBox.Width / totalAdvance;
-            double across = rotation is 90 or 270
-                ? box.BoundingBox.Width / metricHeight
-                : box.BoundingBox.Height / metricHeight;
-            if (!double.IsFinite(along) ||
-                !double.IsFinite(across) ||
-                along <= 0 ||
-                across <= 0)
+        bool fill = element.RenderingMode is
+            PdfTextRenderingMode.Fill or
+            PdfTextRenderingMode.FillAndStroke or
+            PdfTextRenderingMode.FillAndClip or
+            PdfTextRenderingMode.FillStrokeAndClip;
+        bool stroke = element.RenderingMode is
+            PdfTextRenderingMode.Stroke or
+            PdfTextRenderingMode.FillAndStroke or
+            PdfTextRenderingMode.StrokeAndClip or
+            PdfTextRenderingMode.FillStrokeAndClip;
+        foreach (Text.PdfTextGlyphPlacement placement in element.Glyphs)
+        {
+            bool hasOutline = element.Font.TryGetGlyphOutline(
+                placement.Glyph,
+                out PdfGraphicsPath outline,
+                out _,
+                out _,
+                out _);
+            if (!hasOutline && !element.Font.IsType3)
+            {
+                Rune rune = placement.Glyph.Text.EnumerateRunes().FirstOrDefault();
+                hasOutline =
+                    rune.Value != 0 &&
+                    _fontSubstitution.TryGetGlyph(
+                        element.FontName,
+                        rune,
+                        out outline,
+                        out _);
+            }
+            if (!hasOutline)
             {
                 continue;
             }
 
-            double cursor = 0;
-            foreach ((PdfGraphicsPath? outline, double advance) in glyphs)
+            RasterPath geometry = RasterGeometry.Flatten(
+                outline,
+                placement.Transform.Multiply(_deviceTransform));
+            if (fill)
             {
-                if (outline is not null)
-                {
-                    PdfMatrix glyphTransform = TextTransform(
-                        box.BoundingBox,
-                        rotation,
-                        cursor,
-                        along,
-                        across,
-                        descent);
-                    RasterPath geometry = RasterGeometry.Flatten(
-                        outline,
-                        glyphTransform.Multiply(_deviceTransform));
-                    Paint(
-                        surface,
-                        geometry.Bounds,
-                        Array.Empty<PdfClipPath>(),
-                        (x, y) => RasterGeometry.Contains(
-                            geometry,
-                            x,
-                            y,
-                            PdfFillRule.NonZero),
-                        (_, _) => RasterColor.FromPdf(
-                            box.FillColor ?? _options.TextColor),
-                        1,
-                        "Normal",
-                        null);
-                }
+                Paint(
+                    surface,
+                    geometry.Bounds,
+                    element.ClipPaths,
+                    (x, y) => RasterGeometry.Contains(
+                        geometry,
+                        x,
+                        y,
+                        PdfFillRule.NonZero),
+                    (x, y) => SampleBrush(element.State.Fill, element.State, x, y, 0),
+                    element.State.FillAlpha,
+                    element.State.BlendMode,
+                    element.State.SoftMask);
+            }
 
-                cursor += advance;
+            if (stroke)
+            {
+                PdfMatrix stateTransform =
+                    element.State.Transform.Multiply(_deviceTransform);
+                double scale = RasterGeometry.EffectiveScale(stateTransform);
+                double width = Math.Max(
+                    1.0 / _samples,
+                    element.State.LineWidth * scale);
+                PdfDashPattern dash = ScaleDash(element.State.Dash, scale);
+                Paint(
+                    surface,
+                    geometry.Bounds.Expand(width / 2 + 1),
+                    element.ClipPaths,
+                    (x, y) => RasterGeometry.StrokeContains(
+                        geometry,
+                        x,
+                        y,
+                        width,
+                        dash),
+                    (x, y) => SampleBrush(element.State.Stroke, element.State, x, y, 0),
+                    element.State.StrokeAlpha,
+                    element.State.BlendMode,
+                    element.State.SoftMask);
             }
         }
     }
@@ -207,6 +186,9 @@ internal sealed class PdfRasterRenderer
                     break;
                 case PdfImageElement image:
                     RenderImage(surface, image);
+                    break;
+                case PdfTextElement text:
+                    RenderText(surface, text);
                     break;
                 case PdfShadingElement shading:
                     RenderShading(surface, shading);
@@ -792,42 +774,4 @@ internal sealed class PdfRasterRenderer
         return normalized < 0 ? normalized + 360 : normalized;
     }
 
-    private static PdfMatrix TextTransform(
-        PdfRectangle box,
-        int rotation,
-        double cursor,
-        double along,
-        double across,
-        double descent) =>
-        rotation switch
-        {
-            90 => new PdfMatrix(
-                0,
-                along,
-                -across,
-                0,
-                box.Right + descent * across,
-                box.Bottom + cursor * along),
-            180 => new PdfMatrix(
-                -along,
-                0,
-                0,
-                -across,
-                box.Right - cursor * along,
-                box.Top + descent * across),
-            270 => new PdfMatrix(
-                0,
-                -along,
-                across,
-                0,
-                box.Left - descent * across,
-                box.Top - cursor * along),
-            _ => new PdfMatrix(
-                along,
-                0,
-                0,
-                across,
-                box.Left + cursor * along,
-                box.Bottom - descent * across)
-        };
 }

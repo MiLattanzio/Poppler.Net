@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.7.0-alpha.2
+## Works in 0.8.0-alpha.1
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -59,6 +59,19 @@
 - Type 2 axial and type 3 radial shadings in device color spaces using
   exponential and stitching functions.
 - Public backend-neutral `Page.Graphics` display lists.
+- Public `PdfTextElement` entries in exact page/Form content-stream order,
+  carrying font, size, glyph count, graphics state and all eight `Tr` modes.
+- Managed text fill/stroke/invisible/clip painting, including accumulated text
+  clips and graphics-state alpha, blend, soft-mask and clipping interaction.
+- Embedded TrueType `glyf`, CFF1/Type 2 and PFA/PFB Type 1 outlines through
+  bounded managed readers; common CFF CID subroutines and Type 1 eexec/`lenIV`
+  programs are supported.
+- Type 3 CharProc execution with font matrices, resources and inherited text
+  paint state.
+- Optional managed font-file substitution for Base-14/non-embedded fonts,
+  with explicit search roots and no native font API or rasterizer.
+- Raw inline images, standard abbreviated dictionary keys/names and
+  content-stream interleaving.
 - Managed SVG vector output for paths, clipping, Form content, tiling patterns,
   axial/radial gradients, decoded Image XObjects and extracted text.
 - Managed full-page RGBA raster output and PNG encoding at configurable DPI,
@@ -99,7 +112,8 @@
 - Encryption is read-only: saving preserves the original encrypted bytes and
   cannot change passwords, permissions or crypt filters.
 - Digital signatures are neither created nor validated.
-- Inline images are not decoded.
+- Inline images with ambiguous `EI` byte sequences, unusual filter chains or
+  unsupported color spaces may still require more complete boundary recovery.
 - Knockout and non-isolated group backdrop interaction, soft-mask transfer
   functions and overprint are incomplete. SVG remains a preview backend.
 - Uncolored tiling patterns, shading types 1 and 4–7, calculator functions and
@@ -108,13 +122,13 @@
   proofing, spot-color calibration and overprint simulation are not
   implemented. ICCBased falls back to `/Alternate` outside common
   matrix/shaper profiles.
-- Raster text remains a separate post-display-list pass: exact content
-  interleaving, text clipping/paint mode/transparency, special/pattern text
-  color spaces and text nested in Form XObjects are not preserved.
-- Complex-script shaping, GSUB/GPOS, full bidi, raw CFF fallback, arbitrary
-  external named CMaps and font substitution are not implemented.
-- Type 1/CFF outlines and Type 3 CharProcs are not rasterized. Embedded
-  TrueType outlines are rasterized without hinting.
+- Complex-script shaping, GSUB/GPOS, full bidi, arbitrary external named CMaps
+  and vertical glyph substitution are not implemented.
+- CFF2, rare Type 1/CFF operators, Type 1 `seac`, advanced Type 3 behavior and
+  font hinting are not implemented. Font substitution is file-based and its
+  choice can vary with installed fonts unless explicit roots are supplied.
+- Pattern and special-color-space text paint has the same limitations as its
+  corresponding vector brush implementation.
 - Vertical writing is supported for extraction and metrics; vertical glyph
   forms are not substituted.
 - Stroke cap/join/miter geometry and dash continuity use the first managed
