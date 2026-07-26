@@ -12,6 +12,8 @@ public sealed class Page
     private readonly PdfPageNode _node;
     private readonly Lazy<IReadOnlyList<TextBox>> _physicalText;
     private readonly Lazy<IReadOnlyList<TextBox>> _rawText;
+    private readonly Lazy<IReadOnlyList<TextBox>> _readingOrderText;
+    private readonly Lazy<IReadOnlyList<FontInfo>> _fonts;
 
     internal Page(
         Document owner,
@@ -29,6 +31,15 @@ public sealed class Page
             () => Extract(TextLayout.Physical));
         _rawText = new Lazy<IReadOnlyList<TextBox>>(
             () => Extract(TextLayout.RawOrder));
+        _readingOrderText = new Lazy<IReadOnlyList<TextBox>>(
+            () => Extract(TextLayout.NonRawNonPhysical));
+        _fonts = new Lazy<IReadOnlyList<FontInfo>>(
+            () => PdfFontCollection
+                .Read(_document, _node)
+                .Values
+                .Select(font => font.Info)
+                .OrderBy(font => font.ResourceName, StringComparer.Ordinal)
+                .ToArray());
     }
 
     public int Index { get; }
@@ -36,6 +47,7 @@ public sealed class Page
     public string Label { get; }
     public int Rotation => _node.Rotation;
     public double Duration => _node.Dictionary.GetValueOrNull("Dur").AsNumber(_document) ?? -1;
+    public IReadOnlyList<FontInfo> Fonts => _fonts.Value;
 
     public PageOrientation Orientation => Rotation switch
     {
@@ -70,7 +82,12 @@ public sealed class Page
     }
 
     public IReadOnlyList<TextBox> TextList(TextLayout layout = TextLayout.Physical) =>
-        layout == TextLayout.RawOrder ? _rawText.Value : _physicalText.Value;
+        layout switch
+        {
+            TextLayout.RawOrder => _rawText.Value,
+            TextLayout.NonRawNonPhysical => _readingOrderText.Value,
+            _ => _physicalText.Value
+        };
 
     public IReadOnlyList<PdfRectangle> Search(
         string text,

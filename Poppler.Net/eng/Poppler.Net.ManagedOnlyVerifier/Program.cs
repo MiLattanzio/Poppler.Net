@@ -271,10 +271,10 @@ internal static class Program
         stream.ReadExactly(buffer[..2]);
         ushort sectionCount = BinaryPrimitives.ReadUInt16LittleEndian(buffer[..2]);
         long? cliOffset = null;
+        Span<byte> sectionData = stackalloc byte[16];
         for (int section = 0; section < sectionCount; section++)
         {
             stream.Position = sectionTable + (section * 40L) + 8;
-            Span<byte> sectionData = stackalloc byte[16];
             stream.ReadExactly(sectionData);
             uint virtualSize = BinaryPrimitives.ReadUInt32LittleEndian(sectionData[..4]);
             uint virtualAddress = BinaryPrimitives.ReadUInt32LittleEndian(sectionData[4..8]);

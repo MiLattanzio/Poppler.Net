@@ -1,4 +1,6 @@
-# Encrypted compatibility fixtures
+# Compatibility fixtures
+
+## Encryption
 
 These five small PDFs exercise the Standard Security Handler revisions 2–6:
 
@@ -20,3 +22,15 @@ denying modification, annotations, forms and document assembly.
 Four AES-128 variants additionally cover different `StrF`/`StmF` selections,
 an independent `EFF`, an explicit stream `/Crypt` filter and the
 `EncryptMetadata false` file-key branch.
+
+## Embedded fonts
+
+`truetype-cmap-fallback.pdf` and `opentype-cff-cmap-fallback.pdf` contain tiny
+subsets for `ABC`, a custom `CIDToGIDMap`, and deliberately omit `ToUnicode`.
+They exercise the managed sfnt cmap fallback for CID TrueType and CID Type 0C
+OpenType fonts.
+
+`generate_font_fixtures.py` recreates them with FontTools. Poppler 26.05.0 and
+pypdf 6.10.0 independently recover `ABC`; `pdffonts` identifies both files as
+embedded subsets without `ToUnicode`. `font-fixtures.json` records their
+hashes and [FONT_LICENSES.md](FONT_LICENSES.md) records font provenance.

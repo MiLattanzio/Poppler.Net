@@ -61,7 +61,8 @@ public sealed class CrossReferenceTests
     public void RejectsAReferenceWithTheWrongGeneration()
     {
         Assert.That(
-            (Action)(() => Document.LoadFromData(PdfFixtures.CreateWithWrongPageGeneration())),
+            (Action)(() =>
+                Document.LoadFromData(PdfFixtures.CreateWithWrongPageGeneration())),
             Throws.TypeOf<PdfFormatException>());
     }
 }

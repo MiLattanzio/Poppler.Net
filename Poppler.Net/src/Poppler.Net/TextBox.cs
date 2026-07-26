@@ -6,4 +6,8 @@ public sealed record TextBox(
     int Rotation,
     bool HasSpaceAfter,
     string FontName,
-    double FontSize);
+    double FontSize)
+{
+    public FontWritingMode WritingMode { get; init; }
+    public bool IsRightToLeft { get; init; }
+}

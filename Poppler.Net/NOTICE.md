@@ -16,6 +16,8 @@ Changed for the managed port in July 2026:
 - stable C++ API concepts mapped to idiomatic managed types;
 - Standard Security Handler password and object decryption ported to managed
   C# and .NET cryptography APIs;
+- font character maps, CID metrics, embedded sfnt inspection and directional
+  text layout ported to managed C#;
 - rendering scope reduced to an SVG diagnostic backend in the alpha release.
 
 The complete upstream GPL notices remain authoritative. See `LICENSE`.

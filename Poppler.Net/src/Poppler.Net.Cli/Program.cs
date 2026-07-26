@@ -20,6 +20,7 @@ internal static class Cli
             {
                 "info" => Info(args),
                 "text" => Text(args),
+                "fonts" => Fonts(args),
                 "attachments" => Attachments(args),
                 "svg" => Svg(args),
                 "version" or "--version" => Version(),
@@ -78,12 +79,16 @@ internal static class Cli
         RequireCount(args, 2, "text requires an input PDF.");
         using Document document = LoadDocument(args, 1);
         EnsureUnlocked(document);
-        bool raw = args.Contains("--raw", StringComparer.Ordinal);
+        TextLayout layout = args.Contains("--raw", StringComparer.Ordinal)
+            ? TextLayout.RawOrder
+            : args.Contains("--reading-order", StringComparer.Ordinal)
+                ? TextLayout.NonRawNonPhysical
+                : TextLayout.Physical;
         int? pageNumber = GetPageOption(args);
         if (pageNumber is not null)
         {
             Console.WriteLine(document.CreatePage(ToIndex(pageNumber.Value, document)).Text(
-                layout: raw ? TextLayout.RawOrder : TextLayout.Physical));
+                layout: layout));
             return 0;
         }
 
@@ -93,7 +98,34 @@ internal static class Cli
                 Console.WriteLine();
             Page page = document.CreatePage(index);
             Console.WriteLine($"--- Page {page.Number} ({page.Label}) ---");
-            Console.WriteLine(page.Text(layout: raw ? TextLayout.RawOrder : TextLayout.Physical));
+            Console.WriteLine(page.Text(layout: layout));
+        }
+
+        return 0;
+    }
+
+    private static int Fonts(string[] args)
+    {
+        RequireCount(args, 2, "fonts requires an input PDF.");
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
+        int? pageNumber = GetPageOption(args);
+        IEnumerable<Page> pages = pageNumber is null
+            ? Enumerable.Range(0, document.Pages).Select(document.CreatePage)
+            : new[] { document.CreatePage(ToIndex(pageNumber.Value, document)) };
+
+        Console.WriteLine(
+            "page resource name                             type       encoding       embedded subset unicode mode");
+        foreach (Page page in pages)
+        {
+            foreach (FontInfo font in page.Fonts)
+            {
+                Console.WriteLine(
+                    $"{page.Number,4} {font.ResourceName,-8} {Truncate(font.Name, 32),-32} " +
+                    $"{font.Type,-10} {Truncate(font.Encoding, 14),-14} " +
+                    $"{YesNo(font.IsEmbedded),-8} {YesNo(font.IsSubset),-6} " +
+                    $"{YesNo(font.HasToUnicode),-7} {font.WritingMode}");
+            }
         }
 
         return 0;
@@ -213,6 +245,9 @@ internal static class Cli
 
     private static string YesNo(bool value) => value ? "yes" : "no";
 
+    private static string Truncate(string value, int length) =>
+        value.Length <= length ? value : value[..(length - 1)] + "…";
+
     private static void RequireCount(string[] args, int count, string message)
     {
         if (args.Length < count)
@@ -234,7 +269,8 @@ internal static class Cli
 
             Usage:
               poppler-net info <input.pdf> [password options]
-              poppler-net text <input.pdf> [--page N] [--raw] [password options]
+              poppler-net text <input.pdf> [--page N] [--raw|--reading-order] [password options]
+              poppler-net fonts <input.pdf> [--page N] [password options]
               poppler-net attachments <input.pdf> <output-dir> [password options]
               poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds] [password options]
               poppler-net version

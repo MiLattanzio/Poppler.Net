@@ -87,6 +87,213 @@ internal static class PdfFixtures
         return output.ToArray();
     }
 
+    public static byte[] CreateSimpleFontFixture()
+    {
+        byte[] content = Ascii("BT /F1 20 Tf 72 700 Td <41424320> Tj ET");
+        var objects = new[]
+        {
+            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+            Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 800] " +
+                "/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"),
+            Stream($"<< /Length {content.Length} >>", content),
+            Ascii(
+                "<< /Type /Font /Subtype /Type1 /BaseFont /ABCDEF+FixtureSerif " +
+                "/Encoding << /BaseEncoding /WinAnsiEncoding " +
+                "/Differences [65 /fi /uni20AC /u1F600] >> " +
+                "/FirstChar 32 /LastChar 67 /Widths [" +
+                string.Join(" ", Enumerable.Range(32, 36).Select(code => code switch
+                {
+                    32 => "250",
+                    65 => "500",
+                    66 => "600",
+                    67 => "700",
+                    _ => "0"
+                })) +
+                "] >>")
+        };
+        return BuildClassic(objects, infoObject: null);
+    }
+
+    public static byte[] CreateType0IdentityFixture(bool vertical)
+    {
+        string encoding = vertical ? "Identity-V" : "Identity-H";
+        byte[] content = Ascii("BT /F0 20 Tf 100 650 Td <000100020003> Tj ET");
+        byte[] toUnicode = Ascii(
+            "/CIDInit /ProcSet findresource begin\n" +
+            "12 dict begin begincmap\n" +
+            "1 begincodespacerange <0000> <FFFF> endcodespacerange\n" +
+            "1 beginbfchar <0001> <0041> endbfchar\n" +
+            "1 beginbfrange <0002> <0003> <0062> endbfrange\n" +
+            "endcmap end end");
+        string metrics = vertical
+            ? "/DW 1000 /W [1 [500 600 700]] /DW2 [880 -1000] " +
+              "/W2 [1 [ -900 250 880 -1000 300 880 -1100 350 880 ]]"
+            : "/DW 1000 /W [1 [500 600] 3 3 700]";
+        var objects = new[]
+        {
+            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+            Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 800] " +
+                "/Resources << /Font << /F0 5 0 R >> >> /Contents 4 0 R >>"),
+            Stream($"<< /Length {content.Length} >>", content),
+            Ascii(
+                $"<< /Type /Font /Subtype /Type0 /BaseFont /FixtureCID /Encoding /{encoding} " +
+                "/DescendantFonts [6 0 R] /ToUnicode 7 0 R >>"),
+            Ascii(
+                "<< /Type /Font /Subtype /CIDFontType2 /BaseFont /FixtureCID " +
+                "/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> " +
+                $"/CIDToGIDMap /Identity {metrics} >>"),
+            Stream($"<< /Length {toUnicode.Length} >>", toUnicode)
+        };
+        return BuildClassic(objects, infoObject: null);
+    }
+
+    public static byte[] CreateCustomCMapFixture()
+    {
+        byte[] content = Ascii("BT /F0 16 Tf 60 720 Td <202122> Tj ET");
+        byte[] encoding = Ascii(
+            "/CIDInit /ProcSet findresource begin\n" +
+            "12 dict begin begincmap\n" +
+            "/CMapName /Fixture-H def /WMode 0 def\n" +
+            "1 begincodespacerange <01> <7F> endcodespacerange\n" +
+            "1 begincidrange <20> <22> 100 endcidrange\n" +
+            "endcmap end end");
+        byte[] toUnicode = Ascii(
+            "1 begincodespacerange <01> <7F> endcodespacerange\n" +
+            "1 beginbfrange <20> <22> <0041> endbfrange");
+        var objects = new[]
+        {
+            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+            Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 800] " +
+                "/Resources << /Font << /F0 5 0 R >> >> /Contents 4 0 R >>"),
+            Stream($"<< /Length {content.Length} >>", content),
+            Ascii(
+                "<< /Type /Font /Subtype /Type0 /BaseFont /CustomCID /Encoding 7 0 R " +
+                "/DescendantFonts [6 0 R] /ToUnicode 8 0 R >>"),
+            Ascii(
+                "<< /Type /Font /Subtype /CIDFontType0 /BaseFont /CustomCID " +
+                "/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> " +
+                "/DW 1000 /W [100 102 750] >>"),
+            Stream(
+                $"<< /Length {encoding.Length} /CMapName /Fixture-H >>",
+                encoding),
+            Stream($"<< /Length {toUnicode.Length} >>", toUnicode)
+        };
+        return BuildClassic(objects, infoObject: null);
+    }
+
+    public static byte[] CreateType3Fixture()
+    {
+        byte[] content = Ascii("BT /F3 10 Tf 50 600 Td <4142> Tj ET");
+        byte[] glyph = Ascii("500 0 d0");
+        var objects = new[]
+        {
+            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+            Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 800] " +
+                "/Resources << /Font << /F3 5 0 R >> >> /Contents 4 0 R >>"),
+            Stream($"<< /Length {content.Length} >>", content),
+            Ascii(
+                "<< /Type /Font /Subtype /Type3 /Name /F3 " +
+                "/FontBBox [0 -200 1000 800] /FontMatrix [0.002 0 0 0.002 0 0] " +
+                "/CharProcs << /A 6 0 R /B 7 0 R >> " +
+                "/Encoding << /Differences [65 /A /B] >> " +
+                "/FirstChar 65 /LastChar 66 /Widths [500 600] /Resources << >> >>"),
+            Stream($"<< /Length {glyph.Length} >>", glyph),
+            Stream($"<< /Length {glyph.Length} >>", glyph)
+        };
+        return BuildClassic(objects, infoObject: null);
+    }
+
+    public static byte[] CreateEmbeddedType1EncodingFixture()
+    {
+        byte[] content = Ascii("BT /F1 16 Tf 50 620 Td <41> Tj ET");
+        byte[] fontProgram = Ascii(
+            "%!PS-AdobeFont-1.0: FixtureType1 1.0\n" +
+            "/Encoding 256 array\n" +
+            "dup 65 /fi put\n" +
+            "readonly def\n");
+        var objects = new[]
+        {
+            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+            Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 800] " +
+                "/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"),
+            Stream($"<< /Length {content.Length} >>", content),
+            Ascii(
+                "<< /Type /Font /Subtype /Type1 /BaseFont /FixtureType1 " +
+                "/FontDescriptor 6 0 R /FirstChar 65 /LastChar 65 /Widths [500] >>"),
+            Ascii(
+                "<< /Type /FontDescriptor /FontName /FixtureType1 /Flags 4 " +
+                "/FontBBox [0 -200 1000 800] /Ascent 800 /Descent -200 " +
+                "/CapHeight 700 /StemV 80 /FontFile 7 0 R >>"),
+            Stream(
+                $"<< /Length {fontProgram.Length} /Length1 {fontProgram.Length} " +
+                "/Length2 0 /Length3 0 >>",
+                fontProgram)
+        };
+        return BuildClassic(objects, infoObject: null);
+    }
+
+    public static byte[] CreateColumnLayoutFixture()
+    {
+        byte[] content = Ascii(
+            "BT /F1 12 Tf " +
+            "1 0 0 1 40 740 Tm (Left one) Tj " +
+            "1 0 0 1 300 740 Tm (Right one) Tj " +
+            "1 0 0 1 40 700 Tm (Left two) Tj " +
+            "1 0 0 1 300 700 Tm (Right two) Tj ET");
+        var objects = new[]
+        {
+            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+            Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 600 800] " +
+                "/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"),
+            Stream($"<< /Length {content.Length} >>", content),
+            Ascii(
+                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica " +
+                "/Encoding /WinAnsiEncoding >>")
+        };
+        return BuildClassic(objects, infoObject: null);
+    }
+
+    public static byte[] CreateRightToLeftFixture()
+    {
+        byte[] content = Ascii(
+            "BT /F0 18 Tf " +
+            "1 0 0 1 282 700 Tm <0002> Tj " +
+            "1 0 0 1 300 700 Tm <0001> Tj ET");
+        byte[] toUnicode = Ascii(
+            "1 begincodespacerange <0000> <FFFF> endcodespacerange\n" +
+            "2 beginbfchar <0001> <05D0> <0002> <05D1> endbfchar");
+        var objects = new[]
+        {
+            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+            Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 800] " +
+                "/Resources << /Font << /F0 5 0 R >> >> /Contents 4 0 R >>"),
+            Stream($"<< /Length {content.Length} >>", content),
+            Ascii(
+                "<< /Type /Font /Subtype /Type0 /BaseFont /HebrewFixture " +
+                "/Encoding /Identity-H /DescendantFonts [6 0 R] /ToUnicode 7 0 R >>"),
+            Ascii(
+                "<< /Type /Font /Subtype /CIDFontType2 /BaseFont /HebrewFixture " +
+                "/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> " +
+                "/CIDToGIDMap /Identity /DW 1000 >>"),
+            Stream($"<< /Length {toUnicode.Length} >>", toUnicode)
+        };
+        return BuildClassic(objects, infoObject: null);
+    }
+
     public static byte[] CreateWithIncrementalUpdate()
     {
         byte[] original = Create(compressContent: false);
@@ -159,7 +366,9 @@ internal static class PdfFixtures
         return result.AsSpan(0, marker).ToArray();
     }
 
-    private static byte[] BuildClassic(IReadOnlyList<byte[]> objects)
+    private static byte[] BuildClassic(
+        IReadOnlyList<byte[]> objects,
+        int? infoObject = 6)
     {
         using var output = new MemoryStream();
         Write(output, "%PDF-1.7\n%");
@@ -179,9 +388,10 @@ internal static class PdfFixtures
         Write(output, "0000000000 65535 f \n");
         foreach (long offset in offsets.Skip(1))
             Write(output, $"{offset:0000000000} 00000 n \n");
+        string info = infoObject.HasValue ? $" /Info {infoObject.Value} 0 R" : "";
         Write(
             output,
-            $"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R /Info 6 0 R " +
+            $"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R{info} " +
             "/ID [<00112233445566778899AABBCCDDEEFF> <FFEEDDCCBBAA99887766554433221100>] >>\n");
         Write(output, $"startxref\n{xref}\n%%EOF\n");
         return output.ToArray();

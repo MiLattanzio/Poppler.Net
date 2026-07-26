@@ -29,6 +29,7 @@ var options = new PdfReadOptions
 {
     MaximumInputBytes = 64 * 1024 * 1024,
     MaximumDecodedStreamBytes = 32 * 1024 * 1024,
+    MaximumCMapMappings = 100_000,
     MaximumPages = 2_000,
     AttemptXrefRepair = false
 };
@@ -60,6 +61,29 @@ IReadOnlyList<PdfRectangle> hits = page.Search("needle");
 
 The managed API uses zero-based indices. A page may also be selected by its PDF
 page label with `CreatePage(string)`.
+
+`TextLayout.RawOrder` follows content-stream order, `Physical` groups runs by
+their geometric baselines, and `NonRawNonPhysical` additionally applies the
+conservative column reading-order pass.
+
+## Fonts
+
+```csharp
+foreach (FontInfo font in page.Fonts)
+{
+    Console.WriteLine(
+        $"{font.ResourceName}: {font.Name}, {font.Type}, " +
+        $"{font.Encoding}, embedded={font.IsEmbedded}");
+}
+```
+
+`FontInfo` reports Type 1, CFF, TrueType, OpenType, CID and Type 3 resources,
+horizontal/vertical mode, subset state, embedded format/program byte length,
+collection and `ToUnicode` availability. For an unsupported font-stream filter
+the byte length is the retained encoded payload. This is inspection metadata,
+not a font-rasterization API.
+
+Each `TextBox` also reports `WritingMode` and `IsRightToLeft`.
 
 ## Attachments
 

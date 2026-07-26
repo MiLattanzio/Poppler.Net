@@ -15,10 +15,9 @@ internal sealed class PdfTextExtractor
     {
         _document = document;
         _page = page;
-        _fallbackFont = new PdfFontDecoder(
-            new PdfDictionary(new Dictionary<string, PdfObject>(StringComparer.Ordinal)),
-            document);
-        ReadFonts();
+        _fallbackFont = PdfFontDecoder.CreateFallback(document);
+        foreach ((string name, PdfFontDecoder font) in PdfFontCollection.Read(document, page))
+            _fonts[name] = font;
     }
 
     public IReadOnlyList<TextBox> Extract(TextLayout layout)
@@ -113,53 +112,12 @@ internal sealed class PdfTextExtractor
             }
         }
 
-        return layout == TextLayout.RawOrder
-            ? results
-            : results
-                .OrderByDescending(box => Math.Round(box.BoundingBox.Top, 1))
-                .ThenBy(box => box.BoundingBox.Left)
-                .ToArray();
+        return PdfTextLayoutEngine.Order(results, layout);
     }
 
     public static string Join(IReadOnlyList<TextBox> boxes, TextLayout layout)
     {
-        if (boxes.Count == 0)
-            return "";
-        if (layout == TextLayout.RawOrder)
-            return string.Concat(boxes.Select(box => box.Text + (box.HasSpaceAfter ? " " : ""))).Trim();
-
-        var builder = new StringBuilder();
-        double? baseline = null;
-        PdfRectangle previous = default;
-        double previousFontSize = 0;
-        foreach (TextBox box in boxes)
-        {
-            double currentBaseline = box.BoundingBox.Bottom;
-            bool newLine = baseline.HasValue &&
-                           Math.Abs(currentBaseline - baseline.Value) >
-                           Math.Max(2, Math.Max(previousFontSize, box.FontSize) * 0.6);
-            if (newLine)
-            {
-                builder.AppendLine();
-            }
-            else if (builder.Length > 0 &&
-                     builder[^1] is not '\n' and not ' ' &&
-                     (box.BoundingBox.Left - previous.Right >
-                      Math.Max(1, Math.Min(previousFontSize, box.FontSize) * 0.15) ||
-                      box.HasSpaceAfter))
-            {
-                builder.Append(' ');
-            }
-
-            builder.Append(box.Text);
-            if (box.HasSpaceAfter)
-                builder.Append(' ');
-            baseline = currentBaseline;
-            previous = box.BoundingBox;
-            previousFontSize = box.FontSize;
-        }
-
-        return builder.ToString().Trim();
+        return PdfTextLayoutEngine.Join(boxes, layout);
     }
 
     private void ShowArray(PdfArray array, TextState state, List<TextBox> results)
@@ -172,10 +130,10 @@ internal sealed class PdfTextExtractor
             }
             else if (item is PdfNumber adjustment)
             {
-                double movement = -adjustment.Value / 1000.0 *
-                                  state.FontSize *
-                                  state.HorizontalScale;
-                state.TextMatrix = state.TextMatrix.Translate(movement, 0);
+                double movement = -adjustment.Value / 1000.0 * state.FontSize;
+                state.TextMatrix = state.Font.WritingMode == FontWritingMode.Vertical
+                    ? state.TextMatrix.Translate(0, movement)
+                    : state.TextMatrix.Translate(movement * state.HorizontalScale, 0);
             }
         }
     }
@@ -183,35 +141,86 @@ internal sealed class PdfTextExtractor
     private void Show(PdfString value, TextState state, List<TextBox> results)
     {
         ReadOnlySpan<byte> bytes = value.Bytes.Span;
-        string text = state.Font.Decode(bytes);
-        double advance =
-            (state.Font.GetAdvance(bytes) / 1000.0 * state.FontSize +
-             state.CharacterSpacing * bytes.Length +
-             state.WordSpacing * bytes.Count((byte)' ')) *
-            state.HorizontalScale;
+        IReadOnlyList<PdfDecodedGlyph> glyphs = state.Font.DecodeGlyphs(bytes);
+        string text = string.Concat(glyphs.Select(glyph => glyph.Text));
+        double advanceX = 0;
+        double advanceY = 0;
+        foreach (PdfDecodedGlyph glyph in glyphs)
+        {
+            double spacing =
+                state.CharacterSpacing +
+                (glyph.IsWordSpace ? state.WordSpacing : 0);
+            if (state.Font.WritingMode == FontWritingMode.Vertical)
+            {
+                advanceY += glyph.AdvanceY / 1000.0 * state.FontSize -
+                            spacing;
+            }
+            else
+            {
+                advanceX +=
+                    (glyph.AdvanceX / 1000.0 * state.FontSize + spacing) *
+                    state.HorizontalScale;
+            }
+        }
 
         if (!string.IsNullOrEmpty(text))
         {
             PdfMatrix deviceMatrix = state.TextMatrix.Multiply(state.Ctm);
-            (double startX, double startY) = deviceMatrix.Transform(0, state.Rise);
-            (double endX, double endY) = deviceMatrix.Transform(advance, state.Rise);
-            (double topX, double topY) = deviceMatrix.Transform(0, state.Rise + state.FontSize);
-            double minX = Math.Min(startX, Math.Min(endX, topX));
-            double maxX = Math.Max(startX, Math.Max(endX, topX));
-            double minY = Math.Min(startY, Math.Min(endY, topY));
-            double maxY = Math.Max(startY, Math.Max(endY, topY));
+            (double lower, double upper, double crossStart, double crossEnd) =
+                state.Font.WritingMode == FontWritingMode.Vertical
+                    ? (
+                        Math.Min(0, advanceY),
+                        Math.Max(0, advanceY),
+                        -state.FontSize * 0.5 * state.HorizontalScale,
+                        state.FontSize * 0.5 * state.HorizontalScale)
+                    : (
+                        state.Font.Descent * state.FontSize + state.Rise,
+                        state.Font.Ascent * state.FontSize + state.Rise,
+                        Math.Min(0, advanceX),
+                        Math.Max(0, advanceX));
+            (double X, double Y)[] corners =
+                state.Font.WritingMode == FontWritingMode.Vertical
+                    ? new[]
+                    {
+                        deviceMatrix.Transform(crossStart, lower + state.Rise),
+                        deviceMatrix.Transform(crossEnd, lower + state.Rise),
+                        deviceMatrix.Transform(crossStart, upper + state.Rise),
+                        deviceMatrix.Transform(crossEnd, upper + state.Rise)
+                    }
+                    : new[]
+                    {
+                        deviceMatrix.Transform(crossStart, lower),
+                        deviceMatrix.Transform(crossEnd, lower),
+                        deviceMatrix.Transform(crossStart, upper),
+                        deviceMatrix.Transform(crossEnd, upper)
+                    };
+            double minX = corners.Min(point => point.X);
+            double maxX = corners.Max(point => point.X);
+            double minY = corners.Min(point => point.Y);
+            double maxY = corners.Max(point => point.Y);
+            (double startX, double startY) = deviceMatrix.Transform(0, 0);
+            (double endX, double endY) = deviceMatrix.Transform(advanceX, advanceY);
             int rotation = NormalizeRotation(
                 (int)Math.Round(Math.Atan2(endY - startY, endX - startX) * 180 / Math.PI));
-            results.Add(new TextBox(
-                text.TrimEnd(),
-                new PdfRectangle(minX, minY, maxX, maxY),
-                rotation,
-                text.Length > 0 && char.IsWhiteSpace(text[^1]),
-                state.Font.Name,
-                state.FontSize));
+            string visibleText = text.TrimEnd();
+            if (visibleText.Length > 0)
+            {
+                results.Add(new TextBox(
+                    visibleText,
+                    new PdfRectangle(minX, minY, maxX, maxY),
+                    rotation,
+                    text.Length > 0 && char.IsWhiteSpace(text[^1]),
+                    state.Font.Name,
+                    state.FontSize)
+                {
+                    WritingMode = state.Font.WritingMode,
+                    IsRightToLeft =
+                        PdfTextLayoutEngine.ContainsStrongRightToLeft(visibleText)
+                });
+            }
         }
 
-        state.TextMatrix = state.TextMatrix.Translate(advance, 0);
+        state.TextMatrix = state.TextMatrix.Translate(advanceX, advanceY);
     }
 
     private byte[] GetContentBytes()
@@ -239,20 +248,6 @@ internal sealed class PdfTextExtractor
         }
 
         return output.ToArray();
-    }
-
-    private void ReadFonts()
-    {
-        PdfDictionary? resources = _page.Resources.AsDictionary(_document);
-        PdfDictionary? fonts = resources?.GetValueOrNull("Font").AsDictionary(_document);
-        if (fonts is null)
-            return;
-        foreach ((string resourceName, PdfObject fontObject) in fonts)
-        {
-            PdfDictionary? dictionary = fontObject.AsDictionary(_document);
-            if (dictionary is not null)
-                _fonts[resourceName] = new PdfFontDecoder(dictionary, _document);
-        }
     }
 
     private static void MoveText(TextState state, double x, double y)
@@ -326,20 +321,5 @@ internal sealed class PdfTextExtractor
         public double Rise { get; set; }
 
         public TextState Clone() => (TextState)MemberwiseClone();
-    }
-}
-
-internal static class SpanByteExtensions
-{
-    public static int Count(this ReadOnlySpan<byte> span, byte value)
-    {
-        int count = 0;
-        foreach (byte item in span)
-        {
-            if (item == value)
-                count++;
-        }
-
-        return count;
     }
 }

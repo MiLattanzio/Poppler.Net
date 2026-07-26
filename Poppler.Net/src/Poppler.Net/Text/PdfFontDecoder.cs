@@ -1,143 +1,528 @@
-using System.Text.RegularExpressions;
+using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using Poppler.Core;
 
 namespace Poppler.Text;
 
-internal sealed class PdfFontDecoder
+internal sealed partial class PdfFontDecoder
 {
-    private static readonly IReadOnlyDictionary<string, string> GlyphNames =
-        new Dictionary<string, string>(StringComparer.Ordinal)
-        {
-            ["space"] = " ", ["exclam"] = "!", ["quotedbl"] = "\"", ["numbersign"] = "#",
-            ["dollar"] = "$", ["percent"] = "%", ["ampersand"] = "&", ["quotesingle"] = "'",
-            ["parenleft"] = "(", ["parenright"] = ")", ["asterisk"] = "*", ["plus"] = "+",
-            ["comma"] = ",", ["hyphen"] = "-", ["minus"] = "-", ["period"] = ".",
-            ["slash"] = "/", ["colon"] = ":", ["semicolon"] = ";", ["less"] = "<",
-            ["equal"] = "=", ["greater"] = ">", ["question"] = "?", ["at"] = "@",
-            ["bracketleft"] = "[", ["backslash"] = "\\", ["bracketright"] = "]",
-            ["asciicircum"] = "^", ["underscore"] = "_", ["grave"] = "`",
-            ["braceleft"] = "{", ["bar"] = "|", ["braceright"] = "}", ["asciitilde"] = "~",
-            ["bullet"] = "•", ["endash"] = "–", ["emdash"] = "—", ["ellipsis"] = "…",
-            ["quotedblleft"] = "“", ["quotedblright"] = "”", ["quoteleft"] = "‘",
-            ["quoteright"] = "’", ["Euro"] = "€", ["copyright"] = "©", ["registered"] = "®",
-            ["trademark"] = "™", ["fi"] = "fi", ["fl"] = "fl", ["AE"] = "Æ", ["ae"] = "æ",
-            ["OE"] = "Œ", ["oe"] = "œ", ["Oslash"] = "Ø", ["oslash"] = "ø",
-            ["Lslash"] = "Ł", ["lslash"] = "ł", ["germandbls"] = "ß"
-        };
-
-    private readonly PdfCMap _cmap;
     private readonly Dictionary<byte, string> _differences = new();
+    private readonly Dictionary<byte, string> _programEncoding = new();
+    private readonly PdfCMap _toUnicode;
+    private readonly PdfCMap _encodingCMap;
+    private readonly PdfCidMetrics? _cidMetrics;
+    private readonly PdfOpenTypeCmap? _openTypeCmap;
+    private readonly ushort[]? _cidToGlyph;
     private readonly double[]? _widths;
     private readonly int _firstCharacter;
-    private readonly bool _identityEncoding;
+    private readonly double _missingWidth;
+    private readonly double _type3WidthScale;
+    private readonly bool _composite;
+    private readonly bool _cidToGlyphIdentity;
+    private readonly string _simpleEncoding;
+    private readonly string? _collection;
 
-    public PdfFontDecoder(PdfDictionary dictionary, PdfDocumentCore document)
+    public PdfFontDecoder(
+        string resourceName,
+        PdfDictionary dictionary,
+        PdfDocumentCore document)
     {
+        ArgumentNullException.ThrowIfNull(resourceName);
+        ArgumentNullException.ThrowIfNull(dictionary);
+        ArgumentNullException.ThrowIfNull(document);
+
+        string declaredSubtype =
+            dictionary.GetValueOrNull("Subtype").AsName(document) ?? "Unknown";
+        _composite = declaredSubtype == "Type0";
+        PdfDictionary effectiveDictionary = dictionary;
+        if (_composite &&
+            dictionary.GetValueOrNull("DescendantFonts").AsArray(document) is { Count: > 0 } descendants &&
+            descendants[0].AsDictionary(document) is { } descendant)
+        {
+            effectiveDictionary = descendant;
+        }
+
+        string effectiveSubtype =
+            effectiveDictionary.GetValueOrNull("Subtype").AsName(document) ?? declaredSubtype;
         Name =
             dictionary.GetValueOrNull("BaseFont").AsName(document) ??
+            effectiveDictionary.GetValueOrNull("BaseFont").AsName(document) ??
             dictionary.GetValueOrNull("Name").AsName(document) ??
             "Unknown";
-        _identityEncoding =
-            dictionary.GetValueOrNull("Encoding").AsName(document) is "Identity-H" or "Identity-V";
+
+        PdfDictionary? descriptor =
+            effectiveDictionary.GetValueOrNull("FontDescriptor").AsDictionary(document);
+        (EmbeddedFontFormat embeddedFormat, byte[]? fontProgram) =
+            ReadEmbeddedFont(descriptor, document);
+        EmbeddedFontFormat actualFormat = embeddedFormat;
+        if (fontProgram is { Length: > 0 } &&
+            embeddedFormat is EmbeddedFontFormat.TrueType or EmbeddedFontFormat.OpenType)
+        {
+            _openTypeCmap = PdfOpenTypeCmap.TryParse(
+                fontProgram,
+                document.Options.MaximumCMapMappings);
+            if (fontProgram.Length >= 4 &&
+                fontProgram.AsSpan(0, 4).SequenceEqual("OTTO"u8))
+            {
+                actualFormat = EmbeddedFontFormat.OpenType;
+            }
+        }
 
         PdfStream? toUnicode = dictionary.GetValueOrNull("ToUnicode").AsStream(document);
-        _cmap = toUnicode is null ? new PdfCMap() : PdfCMap.Parse(document.Decode(toUnicode));
+        _toUnicode = toUnicode is null
+            ? PdfCMap.Empty(document.Options.MaximumCMapMappings)
+            : PdfCMap.Parse(
+                document.Decode(toUnicode),
+                document.Options.MaximumCMapMappings);
 
-        PdfObject? encodingObject = dictionary.GetValueOrNull("Encoding");
-        PdfDictionary? encoding = encodingObject.AsDictionary(document);
-        PdfArray? differences = encoding?.GetValueOrNull("Differences").AsArray(document);
-        if (differences is not null)
-            ReadDifferences(differences);
-
-        _firstCharacter = dictionary.GetValueOrNull("FirstChar").AsInteger(document) ?? 0;
-        PdfArray? widths = dictionary.GetValueOrNull("Widths").AsArray(document);
-        if (widths is not null)
+        if (_composite)
         {
-            _widths = new double[widths.Count];
-            for (int index = 0; index < widths.Count; index++)
-                _widths[index] = widths[index].AsNumber(document) ?? 500;
+            _encodingCMap = ReadCompositeEncoding(dictionary, document);
+            _simpleEncoding = "";
+            _cidMetrics = new PdfCidMetrics(effectiveDictionary, document);
+            _collection = ReadCollection(effectiveDictionary, document);
+            (_cidToGlyphIdentity, _cidToGlyph) =
+                ReadCidToGlyph(effectiveDictionary, document);
+            _firstCharacter = 0;
+            _missingWidth = 1000;
+            _type3WidthScale = 1;
         }
+        else
+        {
+            _encodingCMap = PdfCMap.Empty(document.Options.MaximumCMapMappings);
+            _simpleEncoding = ReadSimpleEncoding(dictionary, document);
+            ReadDifferences(dictionary, document);
+            if (fontProgram is { Length: > 0 } &&
+                actualFormat == EmbeddedFontFormat.Type1)
+            {
+                ReadType1ProgramEncoding(fontProgram);
+            }
+
+            _firstCharacter = dictionary.GetValueOrNull("FirstChar").AsInteger(document) ?? 0;
+            PdfArray? widths = dictionary.GetValueOrNull("Widths").AsArray(document);
+            if (widths is not null)
+            {
+                _widths = new double[widths.Count];
+                for (int index = 0; index < widths.Count; index++)
+                    _widths[index] = widths[index].AsNumber(document) ?? 0;
+            }
+
+            _missingWidth =
+                descriptor?.GetValueOrNull("MissingWidth").AsNumber(document) ??
+                Base14DefaultWidth(Name);
+            _type3WidthScale = declaredSubtype == "Type3"
+                ? ReadType3WidthScale(dictionary, document)
+                : 1;
+        }
+
+        Ascent = NormalizeMetric(
+            descriptor?.GetValueOrNull("Ascent").AsNumber(document),
+            0.8);
+        Descent = NormalizeMetric(
+            descriptor?.GetValueOrNull("Descent").AsNumber(document),
+            -0.2);
+        FontWritingMode writingMode =
+            _composite ? _encodingCMap.WritingMode : FontWritingMode.Horizontal;
+        string encodingName = _composite
+            ? ReadEncodingName(dictionary, document, _encodingCMap.Name)
+            : _simpleEncoding;
+        PdfFontType type = DetermineFontType(
+            declaredSubtype,
+            effectiveSubtype,
+            actualFormat);
+        Info = new FontInfo(
+            resourceName,
+            Name,
+            type,
+            encodingName,
+            writingMode,
+            fontProgram is not null,
+            actualFormat,
+            fontProgram?.Length ?? 0,
+            IsSubsetName(Name),
+            _toUnicode.HasUnicodeMappings,
+            _collection);
     }
 
     public string Name { get; }
+    public FontInfo Info { get; }
+    public FontWritingMode WritingMode => Info.WritingMode;
+    public double Ascent { get; }
+    public double Descent { get; }
 
-    public string Decode(ReadOnlySpan<byte> bytes)
-    {
-        if (_cmap.HasMappings)
-            return _cmap.Decode(bytes, DecodeByte);
-        if (_identityEncoding && bytes.Length % 2 == 0)
-        {
-            var chars = new List<char>(bytes.Length / 2);
-            for (int index = 0; index < bytes.Length; index += 2)
+    public static PdfFontDecoder CreateFallback(PdfDocumentCore document) =>
+        new(
+            "Fallback",
+            new PdfDictionary(new Dictionary<string, PdfObject>(StringComparer.Ordinal)
             {
-                int code = (bytes[index] << 8) | bytes[index + 1];
-                chars.Add(code <= char.MaxValue ? (char)code : '\uFFFD');
-            }
+                ["Subtype"] = new PdfName("Type1"),
+                ["BaseFont"] = new PdfName("Helvetica"),
+                ["Encoding"] = new PdfName("WinAnsiEncoding")
+            }),
+            document);
 
-            return new string(chars.ToArray());
-        }
-
-        return string.Concat(bytes.ToArray().Select(DecodeByte));
-    }
-
-    public double GetAdvance(ReadOnlySpan<byte> bytes)
+    public IReadOnlyList<PdfDecodedGlyph> DecodeGlyphs(ReadOnlySpan<byte> bytes)
     {
         if (bytes.IsEmpty)
-            return 0;
-        double width = 0;
-        if (_identityEncoding)
-            return bytes.Length / 2.0 * 1000;
-        foreach (byte value in bytes)
+            return Array.Empty<PdfDecodedGlyph>();
+        var result = new List<PdfDecodedGlyph>(_composite ? (bytes.Length + 1) / 2 : bytes.Length);
+        if (!_composite)
         {
-            int index = value - _firstCharacter;
-            width += _widths is not null && index >= 0 && index < _widths.Length
-                ? _widths[index]
-                : 500;
+            Span<byte> source = stackalloc byte[1];
+            foreach (byte value in bytes)
+            {
+                source[0] = value;
+                string text = _toUnicode.TryGetUnicode(source, out string? mapped)
+                    ? mapped
+                    : DecodeSimple(value);
+                double width = GetSimpleWidth(value) * _type3WidthScale;
+                result.Add(new PdfDecodedGlyph(
+                    value,
+                    value,
+                    1,
+                    text,
+                    width,
+                    0,
+                    0,
+                    0,
+                    value == 0x20));
+            }
+
+            return result;
         }
 
-        return width;
+        int position = 0;
+        while (position < bytes.Length)
+        {
+            PdfCharCode code = _encodingCMap.ReadCode(bytes, position, fallbackLength: 2);
+            int length = code.Length > 0 ? code.Length : 1;
+            ReadOnlySpan<byte> source = bytes.Slice(position, Math.Min(length, bytes.Length - position));
+            uint cid = _encodingCMap.GetCid(source, code.Value);
+            string text = _toUnicode.TryGetUnicode(source, out string? mapped)
+                ? mapped
+                : DecodeComposite(cid);
+
+            double advanceX;
+            double advanceY;
+            double originX;
+            double originY;
+            if (WritingMode == FontWritingMode.Vertical)
+            {
+                (advanceY, originX, originY) = _cidMetrics!.GetVertical(cid);
+                advanceX = 0;
+            }
+            else
+            {
+                advanceX = _cidMetrics!.GetWidth(cid);
+                advanceY = originX = originY = 0;
+            }
+
+            result.Add(new PdfDecodedGlyph(
+                code.Value,
+                cid,
+                source.Length,
+                text,
+                advanceX,
+                advanceY,
+                originX,
+                originY,
+                source.Length == 1 && code.Value == 0x20));
+            position += source.Length;
+        }
+
+        return result;
     }
 
-    private string DecodeByte(byte value)
+    public string Decode(ReadOnlySpan<byte> bytes) =>
+        string.Concat(DecodeGlyphs(bytes).Select(glyph => glyph.Text));
+
+    private string DecodeSimple(byte value)
     {
-        if (_differences.TryGetValue(value, out string? result))
-            return result;
-        return PdfTextEncoding.DecodeWindows1252(new[] { value });
+        if (_differences.TryGetValue(value, out string? difference))
+            return difference;
+        if (_programEncoding.TryGetValue(value, out string? embedded))
+            return embedded;
+        return PdfGlyphNames.DecodeEncodingByte(value, _simpleEncoding);
     }
 
-    private void ReadDifferences(PdfArray differences)
+    private string DecodeComposite(uint cid)
     {
+        uint glyph = cid;
+        if (_cidToGlyph is not null)
+        {
+            if (cid < _cidToGlyph.Length)
+                glyph = _cidToGlyph[(int)cid];
+        }
+        else if (!_cidToGlyphIdentity && _collection is not "Adobe-Identity" and not "Adobe-UCS")
+        {
+            glyph = 0;
+        }
+
+        if (_openTypeCmap is not null &&
+            _openTypeCmap.TryGetUnicode(glyph, out int scalar) &&
+            Rune.TryCreate(scalar, out Rune mapped))
+        {
+            return mapped.ToString();
+        }
+
+        if (_collection is "Adobe-Identity" or "Adobe-UCS" &&
+            cid <= 0x10FFFF &&
+            Rune.TryCreate((int)cid, out Rune identity))
+        {
+            return identity.ToString();
+        }
+
+        return "\uFFFD";
+    }
+
+    private double GetSimpleWidth(byte value)
+    {
+        int index = value - _firstCharacter;
+        return _widths is not null && index >= 0 && index < _widths.Length
+            ? _widths[index]
+            : _missingWidth;
+    }
+
+    private static PdfCMap ReadCompositeEncoding(
+        PdfDictionary dictionary,
+        PdfDocumentCore document)
+    {
+        PdfObject? encoding = dictionary.GetValueOrNull("Encoding");
+        string? name = encoding.AsName(document);
+        if (name is not null)
+        {
+            FontWritingMode mode = name.EndsWith("-V", StringComparison.Ordinal)
+                ? FontWritingMode.Vertical
+                : FontWritingMode.Horizontal;
+            return PdfCMap.Identity(mode, document.Options.MaximumCMapMappings);
+        }
+
+        PdfStream? stream = encoding.AsStream(document);
+        return stream is null
+            ? PdfCMap.Identity(FontWritingMode.Horizontal, document.Options.MaximumCMapMappings)
+            : PdfCMap.Parse(
+                document.Decode(stream),
+                document.Options.MaximumCMapMappings);
+    }
+
+    private static string ReadEncodingName(
+        PdfDictionary dictionary,
+        PdfDocumentCore document,
+        string fallback)
+    {
+        PdfObject? encoding = dictionary.GetValueOrNull("Encoding");
+        return encoding.AsName(document) ??
+               encoding.AsStream(document)?.Dictionary.GetValueOrNull("CMapName").AsName(document) ??
+               fallback;
+    }
+
+    private static string ReadSimpleEncoding(
+        PdfDictionary dictionary,
+        PdfDocumentCore document)
+    {
+        PdfObject? encoding = dictionary.GetValueOrNull("Encoding");
+        string? direct = encoding.AsName(document);
+        if (direct is not null)
+            return direct;
+        PdfDictionary? encodingDictionary = encoding.AsDictionary(document);
+        string? baseEncoding =
+            encodingDictionary?.GetValueOrNull("BaseEncoding").AsName(document);
+        if (baseEncoding is not null)
+            return baseEncoding;
+
+        string baseFont = dictionary.GetValueOrNull("BaseFont").AsName(document) ?? "";
+        if (baseFont.EndsWith("Symbol", StringComparison.Ordinal))
+            return "Symbol";
+        if (baseFont.EndsWith("ZapfDingbats", StringComparison.Ordinal))
+            return "ZapfDingbats";
+        return "StandardEncoding";
+    }
+
+    private void ReadDifferences(PdfDictionary dictionary, PdfDocumentCore document)
+    {
+        PdfDictionary? encoding =
+            dictionary.GetValueOrNull("Encoding").AsDictionary(document);
+        PdfArray? differences =
+            encoding?.GetValueOrNull("Differences").AsArray(document);
+        if (differences is null)
+            return;
+
         int current = 0;
         foreach (PdfObject value in differences)
         {
-            if (value is PdfNumber number && number.IsInteger)
+            PdfObject resolved = value.Resolve(document);
+            if (resolved is PdfNumber { IsInteger: true } number &&
+                number.Value is >= 0 and <= 255)
             {
-                current = checked((int)number.Value);
+                current = (int)number.Value;
             }
-            else if (value is PdfName name && current is >= 0 and <= 255)
+            else if (resolved is PdfName name && current is >= 0 and <= 255)
             {
-                _differences[(byte)current] = GlyphNameToText(name.Value);
+                _differences[(byte)current] = PdfGlyphNames.ToUnicode(name.Value);
                 current++;
             }
         }
     }
 
-    private static string GlyphNameToText(string name)
+    private void ReadType1ProgramEncoding(byte[] program)
     {
-        if (name.Length == 1)
-            return name;
-        if (GlyphNames.TryGetValue(name, out string? value))
-            return value;
-        Match match = Regex.Match(name, @"^(?:uni([0-9A-Fa-f]{4,})|u([0-9A-Fa-f]{4,6}))$");
-        string hex = match.Groups[1].Success ? match.Groups[1].Value : match.Groups[2].Value;
-        if (hex.Length >= 4 &&
-            int.TryParse(hex[..Math.Min(6, hex.Length)], System.Globalization.NumberStyles.HexNumber, null, out int code) &&
-            Rune.TryCreate(code, out Rune rune))
+        string clearText = Encoding.Latin1.GetString(program, 0, Math.Min(program.Length, 1_048_576));
+        foreach (Match match in Type1EncodingRegex().Matches(clearText))
         {
-            return rune.ToString();
+            if (byte.TryParse(
+                    match.Groups[1].Value,
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out byte code))
+            {
+                _programEncoding[code] = PdfGlyphNames.ToUnicode(match.Groups[2].Value);
+            }
+        }
+    }
+
+    private static (EmbeddedFontFormat Format, byte[]? Bytes) ReadEmbeddedFont(
+        PdfDictionary? descriptor,
+        PdfDocumentCore document)
+    {
+        if (descriptor is null)
+            return (EmbeddedFontFormat.None, null);
+
+        PdfStream? stream;
+        EmbeddedFontFormat format;
+        if ((stream = descriptor.GetValueOrNull("FontFile2").AsStream(document)) is not null)
+        {
+            format = EmbeddedFontFormat.TrueType;
+        }
+        else if ((stream = descriptor.GetValueOrNull("FontFile3").AsStream(document)) is not null)
+        {
+            string? subtype = stream.Dictionary.GetValueOrNull("Subtype").AsName(document);
+            format = subtype switch
+            {
+                "Type1C" or "CIDFontType0C" => EmbeddedFontFormat.Cff,
+                "OpenType" => EmbeddedFontFormat.OpenType,
+                _ => EmbeddedFontFormat.Cff
+            };
+        }
+        else if ((stream = descriptor.GetValueOrNull("FontFile").AsStream(document)) is not null)
+        {
+            format = EmbeddedFontFormat.Type1;
+        }
+        else
+        {
+            return (EmbeddedFontFormat.None, null);
         }
 
-        return "\uFFFD";
+        try
+        {
+            return (format, document.Decode(stream));
+        }
+        catch (PdfException)
+        {
+            return (format, stream.EncodedBytes.ToArray());
+        }
     }
+
+    private static (bool Identity, ushort[]? Map) ReadCidToGlyph(
+        PdfDictionary dictionary,
+        PdfDocumentCore document)
+    {
+        PdfObject? value = dictionary.GetValueOrNull("CIDToGIDMap");
+        if (value.AsName(document) == "Identity" || value is null)
+            return (true, null);
+        PdfStream? stream = value.AsStream(document);
+        if (stream is null)
+            return (false, null);
+        byte[] bytes = document.Decode(stream);
+        if (bytes.Length / 2 > document.Options.MaximumCMapMappings)
+        {
+            throw new PdfLimitException(
+                $"CIDToGIDMap exceeds the {document.Options.MaximumCMapMappings} mapping limit.");
+        }
+        var result = new ushort[bytes.Length / 2];
+        for (int index = 0; index < result.Length; index++)
+            result[index] = (ushort)((bytes[index * 2] << 8) | bytes[index * 2 + 1]);
+        return (false, result);
+    }
+
+    private static string? ReadCollection(
+        PdfDictionary dictionary,
+        PdfDocumentCore document)
+    {
+        PdfDictionary? info =
+            dictionary.GetValueOrNull("CIDSystemInfo").AsDictionary(document);
+        string? registry = ReadText(info?.GetValueOrNull("Registry"), document);
+        string? ordering = ReadText(info?.GetValueOrNull("Ordering"), document);
+        return registry is not null && ordering is not null
+            ? $"{registry}-{ordering}"
+            : "Adobe-Identity";
+    }
+
+    private static string? ReadText(PdfObject? value, PdfDocumentCore document) =>
+        value?.Resolve(document) switch
+        {
+            PdfString text => text.Text,
+            PdfName name => name.Value,
+            _ => null
+        };
+
+    private static PdfFontType DetermineFontType(
+        string declaredSubtype,
+        string effectiveSubtype,
+        EmbeddedFontFormat embeddedFormat)
+    {
+        if (declaredSubtype == "Type0")
+        {
+            return effectiveSubtype switch
+            {
+                "CIDFontType0" => PdfFontType.CidType0,
+                "CIDFontType2" => PdfFontType.CidType2,
+                _ => PdfFontType.Unknown
+            };
+        }
+
+        if (declaredSubtype == "Type3")
+            return PdfFontType.Type3;
+        if (embeddedFormat == EmbeddedFontFormat.OpenType)
+            return PdfFontType.OpenType;
+        if (embeddedFormat == EmbeddedFontFormat.Cff)
+            return PdfFontType.Type1C;
+        return declaredSubtype switch
+        {
+            "Type1" or "MMType1" => PdfFontType.Type1,
+            "TrueType" => PdfFontType.TrueType,
+            _ => PdfFontType.Unknown
+        };
+    }
+
+    private static double ReadType3WidthScale(
+        PdfDictionary dictionary,
+        PdfDocumentCore document)
+    {
+        PdfArray? matrix = dictionary.GetValueOrNull("FontMatrix").AsArray(document);
+        double a = matrix is { Count: >= 1 }
+            ? matrix[0].AsNumber(document) ?? 0.001
+            : 0.001;
+        double b = matrix is { Count: >= 2 }
+            ? matrix[1].AsNumber(document) ?? 0
+            : 0;
+        double scale = Math.Sqrt(a * a + b * b);
+        return scale * 1000;
+    }
+
+    private static double NormalizeMetric(double? value, double fallback) =>
+        value.HasValue && double.IsFinite(value.Value)
+            ? value.Value / 1000
+            : fallback;
+
+    private static bool IsSubsetName(string name) =>
+        name.Length > 7 &&
+        name[6] == '+' &&
+        name.AsSpan(0, 6).ToString().All(character => character is >= 'A' and <= 'Z');
+
+    private static double Base14DefaultWidth(string name) =>
+        name.Contains("Courier", StringComparison.Ordinal) ? 600 : 500;
+
+    [GeneratedRegex(@"(?:^|\s)dup\s+([0-9]{1,3})\s+/([^\s\[\]{}()<>/%]+)\s+put(?:\s|$)")]
+    private static partial Regex Type1EncodingRegex();
 }

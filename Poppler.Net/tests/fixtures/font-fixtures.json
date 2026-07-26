@@ -1,0 +1,18 @@
+{
+  "fixtures": [
+    {
+      "file": "truetype-cmap-fallback.pdf",
+      "sha256": "98210aa1e6152d81089ebcb7a79ecd14fcbc69973e6e3011f607e1769cc74a1c",
+      "expectedText": "ABC",
+      "fontFormat": "TrueType",
+      "sourceFont": "DejaVuSans.ttf"
+    },
+    {
+      "file": "opentype-cff-cmap-fallback.pdf",
+      "sha256": "718f72a0b796444d760fceb124a9a122a6c8ad7a02b061123984ee8467d282dd",
+      "expectedText": "ABC",
+      "fontFormat": "OpenType/CFF",
+      "sourceFont": "NimbusSans-Regular.otf"
+    }
+  ]
+}

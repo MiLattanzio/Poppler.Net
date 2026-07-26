@@ -9,9 +9,9 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.3.0-alpha.2` adds the Standard Security Handler to the
-hardened `0.2` foundation; it is not a claim that all of Poppler has already
-been translated.
+slices. Version `0.4.0-alpha.1` adds the first structured font and advanced
+text layer on top of the hardened `0.2` foundation and `0.3` security handler;
+it is not a claim that all of Poppler has already been translated.
 
 ## Implemented sequence
 
@@ -34,6 +34,8 @@ been translated.
     and damaged-xref/object-stream reconstruction.
 11. Port Standard Security Handler revisions 2–6, crypt-filter routing,
     locked-document retry and permission flags.
+12. Split `GfxFont`/CMap responsibilities into managed simple/composite font
+    decoding, CID metrics, embedded sfnt fallback and directional text layout.
 
 ## Upstream-to-managed map
 
@@ -46,13 +48,15 @@ been translated.
 | `PDFDoc`, `Catalog`, `Page` | `Document`, `Page` | Read-only core implemented |
 | `PageLabelInfo` | `PageLabelTree` | Implemented |
 | `FileSpec` | `EmbeddedFile` | Implemented |
-| `TextOutputDev`, CMaps | `PdfTextExtractor` | Common Latin/Unicode path |
+| `CMap`, `CharCodeToUnicode` | `PdfCMap` | Embedded/Identity code, CID and Unicode maps |
+| `GfxFont`, FoFi inspection | `PdfFontDecoder`, `PdfOpenTypeCmap` | Text metrics and sfnt fallback; no outlines |
+| `TextOutputDev` | `PdfTextExtractor`, `PdfTextLayoutEngine` | Horizontal/vertical runs and initial reading order |
 | `Outline`, `Link` | — | Planned |
 | `Decrypt`, `SecurityHandler` | `PdfStandardSecurityHandler`, `PdfCryptography` | R2–R6 implemented |
 | `Annot`, `Form` | detection only | Planned |
 | `Gfx`, `GfxState`, `Function` | content operation reader | Partial |
 | `SplashOutputDev`, Cairo | `SvgPageRenderer` | Diagnostic only |
-| FoFi/FreeType/font rasterization | — | Planned |
+| FreeType/font rasterization and shaping | — | Planned |
 | JPEG/JPEG2000/JBIG2/CCITT | pass-through stream data | Planned decode |
 | color management/overprint | — | Planned |
 | signatures/NSS/GPGME | — | Planned |
@@ -61,8 +65,8 @@ been translated.
 ## Next implementation slices
 
 1. Complete corpus/differential/fuzz gates for the parser foundation.
-2. Complete font engine: Type 1/CFF/TrueType parsing, shaping, substitution,
-   vertical writing and glyph rasterization.
+2. Complete font engine: raw CFF charset/encoding parsing, complex shaping,
+   predefined external CMaps, font substitution and glyph rasterization.
 3. Full graphics interpreter, transparency groups, shadings, patterns,
    clipping, blend modes and image masks.
 4. Managed JPEG, JPEG2000, JBIG2 and CCITT decoders.

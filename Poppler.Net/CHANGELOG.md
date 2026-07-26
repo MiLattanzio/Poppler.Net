@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.0-alpha.1 — 2026-07-26
+
+- Split font parsing, character decoding, CID metrics and text layout into
+  dedicated managed components corresponding to Poppler's `GfxFont`,
+  `CMap`, `CharCodeToUnicode` and initial `TextOutputDev` responsibilities.
+- Added bounded CMap parsing for codespace ranges, `bfchar`, `bfrange`,
+  `cidchar`, `cidrange`, CMap names and horizontal/vertical writing modes.
+- Added Type 0 composite-font decoding with separate character-code-to-CID
+  and character-code-to-Unicode mappings.
+- Added CID `DW`/`W` and vertical `DW2`/`W2` metric handling.
+- Added simple Type 1, TrueType and Type 3 encoding/width handling, Adobe
+  glyph-name algorithms, ligature names and Type 3 font matrices.
+- Added embedded Type 1 encoding discovery plus TrueType/OpenType format 4
+  and format 12 `cmap` fallbacks when `ToUnicode` is absent.
+- Added public per-page `FontInfo`, embedded format/subset reporting and the
+  CLI `fonts` command.
+- Added vertical text advancement, right-to-left run ordering, column-aware
+  reading order and font ascent/descent bounds.
+- Added a configurable CMap mapping limit for untrusted input.
+- Added 14 NUnit cases and two reproducible embedded-font PDF fixtures,
+  bringing the declared suite to 57 cases.
+- Preserved the explicit `(Action)(() => ...)` form for every NUnit exception
+  assertion to avoid ambiguous `Assert.That` overload resolution.
+
 ## 0.3.0-alpha.2 — 2026-07-26
 
 - Corrected the revision 6 SHA-2 selector switch expression by evaluating
