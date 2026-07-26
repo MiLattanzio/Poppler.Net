@@ -4,13 +4,15 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.3.0-alpha.2` security release is not a complete replacement for
+> This `0.4.0-alpha.1` font/text release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
-> common stream filters, metadata, embedded files, basic text extraction and
+> common stream filters, metadata, embedded files, structured font/text
+> extraction and
 > an SVG diagnostic renderer. It can now open Standard Security Handler
-> revisions 2–6 with user or owner passwords. See
-> [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
+> revisions 2–6 with user or owner passwords and decode common simple,
+> composite, CID and vertical text paths. See
+> [Poppler.Net/docs/COMPATIBILITY.md](Poppler.Net/docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
 
@@ -37,6 +39,7 @@ or any native cryptography asset.
 ```bash
 dotnet run --project src/Poppler.Net.Cli -- info input.pdf
 dotnet run --project src/Poppler.Net.Cli -- text input.pdf --page 1
+dotnet run --project src/Poppler.Net.Cli -- fonts input.pdf
 dotnet run --project src/Poppler.Net.Cli -- attachments input.pdf output-dir
 dotnet run --project src/Poppler.Net.Cli -- svg input.pdf page.svg --page 1
 ```
@@ -57,6 +60,8 @@ Page page = document.CreatePage(0);
 Console.WriteLine(page.Text());
 foreach (TextBox word in page.TextList())
     Console.WriteLine($"{word.Text} at {word.BoundingBox}");
+foreach (FontInfo font in page.Fonts)
+    Console.WriteLine($"{font.Name}: {font.Type}, {font.EmbeddedFormat}");
 ```
 
 All page indices in the API are zero-based. CLI page numbers are one-based.
@@ -84,7 +89,7 @@ matching Poppler's C++ API, returns the document's new locking status
 - `DocumentModel/` corresponds to `PDFDoc`, `Catalog`, `Page`, `Outline`,
   `FileSpec` and page labels.
 - `Text/` corresponds to the first managed slice of `TextOutputDev`, font
-  encodings and `ToUnicode` CMaps.
+  encodings, `GfxFont`, CID metrics and `ToUnicode`/encoding CMaps.
 - `Rendering/` is a diagnostic SVG backend. It is not yet the counterpart of
   Splash/Cairo.
 
@@ -95,12 +100,18 @@ stream limits because PDFs are untrusted input. Defaults can be changed with
 The `0.2` foundation additionally supports header-relative offsets after a
 leading transport prefix, validates object generations and compressed-object
 indices, and reconstructs xref/object streams during damaged-xref recovery.
-See [docs/FOUNDATION.md](docs/FOUNDATION.md).
+See [Poppler.Net/docs/FOUNDATION.md](Poppler.Net/docs/FOUNDATION.md).
 
 The `0.3` slice ports `SecurityHandler`/`Decrypt`: legacy password padding,
 RC4 object keys, AES-128/256, revision 6 hardened hashing, crypt filters,
 metadata exclusion and PDF permission flags. See
-[docs/SECURITY.md](docs/SECURITY.md).
+[Poppler.Net/docs/SECURITY.md](Poppler.Net/docs/SECURITY.md).
+
+The `0.4` slice separates code-to-CID and code-to-Unicode maps, reads
+horizontal and vertical CID metrics, recognizes embedded Type 1/CFF/TrueType/
+OpenType programs and adds an sfnt `cmap` fallback, Type 3 metrics, vertical
+advancement and improved reading order. See
+[Poppler.Net/docs/FONTS_AND_TEXT.md](Poppler.Net/docs/FONTS_AND_TEXT.md).
 
 ## License and provenance
 
@@ -108,3 +119,4 @@ Poppler is GPL, not LGPL. This port is distributed under
 GPL-2.0-or-later and retains Poppler provenance. See `LICENSE`,
 `NOTICE.md`, and `docs/PORTING.md`. Applications distributing a derivative of
 this code must comply with the GPL.
+
