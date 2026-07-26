@@ -4,14 +4,15 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.4.0-alpha.1` font/text release is not a complete replacement for
+> This `0.5.0-alpha.1` graphics release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
-> extraction and
-> an SVG diagnostic renderer. It can now open Standard Security Handler
+> extraction, a backend-neutral vector display list and an SVG vector
+> preview. It can open Standard Security Handler
 > revisions 2–6 with user or owner passwords and decode common simple,
-> composite, CID and vertical text paths. See
+> composite, CID and vertical text paths. The graphics slice interprets paths,
+> clipping, Form/Image XObjects, tiling patterns and axial/radial shadings. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
@@ -40,6 +41,7 @@ or any native cryptography asset.
 dotnet run --project src/Poppler.Net.Cli -- info input.pdf
 dotnet run --project src/Poppler.Net.Cli -- text input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- fonts input.pdf
+dotnet run --project src/Poppler.Net.Cli -- graphics input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- attachments input.pdf output-dir
 dotnet run --project src/Poppler.Net.Cli -- svg input.pdf page.svg --page 1
 ```
@@ -62,6 +64,8 @@ foreach (TextBox word in page.TextList())
     Console.WriteLine($"{word.Text} at {word.BoundingBox}");
 foreach (FontInfo font in page.Fonts)
     Console.WriteLine($"{font.Name}: {font.Type}, {font.EmbeddedFormat}");
+foreach (PdfGraphicsElement element in page.Graphics)
+    Console.WriteLine($"{element.GetType().Name}: {element.State.Transform}");
 ```
 
 All page indices in the API are zero-based. CLI page numbers are one-based.
@@ -90,8 +94,10 @@ matching Poppler's C++ API, returns the document's new locking status
   `FileSpec` and page labels.
 - `Text/` corresponds to the first managed slice of `TextOutputDev`, font
   encodings, `GfxFont`, CID metrics and `ToUnicode`/encoding CMaps.
-- `Rendering/` is a diagnostic SVG backend. It is not yet the counterpart of
-  Splash/Cairo.
+- `Graphics/` is the first managed slice of `Gfx`, `GfxState`, `Function`,
+  patterns and Form XObjects and produces a backend-neutral display list.
+- `Rendering/` consumes that display list in a managed SVG vector backend. It
+  is not yet the raster counterpart of Splash/Cairo.
 
 The implementation uses bounded allocations, recursion limits and decoded
 stream limits because PDFs are untrusted input. Defaults can be changed with
@@ -112,6 +118,11 @@ horizontal and vertical CID metrics, recognizes embedded Type 1/CFF/TrueType/
 OpenType programs and adds an sfnt `cmap` fallback, Type 3 metrics, vertical
 advancement and improved reading order. See
 [docs/FONTS_AND_TEXT.md](docs/FONTS_AND_TEXT.md).
+
+The `0.5` slice interprets vector paths and painting state, clipping, device
+colors, common `ExtGState` entries, Form/Image XObjects, colored tiling
+patterns and type 2/3 shadings. See
+[docs/GRAPHICS.md](docs/GRAPHICS.md).
 
 ## License and provenance
 

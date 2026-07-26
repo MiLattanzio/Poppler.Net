@@ -10,6 +10,12 @@ public sealed record PdfReadOptions
     public int MaximumObjects { get; init; } = 1_000_000;
     public int MaximumCollectionItems { get; init; } = 1_000_000;
     public int MaximumCMapMappings { get; init; } = 250_000;
+    public int MaximumGraphicsOperations { get; init; } = 1_000_000;
+    public int MaximumGraphicsElements { get; init; } = 250_000;
+    public int MaximumPathSegments { get; init; } = 1_000_000;
+    public int MaximumGraphicsStateDepth { get; init; } = 256;
+    public int MaximumXObjectDepth { get; init; } = 32;
+    public int MaximumShadingStops { get; init; } = 33;
     public int MaximumPages { get; init; } = 10_000;
     public int MaximumObjectDepth { get; init; } = 64;
     public int MaximumTreeDepth { get; init; } = 128;
@@ -27,6 +33,18 @@ public sealed record PdfReadOptions
             throw new ArgumentOutOfRangeException(nameof(MaximumCollectionItems));
         if (MaximumCMapMappings < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumCMapMappings));
+        if (MaximumGraphicsOperations < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumGraphicsOperations));
+        if (MaximumGraphicsElements < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumGraphicsElements));
+        if (MaximumPathSegments < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumPathSegments));
+        if (MaximumGraphicsStateDepth < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumGraphicsStateDepth));
+        if (MaximumXObjectDepth < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumXObjectDepth));
+        if (MaximumShadingStops < 2)
+            throw new ArgumentOutOfRangeException(nameof(MaximumShadingStops));
         if (MaximumPages < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumPages));
         if (MaximumObjectDepth < 1)

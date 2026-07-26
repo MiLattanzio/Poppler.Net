@@ -9,9 +9,10 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.4.0-alpha.1` adds the first structured font and advanced
-text layer on top of the hardened `0.2` foundation and `0.3` security handler;
-it is not a claim that all of Poppler has already been translated.
+slices. Version `0.5.0-alpha.1` adds the first backend-neutral graphics
+interpreter on top of the hardened `0.2` foundation, `0.3` security handler
+and `0.4` font/text layer; it is not a claim that all of Poppler has already
+been translated.
 
 ## Implemented sequence
 
@@ -36,6 +37,9 @@ it is not a claim that all of Poppler has already been translated.
     locked-document retry and permission flags.
 12. Split `GfxFont`/CMap responsibilities into managed simple/composite font
     decoding, CID metrics, embedded sfnt fallback and directional text layout.
+13. Port vector `Gfx`/`GfxState` responsibilities into an immutable public
+    display list: CTMs, paths, clips, Form/Image XObjects, tiling patterns and
+    axial/radial shading functions.
 
 ## Upstream-to-managed map
 
@@ -54,8 +58,8 @@ it is not a claim that all of Poppler has already been translated.
 | `Outline`, `Link` | — | Planned |
 | `Decrypt`, `SecurityHandler` | `PdfStandardSecurityHandler`, `PdfCryptography` | R2–R6 implemented |
 | `Annot`, `Form` | detection only | Planned |
-| `Gfx`, `GfxState`, `Function` | content operation reader | Partial |
-| `SplashOutputDev`, Cairo | `SvgPageRenderer` | Diagnostic only |
+| `Gfx`, `GfxState`, `Function` | `PdfGraphicsInterpreter`, graphics model, `PdfShadingReader` | Vector slice: paths, clips, XObjects, tiling and type 2/3 shadings |
+| `SplashOutputDev`, Cairo | `SvgPageRenderer` | Managed vector backend; no raster output |
 | FreeType/font rasterization and shaping | — | Planned |
 | JPEG/JPEG2000/JBIG2/CCITT | pass-through stream data | Planned decode |
 | color management/overprint | — | Planned |
@@ -67,8 +71,8 @@ it is not a claim that all of Poppler has already been translated.
 1. Complete corpus/differential/fuzz gates for the parser foundation.
 2. Complete font engine: raw CFF charset/encoding parsing, complex shaping,
    predefined external CMaps, font substitution and glyph rasterization.
-3. Full graphics interpreter, transparency groups, shadings, patterns,
-   clipping, blend modes and image masks.
+3. Extend the graphics interpreter with transparency groups, soft masks,
+   uncolored/mesh patterns, remaining functions and image masks.
 4. Managed JPEG, JPEG2000, JBIG2 and CCITT decoders.
 5. Annotations, AcroForm/XFA surface, actions, links and outlines.
 6. Color spaces, ICC profiles, spot colors and overprint.

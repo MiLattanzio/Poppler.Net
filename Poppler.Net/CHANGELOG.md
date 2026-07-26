@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.5.0-alpha.1 — 2026-07-26
+
+- Added a managed `Gfx`/`GfxState` slice that produces a public,
+  backend-neutral per-page graphics display list.
+- Added affine CTM composition, `q`/`Q`, line state, dash arrays, path
+  construction, Bézier curves, rectangles and all common fill/stroke/end-path
+  operators.
+- Added nonzero/even-odd clipping with graphics-state save/restore semantics.
+- Added DeviceGray, DeviceRGB and DeviceCMYK paint plus common `ExtGState`
+  line, alpha and blend-mode entries.
+- Added recursive Form XObject interpretation with Form matrices, BBox clips,
+  resource inheritance and recursion limits.
+- Added Image XObject metadata display-list entries without decoding pixels.
+- Added colored tiling patterns and axial/radial shading functions, including
+  exponential and stitching functions.
+- Replaced the text-only SVG diagnostic with a managed vector SVG backend for
+  paths, clips, gradients, tiling patterns, Form content and optional image
+  bounds.
+- Added the CLI `graphics` command and public `Page.Graphics` API.
+- Added graphics operation, element, path, stack, XObject and shading-stop
+  safety limits.
+- Moved both CA2014 `stackalloc` sites out of their loops as requested.
+- Added a deterministic graphics fixture and nine NUnit cases, bringing the
+  declared suite to 66 cases.
+
 ## 0.4.0-alpha.1 — 2026-07-26
 
 - Split font parsing, character decoding, CID metrics and text layout into

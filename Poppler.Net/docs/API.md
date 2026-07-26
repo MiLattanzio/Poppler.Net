@@ -30,6 +30,9 @@ var options = new PdfReadOptions
     MaximumInputBytes = 64 * 1024 * 1024,
     MaximumDecodedStreamBytes = 32 * 1024 * 1024,
     MaximumCMapMappings = 100_000,
+    MaximumGraphicsElements = 100_000,
+    MaximumPathSegments = 250_000,
+    MaximumXObjectDepth = 16,
     MaximumPages = 2_000,
     AttemptXrefRepair = false
 };
@@ -85,6 +88,25 @@ not a font-rasterization API.
 
 Each `TextBox` also reports `WritingMode` and `IsRightToLeft`.
 
+## Graphics display list
+
+```csharp
+IReadOnlyList<PdfGraphicsElement> graphics = page.Graphics;
+foreach (PdfGraphicsElement element in graphics)
+{
+    Console.WriteLine($"{element.GetType().Name}: {element.State.Transform}");
+}
+```
+
+`PdfPathElement` exposes path segments, fill rule and paint mode.
+`PdfImageElement` exposes Image XObject metadata without decoding its pixels.
+`PdfShadingElement` exposes an axial or radial gradient. Paint is represented
+by `PdfSolidBrush`, `PdfTilingPatternBrush` or `PdfGradientBrush`; each element
+also retains the active clipping paths and source Form resource.
+
+The display list is immutable from the caller's perspective and is evaluated
+lazily once per `Page`.
+
 ## Attachments
 
 ```csharp
@@ -98,8 +120,14 @@ foreach (EmbeddedFile file in document.EmbeddedFiles)
 Callers are responsible for sanitizing untrusted attachment names when choosing
 paths. The bundled CLI does this automatically.
 
-## Diagnostic SVG
+## Managed SVG vector preview
 
-`Page.RenderToSvg` and `Page.SaveSvg` create a managed text-position preview.
-The output is useful for debugging extraction coordinates; it is deliberately
-not advertised as a faithful page renderer.
+`Page.RenderToSvg` and `Page.SaveSvg` render the managed graphics display list
+plus extracted text. `SvgRenderOptions` can independently disable vector
+graphics or text, draw extraction bounds and draw Image XObject unit-square
+bounds.
+
+The SVG backend covers paths, clipping, Form content, colored tiling patterns
+and axial/radial gradients. It is useful for inspection and vector workflows,
+but remains non-conformant until images, glyph outlines, transparency groups,
+full color management and exact blend semantics are implemented.

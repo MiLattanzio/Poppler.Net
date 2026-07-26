@@ -1,5 +1,6 @@
 using Poppler.Core;
 using Poppler.DocumentModel;
+using Poppler.Graphics;
 using Poppler.Rendering;
 using Poppler.Text;
 
@@ -14,6 +15,7 @@ public sealed class Page
     private readonly Lazy<IReadOnlyList<TextBox>> _rawText;
     private readonly Lazy<IReadOnlyList<TextBox>> _readingOrderText;
     private readonly Lazy<IReadOnlyList<FontInfo>> _fonts;
+    private readonly Lazy<IReadOnlyList<PdfGraphicsElement>> _graphics;
 
     internal Page(
         Document owner,
@@ -40,6 +42,8 @@ public sealed class Page
                 .Select(font => font.Info)
                 .OrderBy(font => font.ResourceName, StringComparer.Ordinal)
                 .ToArray());
+        _graphics = new Lazy<IReadOnlyList<PdfGraphicsElement>>(
+            ExtractGraphics);
     }
 
     public int Index { get; }
@@ -48,6 +52,7 @@ public sealed class Page
     public int Rotation => _node.Rotation;
     public double Duration => _node.Dictionary.GetValueOrNull("Dur").AsNumber(_document) ?? -1;
     public IReadOnlyList<FontInfo> Fonts => _fonts.Value;
+    public IReadOnlyList<PdfGraphicsElement> Graphics => _graphics.Value;
 
     public PageOrientation Orientation => Rotation switch
     {
@@ -119,6 +124,13 @@ public sealed class Page
         if (_owner.Locked)
             throw new PdfEncryptedException();
         return new PdfTextExtractor(_document, _node).Extract(layout);
+    }
+
+    private IReadOnlyList<PdfGraphicsElement> ExtractGraphics()
+    {
+        if (_owner.Locked)
+            throw new PdfEncryptedException();
+        return new PdfGraphicsInterpreter(_document, _node).Interpret();
     }
 
     private static bool Intersects(PdfRectangle left, PdfRectangle right) =>

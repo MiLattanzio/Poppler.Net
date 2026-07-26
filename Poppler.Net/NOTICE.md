@@ -18,6 +18,9 @@ Changed for the managed port in July 2026:
   C# and .NET cryptography APIs;
 - font character maps, CID metrics, embedded sfnt inspection and directional
   text layout ported to managed C#;
-- rendering scope reduced to an SVG diagnostic backend in the alpha release.
+- path construction, graphics state, clipping, Form/Image XObjects, tiling
+  patterns and axial/radial shadings ported to a managed display list;
+- rendering scope remains an SVG vector backend rather than a raster engine in
+  the alpha release.
 
 The complete upstream GPL notices remain authoritative. See `LICENSE`.

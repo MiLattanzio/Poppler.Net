@@ -21,6 +21,7 @@ internal static class Cli
                 "info" => Info(args),
                 "text" => Text(args),
                 "fonts" => Fonts(args),
+                "graphics" => Graphics(args),
                 "attachments" => Attachments(args),
                 "svg" => Svg(args),
                 "version" or "--version" => Version(),
@@ -151,6 +152,28 @@ internal static class Cli
         return 0;
     }
 
+    private static int Graphics(string[] args)
+    {
+        RequireCount(args, 2, "graphics requires an input PDF.");
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
+        int? pageNumber = GetPageOption(args);
+        IEnumerable<Page> pages = pageNumber is null
+            ? Enumerable.Range(0, document.Pages).Select(document.CreatePage)
+            : new[] { document.CreatePage(ToIndex(pageNumber.Value, document)) };
+        foreach (Page page in pages)
+        {
+            IReadOnlyList<PdfGraphicsElement> elements = page.Graphics;
+            Console.WriteLine(
+                $"page {page.Number}: {elements.Count} elements; " +
+                $"{elements.OfType<PdfPathElement>().Count()} paths, " +
+                $"{elements.OfType<PdfImageElement>().Count()} images, " +
+                $"{elements.OfType<PdfShadingElement>().Count()} shadings");
+        }
+
+        return 0;
+    }
+
     private static int Svg(string[] args)
     {
         RequireCount(args, 3, "svg requires an input PDF and output SVG.");
@@ -159,7 +182,8 @@ internal static class Cli
         int pageNumber = GetPageOption(args) ?? 1;
         var options = new SvgRenderOptions
         {
-            DrawTextBounds = args.Contains("--bounds", StringComparer.Ordinal)
+            DrawTextBounds = args.Contains("--bounds", StringComparer.Ordinal),
+            DrawImageBounds = args.Contains("--image-bounds", StringComparer.Ordinal)
         };
         document.CreatePage(ToIndex(pageNumber, document)).SaveSvg(args[2], options);
         Console.WriteLine(Path.GetFullPath(args[2]));
@@ -271,8 +295,9 @@ internal static class Cli
               poppler-net info <input.pdf> [password options]
               poppler-net text <input.pdf> [--page N] [--raw|--reading-order] [password options]
               poppler-net fonts <input.pdf> [--page N] [password options]
+              poppler-net graphics <input.pdf> [--page N] [password options]
               poppler-net attachments <input.pdf> <output-dir> [password options]
-              poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds] [password options]
+              poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds] [--image-bounds] [password options]
               poppler-net version
 
             Password options:
