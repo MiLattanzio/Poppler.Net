@@ -13,6 +13,13 @@
       "expectedText": "ABC",
       "fontFormat": "OpenType/CFF",
       "sourceFont": "NimbusSans-Regular.otf"
+    },
+    {
+      "file": "truetype-format0-subset.pdf",
+      "sha256": "5c3d159586a115d391398a32a5482f7d735b7cedd2d6d82604acbc7b09821797",
+      "expectedText": "ABC",
+      "fontFormat": "TrueType cmap format 0",
+      "sourceFont": "DejaVuSans.ttf"
     }
   ]
 }

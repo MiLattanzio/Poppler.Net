@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.7.0-alpha.1
+## Works in 0.7.0-alpha.2
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -29,7 +29,8 @@
   Identity-H/Identity-V.
 - Embedded Type 1, CFF, TrueType and OpenType identification.
 - Managed sfnt cmap format 4/12 Unicode fallback for embedded TrueType and
-  OpenType fonts without `ToUnicode`.
+  OpenType fonts without `ToUnicode`, plus format 0 source-character-code
+  mapping for byte-encoded TrueType subsets.
 - Vertical text advances, run direction, right-to-left physical ordering and
   conservative two-column reading order.
 - Public per-page font information and CLI font listing.
@@ -72,6 +73,9 @@
 - Embedded TrueType `glyf` simple/composite outlines, common component
   transforms, quadratic contour conversion and managed antialiased glyph
   painting.
+- Source PDF character codes and CIDs retained through text extraction for
+  direct subset glyph selection, including multi-scalar ligatures; explicit
+  DeviceGray, DeviceRGB and DeviceCMYK text fill colors.
 - Public `PdfBitmap`, `Page.Render`, `RenderToPng`, `SavePng`,
   `RasterRenderOptions` and CLI `render`.
 - Missing `%%EOF` and leading-prefix diagnostics.
@@ -105,8 +109,8 @@
   implemented. ICCBased falls back to `/Alternate` outside common
   matrix/shaper profiles.
 - Raster text remains a separate post-display-list pass: exact content
-  interleaving, text clipping/paint mode/color/transparency and text nested in
-  Form XObjects are not preserved.
+  interleaving, text clipping/paint mode/transparency, special/pattern text
+  color spaces and text nested in Form XObjects are not preserved.
 - Complex-script shaping, GSUB/GPOS, full bidi, raw CFF fallback, arbitrary
   external named CMaps and font substitution are not implemented.
 - Type 1/CFF outlines and Type 3 CharProcs are not rasterized. Embedded

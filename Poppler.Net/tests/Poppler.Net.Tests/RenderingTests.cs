@@ -198,6 +198,32 @@ public sealed class RenderingTests
     }
 
     [Test]
+    public void RasterizesFormatZeroSubsetUsingSourceCharacterCodes()
+    {
+        string path = Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "truetype-format0-subset.pdf");
+        using Document document = Document.LoadFromFile(path);
+        Page page = document.CreatePage(0);
+        PdfBitmap withText = page.Render(new RasterRenderOptions
+        {
+            Dpi = 72,
+            Antialiasing = 2
+        });
+        PdfBitmap withoutText = page.Render(new RasterRenderOptions
+        {
+            Dpi = 72,
+            Antialiasing = 2,
+            IncludeText = false
+        });
+
+        Assert.That(page.Text(), Is.EqualTo("ABC"));
+        Assert.That(CountOrangePixels(withText), Is.GreaterThan(100));
+        Assert.That(CountDarkPixels(withoutText), Is.EqualTo(0));
+    }
+
+    [Test]
     public void RenderingFixtureHashMatchesManifest()
     {
         string fixtureDirectory = Path.Combine(AppContext.BaseDirectory, "Fixtures");
@@ -270,6 +296,24 @@ public sealed class RenderingTests
             if (data[offset] < 128 &&
                 data[offset + 1] < 128 &&
                 data[offset + 2] < 128 &&
+                data[offset + 3] > 0)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static int CountOrangePixels(PdfBitmap bitmap)
+    {
+        ReadOnlySpan<byte> data = bitmap.Data.Span;
+        int count = 0;
+        for (int offset = 0; offset < data.Length; offset += 4)
+        {
+            if (data[offset] > 160 &&
+                data[offset + 1] is > 70 and < 210 &&
+                data[offset + 2] < 100 &&
                 data[offset + 3] > 0)
             {
                 count++;

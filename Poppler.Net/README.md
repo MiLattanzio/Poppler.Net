@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.7.0-alpha.1` raster release is not a complete replacement for
+> This `0.7.0-alpha.2` raster release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -17,7 +17,8 @@ process invocation, or native NuGet dependency.
 > calibrated and special color spaces to sRGB, exposes pixels, writes PNG and
 > embeds decoded images in SVG. The raster slice paints vector paths, images,
 > patterns, gradients and embedded TrueType glyph outlines with antialiasing,
-> PDF blend modes, transparency groups and Alpha/Luminosity soft masks. See
+> source-code-aware subset-font mapping, device text colors, PDF blend modes,
+> transparency groups and Alpha/Luminosity soft masks. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
@@ -155,7 +156,9 @@ and adds `Page.Images`, managed PNG export and SVG image embedding. See
 The `0.7` slice adds managed page rasterization, supersampled coverage,
 straight-alpha PDF compositing, common separable and nonseparable blend modes,
 Form transparency groups, Alpha/Luminosity soft masks, page rotation and
-embedded TrueType outline painting. See
+embedded TrueType outline painting. Alpha 2 additionally retains original PDF
+character codes/CIDs for glyph selection, reads TrueType `cmap` format 0
+subsets and preserves DeviceGray/DeviceRGB/DeviceCMYK text colors. See
 [docs/RENDERING.md](docs/RENDERING.md).
 
 ## License and provenance

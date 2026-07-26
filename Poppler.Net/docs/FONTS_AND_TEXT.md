@@ -25,9 +25,15 @@ Identity-H and Identity-V are built in. CID ranges remain compressed to avoid
 allocating one entry per CID.
 
 When a PDF omits `ToUnicode`, an embedded TrueType or OpenType font can supply
-a fallback through sfnt `cmap` format 4 or 12. `CIDToGIDMap` is applied before
-the reverse Unicode lookup. Adobe-Identity/Adobe-UCS fonts finally fall back
-to identity Unicode where a valid scalar exists.
+a fallback through sfnt `cmap` format 4 or 12. Format 0 byte-encoding tables
+are retained as direct source-character-code-to-glyph maps. `CIDToGIDMap` is
+applied before the reverse Unicode lookup. Adobe-Identity/Adobe-UCS fonts
+finally fall back to identity Unicode where a valid scalar exists.
+
+Text runs retain their decoded source character codes and CIDs internally.
+Rasterization therefore selects subset glyphs without attempting the lossy
+round trip `PDF code → Unicode → glyph ID`; this also keeps a single ligature
+glyph intact when `ToUnicode` expands it to multiple Unicode scalars.
 
 ## Metrics and placement
 
@@ -82,7 +88,8 @@ also apply to fonts and CMaps.
 - Type 3 CharProcs are not rendered; their encodings and text advances are
   available for extraction.
 
-Raster text is currently a post-display-list pass, so exact PDF text paint
-mode, color, clipping, transparency, interleaving and Form-nested text remain
-future work. Recognizing a non-TrueType embedded font format does not imply
-that its glyph outlines are rendered.
+Raster text is currently a post-display-list pass. Explicit DeviceGray,
+DeviceRGB and DeviceCMYK fill colors are retained, but exact PDF text paint
+mode, special/pattern colors, clipping, transparency, interleaving and
+Form-nested text remain future work. Recognizing a non-TrueType embedded font
+format does not imply that its glyph outlines are rendered.

@@ -1,6 +1,6 @@
 # Managed raster rendering in 0.7
 
-Release `0.7.0-alpha.1` adds the first pure-C# counterpart of Poppler's
+Release `0.7.0-alpha.2` adds the first pure-C# counterpart of Poppler's
 `SplashOutputDev`, path scanner and compositing responsibilities. It consumes
 the backend-neutral `Page.Graphics` display list and never loads Splash,
 Cairo, Skia, FreeType, a platform drawing API or another native component.
@@ -55,8 +55,12 @@ Add `--transparent` to leave untouched page pixels at alpha zero.
    clip and optional graphics-state soft mask.
 7. Transparency Form XObjects render to intermediate RGBA surfaces before
    their result is composited into the parent.
-8. Embedded TrueType `glyf` outlines are converted from quadratic contours to
-   the same cubic path representation and antialiased by the same scanner.
+8. Embedded TrueType `glyf` outlines are selected from retained PDF character
+   codes/CIDs, converted from quadratic contours to the same cubic path
+   representation and antialiased by the same scanner.
+9. Explicit DeviceGray, DeviceRGB and DeviceCMYK text fill colors are retained;
+   `RasterRenderOptions.TextColor` remains the fallback when no such operator
+   precedes a text run.
 
 The blend implementation covers Normal, Multiply, Screen, Overlay, Darken,
 Lighten, ColorDodge, ColorBurn, HardLight, SoftLight, Difference, Exclusion,
@@ -80,8 +84,11 @@ color for luminosity masks. `/SMask /None` clears the current mask.
 The raster text slice reads `head`, `maxp`, `loca`, `glyf`, `hhea` and `hmtx`
 from embedded TrueType sfnt programs. It handles repeated coordinate flags,
 on/off-curve points, implied quadratic points and XY-positioned composite
-glyphs with common scale transforms. The existing format 4/12 `cmap` reader
-maps extracted Unicode back to glyph IDs.
+glyphs with common scale transforms. Format 4/12 `cmap` tables support Unicode
+fallbacks. Format 0 tables map original byte character codes directly to
+subset glyph IDs, and CID fonts use their `CIDToGIDMap` or identity mapping.
+This avoids reconstructing glyph IDs from extracted Unicode, which is invalid
+for arbitrary subset codes and multi-scalar ligatures.
 
 This deliberately does not consult a system font. A missing or unsupported
 font program is skipped instead of making output depend on Fontconfig,
@@ -107,6 +114,12 @@ exactly or within one 8-bit unit. The complete fixture comparison has a
 normalized mean absolute error around `0.00019`; the pre-existing graphics
 fixture is around `0.00236`.
 
+A separate deterministic TrueType fixture contains only a Macintosh format 0
+`cmap`, arbitrary PDF character codes `01`–`03`, a `ToUnicode` map and an RGB
+text color. The three-page `drylab.pdf` compatibility sample was also rendered
+at 96 DPI and visually compared page-by-page with Poppler: title, body text,
+ligatures, Polish characters, orange emphasis and images are present.
+
 This remains an alpha rasterizer:
 
 - knockout and non-isolated group backdrop interaction is not yet complete;
@@ -114,8 +127,8 @@ This remains an alpha rasterizer:
 - line caps, joins, miter clipping and dash continuity across subpaths are
   approximated by the first managed stroke scanner;
 - text is a separate pass after the graphics display list, so its exact
-  interleaving, clipping, paint mode, PDF text color and transparency state
-  are not yet preserved;
+  interleaving, clipping, paint mode, special/pattern color and transparency
+  state are not yet preserved;
 - embedded CFF/Type 1 outlines, Type 3 CharProcs, hinting, GSUB/GPOS, shaping,
   vertical glyph forms and platform font substitution are not rendered;
 - uncolored tiling patterns, inline images, mesh shadings, overprint and

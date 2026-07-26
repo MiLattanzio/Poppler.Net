@@ -178,6 +178,7 @@ page.SavePng("page.png", new RasterRenderOptions { Dpi = 144 });
 RGBA rows. `Page.RenderToPng` returns encoded PNG bytes. The raster backend
 paints the graphics display list with clipping, images, gradients, patterns,
 PDF blend modes and graphics-state soft masks. It also paints embedded
-TrueType outlines in a managed post-pass. See
+TrueType outlines in a source-code-aware managed post-pass and preserves
+explicit device text colors. See
 [RENDERING.md](RENDERING.md) for the current text, stroke, group and color
 limits.

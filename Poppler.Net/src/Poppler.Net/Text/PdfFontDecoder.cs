@@ -260,6 +260,59 @@ internal sealed partial class PdfFontDecoder
         return _trueTypeFont.TryGetGlyph(glyph, out path, out advance);
     }
 
+    internal bool TryGetGlyphOutline(
+        PdfDecodedGlyph decoded,
+        out PdfGraphicsPath path,
+        out double advance,
+        out double ascent,
+        out double descent)
+    {
+        path = new PdfGraphicsPath(Array.Empty<PdfPathSegment>());
+        advance = 0;
+        ascent = _trueTypeFont?.Ascent ?? Ascent;
+        descent = _trueTypeFont?.Descent ?? Descent;
+        if (_trueTypeFont is null)
+            return false;
+
+        uint glyph;
+        if (_composite)
+        {
+            if (_cidToGlyph is not null)
+            {
+                if (decoded.Cid >= _cidToGlyph.Length)
+                    return false;
+                glyph = _cidToGlyph[(int)decoded.Cid];
+            }
+            else if (_cidToGlyphIdentity)
+            {
+                glyph = decoded.Cid;
+            }
+            else
+            {
+                return false;
+            }
+        }
+        else if (_openTypeCmap is not null &&
+                 _openTypeCmap.TryGetGlyphForCharacterCode(
+                     decoded.CharacterCode,
+                     out uint sourceGlyph))
+        {
+            glyph = sourceGlyph;
+        }
+        else
+        {
+            Rune first = decoded.Text.EnumerateRunes().FirstOrDefault();
+            if (first.Value == 0 ||
+                _openTypeCmap is null ||
+                !_openTypeCmap.TryGetGlyph(first.Value, out glyph))
+            {
+                return false;
+            }
+        }
+
+        return _trueTypeFont.TryGetGlyph(glyph, out path, out advance);
+    }
+
     private string DecodeSimple(byte value)
     {
         if (_differences.TryGetValue(value, out string? difference))

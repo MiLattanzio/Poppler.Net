@@ -9,7 +9,7 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.7.0-alpha.1` adds the first managed Splash-style raster,
+slices. Version `0.7.0-alpha.2` adds the first managed Splash-style raster,
 transparency and embedded TrueType outline slice on top of the hardened `0.2`
 foundation, `0.3` security handler, `0.4` font/text layer, `0.5` graphics
 interpreter and `0.6` image/color pipeline;
@@ -45,7 +45,8 @@ it is not a claim that all of Poppler has already been translated.
     color spaces, ICC matrix/shaper profiles and common compressed codecs.
 15. Port the first Splash path scanner and straight-alpha compositor, Form
     transparency groups, graphics-state soft masks and embedded TrueType
-    `glyf` outlines.
+    `glyf` outlines, retaining source character codes/CIDs for subset glyph
+    selection.
 
 ## Upstream-to-managed map
 

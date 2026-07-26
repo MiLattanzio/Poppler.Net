@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.0-alpha.2 — 2026-07-26
+
+- Fixed missing raster text in TrueType subsets whose sfnt contains only a
+  Macintosh format 0 `cmap`.
+- Retained original PDF character codes and CIDs in internal text runs so
+  rasterization selects subset glyph IDs directly instead of performing the
+  lossy `PDF code → Unicode → glyph ID` round trip.
+- Applied `CIDToGIDMap`/identity mappings directly during TrueType outline
+  selection and preserved multi-scalar ligatures as one source glyph.
+- Preserved explicit DeviceGray, DeviceRGB and DeviceCMYK text fill colors;
+  `RasterRenderOptions.TextColor` remains the fallback.
+- Added a reproducible format 0 TrueType subset fixture and a rendering
+  regression, bringing the suite to 101 passing NUnit cases.
+- Verified all three pages of `drylab.pdf` visually against Poppler at 96 DPI,
+  including title, body text, ligatures, Polish characters, orange emphasis
+  and images.
+
 ## 0.7.0-alpha.1 — 2026-07-26
 
 - Added an internal pure-C# raster backend corresponding to the first

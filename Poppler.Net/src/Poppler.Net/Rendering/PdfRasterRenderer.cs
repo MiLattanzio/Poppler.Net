@@ -90,22 +90,49 @@ internal sealed class PdfRasterRenderer
             var glyphs = new List<(PdfGraphicsPath? Path, double Advance)>();
             double ascent = font.Ascent;
             double descent = font.Descent;
-            foreach (Rune rune in box.Text.EnumerateRunes())
+            if (box.DecodedGlyphs.Count > 0)
             {
-                if (font.TryGetGlyphOutline(
-                        rune,
+                foreach (Text.PdfDecodedGlyph decoded in box.DecodedGlyphs)
+                {
+                    bool hasOutline = font.TryGetGlyphOutline(
+                        decoded,
                         out PdfGraphicsPath outline,
                         out double advance,
                         out double glyphAscent,
-                        out double glyphDescent))
-                {
-                    glyphs.Add((outline, Math.Max(0, advance)));
-                    ascent = glyphAscent;
-                    descent = glyphDescent;
+                        out double glyphDescent);
+                    double fallbackAdvance = Math.Abs(
+                        box.WritingMode == FontWritingMode.Vertical
+                            ? decoded.AdvanceY
+                            : decoded.AdvanceX) / 1000.0;
+                    glyphs.Add((
+                        hasOutline ? outline : null,
+                        Math.Max(0, advance > 0 ? advance : fallbackAdvance)));
+                    if (hasOutline)
+                    {
+                        ascent = glyphAscent;
+                        descent = glyphDescent;
+                    }
                 }
-                else
+            }
+            else
+            {
+                foreach (Rune rune in box.Text.EnumerateRunes())
                 {
-                    glyphs.Add((null, Rune.IsWhiteSpace(rune) ? 0.33 : 0.5));
+                    if (font.TryGetGlyphOutline(
+                            rune,
+                            out PdfGraphicsPath outline,
+                            out double advance,
+                            out double glyphAscent,
+                            out double glyphDescent))
+                    {
+                        glyphs.Add((outline, Math.Max(0, advance)));
+                        ascent = glyphAscent;
+                        descent = glyphDescent;
+                    }
+                    else
+                    {
+                        glyphs.Add((null, Rune.IsWhiteSpace(rune) ? 0.33 : 0.5));
+                    }
                 }
             }
 
@@ -152,7 +179,8 @@ internal sealed class PdfRasterRenderer
                             x,
                             y,
                             PdfFillRule.NonZero),
-                        (_, _) => RasterColor.FromPdf(_options.TextColor),
+                        (_, _) => RasterColor.FromPdf(
+                            box.FillColor ?? _options.TextColor),
                         1,
                         "Normal",
                         null);

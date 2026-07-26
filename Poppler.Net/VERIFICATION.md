@@ -1,12 +1,15 @@
 # Verification record
 
-Verification performed on 2026-07-26 for `0.7.0-alpha.1`:
+Verification performed on 2026-07-26 for `0.7.0-alpha.2`:
 
 - .NET SDK 8.0.423 restored and compiled all four solution projects in Release
   with warnings treated as errors.
-- NUnitLite executed 100 tests: 100 passed, 0 failed, 0 warnings, 0 skipped.
+- NUnitLite executed 101 tests: 101 passed, 0 failed, 0 warnings, 0 skipped.
 - the managed-only verifier accepted production source and every asset in the
   complete restored NuGet graph, including the three runtime codecs.
+- `Poppler.Net.0.7.0-alpha.2.nupkg` was produced successfully; its manifest
+  contains the three pinned managed codec dependencies and no native/runtime
+  asset.
 - the user corrections remain intact: revision 6 selects SHA-2 through
   `int va = selector % 3`, and every NUnit exception assertion explicitly
   casts its lambda to `Action`.
@@ -33,6 +36,14 @@ Verification performed on 2026-07-26 for `0.7.0-alpha.1`:
 - embedded TrueType `ABC` is painted from managed `glyf` outlines; disabling
   `RasterRenderOptions.IncludeText` removes all dark pixels from the text-only
   fixture.
+- a separate embedded TrueType fixture uses only `cmap` format 0, arbitrary
+  PDF codes `01`–`03`, `ToUnicode` and an RGB fill color; managed rendering
+  paints the expected orange `ABC` directly from the retained source codes.
+- the three-page Prince `drylab.pdf` compatibility sample uses five embedded
+  TrueType subsets with format 0 CMaps. Managed output at 96 DPI was visually
+  checked page-by-page against Poppler output: title/body/footer text,
+  multi-scalar ligatures, Polish characters, device colors and images are
+  present on all pages.
 - rendered PNG verification covers RGBA layout, straight alpha, dimensions,
   page rotation, configurable transparency, PNG structure and render-pixel
   limits.
@@ -41,7 +52,7 @@ Verification performed on 2026-07-26 for `0.7.0-alpha.1`:
   encodings and color spaces.
 - regenerating the image/color fixture updates a SHA-256 manifest and produces
   deterministic PDF bytes for the installed generator versions.
-- all nine encrypted fixture hashes, both embedded-font fixture hashes and the
+- all nine encrypted fixture hashes, all three embedded-font fixture hashes and the
   graphics fixture hash continue to match their manifests.
 - project/XML/JSON/YAML structure, local Markdown links, shell syntax and
   forbidden-interoperability source scans pass.

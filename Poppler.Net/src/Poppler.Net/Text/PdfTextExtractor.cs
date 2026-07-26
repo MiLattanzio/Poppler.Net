@@ -45,6 +45,19 @@ internal sealed class PdfTextExtractor
                         matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5])
                         .Multiply(state.Ctm);
                     break;
+                case "g" when LastNumber(values) is { } gray:
+                    state.FillColor = PdfColor.Gray(gray);
+                    break;
+                case "rg" when TryNumbers(values, 3, out double[] rgb):
+                    state.FillColor = PdfColor.Rgb(rgb[0], rgb[1], rgb[2]);
+                    break;
+                case "k" when TryNumbers(values, 4, out double[] cmyk):
+                    state.FillColor = PdfColor.Cmyk(
+                        cmyk[0],
+                        cmyk[1],
+                        cmyk[2],
+                        cmyk[3]);
+                    break;
                 case "BT":
                     inText = true;
                     state.TextMatrix = PdfMatrix.Identity;
@@ -215,7 +228,9 @@ internal sealed class PdfTextExtractor
                 {
                     WritingMode = state.Font.WritingMode,
                     IsRightToLeft =
-                        PdfTextLayoutEngine.ContainsStrongRightToLeft(visibleText)
+                        PdfTextLayoutEngine.ContainsStrongRightToLeft(visibleText),
+                    DecodedGlyphs = glyphs,
+                    FillColor = state.FillColor
                 });
             }
         }
@@ -319,6 +334,7 @@ internal sealed class PdfTextExtractor
         public double HorizontalScale { get; set; } = 1;
         public double Leading { get; set; }
         public double Rise { get; set; }
+        public PdfColor? FillColor { get; set; }
 
         public TextState Clone() => (TextState)MemberwiseClone();
     }
