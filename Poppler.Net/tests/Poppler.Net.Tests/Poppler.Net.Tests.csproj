@@ -3,17 +3,17 @@
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
     <UseAppHost>false</UseAppHost>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Poppler.Net\Poppler.Net.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="xunit.v3" PrivateAssets="all" />
+    <PackageReference Include="NUnit" PrivateAssets="all" />
+    <PackageReference Include="NUnitLite" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
-    <Using Include="Xunit" />
+    <Using Include="NUnit.Framework" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\fixtures\*.pdf"

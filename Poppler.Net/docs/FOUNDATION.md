@@ -13,7 +13,7 @@ or page rendering.
 3. inspect production source for native interop and process fallbacks;
 4. inspect every restored package asset and reject ELF, Mach-O, WebAssembly,
    native PE, mixed-mode PE and ReadyToRun binaries;
-5. run the xUnit v3 regression executable;
+5. run the NUnit regression suite through the managed NUnitLite executable;
 6. create the `Poppler.Net` NuGet package.
 
 The library and CLI have no third-party runtime package references. Test-only

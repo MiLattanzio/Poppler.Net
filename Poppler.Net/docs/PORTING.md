@@ -9,7 +9,7 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.3.0-alpha.1` adds the Standard Security Handler to the
+slices. Version `0.3.0-alpha.2` adds the Standard Security Handler to the
 hardened `0.2` foundation; it is not a claim that all of Poppler has already
 been translated.
 
@@ -28,7 +28,7 @@ been translated.
 7. Implement an initial text-content interpreter with `ToUnicode` CMaps,
    simple encodings and common text-state operators.
 8. Expose a C# API patterned after Poppler's stable C++ API and a managed CLI.
-9. Add xUnit v3 regression fixtures and a package-graph verifier that rejects
+9. Add NUnit regression fixtures and a package-graph verifier that rejects
    native or mixed-mode NuGet assets.
 10. Harden header-relative offsets, incremental revisions, generation checks
     and damaged-xref/object-stream reconstruction.

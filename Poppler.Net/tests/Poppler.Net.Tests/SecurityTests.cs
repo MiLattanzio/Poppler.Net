@@ -8,17 +8,16 @@ public sealed class SecurityTests
     private const string UserPassword = "user-03";
     private const string OwnerPassword = "owner-03";
 
-    public static TheoryData<string, int, PdfEncryptionAlgorithm> Revisions => new()
+    public static IEnumerable<TestCaseData> Revisions()
     {
-        { "r2-rc4-40.pdf", 2, PdfEncryptionAlgorithm.Rc4 },
-        { "r3-rc4-128.pdf", 3, PdfEncryptionAlgorithm.Rc4 },
-        { "r4-aes-128.pdf", 4, PdfEncryptionAlgorithm.Aes128 },
-        { "r5-aes-256.pdf", 5, PdfEncryptionAlgorithm.Aes256 },
-        { "r6-aes-256.pdf", 6, PdfEncryptionAlgorithm.Aes256 }
-    };
+        yield return new TestCaseData("r2-rc4-40.pdf", 2, PdfEncryptionAlgorithm.Rc4);
+        yield return new TestCaseData("r3-rc4-128.pdf", 3, PdfEncryptionAlgorithm.Rc4);
+        yield return new TestCaseData("r4-aes-128.pdf", 4, PdfEncryptionAlgorithm.Aes128);
+        yield return new TestCaseData("r5-aes-256.pdf", 5, PdfEncryptionAlgorithm.Aes256);
+        yield return new TestCaseData("r6-aes-256.pdf", 6, PdfEncryptionAlgorithm.Aes256);
+    }
 
-    [Theory]
-    [MemberData(nameof(Revisions))]
+    [TestCaseSource(nameof(Revisions))]
     public void OpensStandardSecurityHandlerRevisionsTwoThroughSix(
         string fileName,
         int revision,
@@ -28,27 +27,30 @@ public sealed class SecurityTests
             ReadFixture(fileName),
             userPassword: UserPassword);
 
-        Assert.True(document.IsEncrypted);
-        Assert.False(document.IsLocked);
-        Assert.Equal(PdfPasswordKind.User, document.PasswordKind);
-        PdfEncryptionInfo info = Assert.IsType<PdfEncryptionInfo>(document.EncryptionInfo);
-        Assert.Equal(revision, info.Revision);
-        Assert.Equal(algorithm, info.StringAlgorithm);
-        Assert.Equal(algorithm, info.StreamAlgorithm);
-        Assert.Equal(algorithm, info.EmbeddedFileAlgorithm);
-        Assert.Equal("Poppler.Net encrypted fixture", document.Title);
-        Assert.Contains("Poppler.Net encrypted XMP", document.Metadata);
-        Assert.Contains("Encrypted managed PDF R2-R6", document.CreatePage(0).Text());
+        Assert.That(document.IsEncrypted, Is.True);
+        Assert.That(document.IsLocked, Is.False);
+        Assert.That(document.PasswordKind, Is.EqualTo(PdfPasswordKind.User));
+        Assert.That(document.EncryptionInfo, Is.Not.Null);
+        PdfEncryptionInfo info = document.EncryptionInfo!;
+        Assert.That(info.Revision, Is.EqualTo(revision));
+        Assert.That(info.StringAlgorithm, Is.EqualTo(algorithm));
+        Assert.That(info.StreamAlgorithm, Is.EqualTo(algorithm));
+        Assert.That(info.EmbeddedFileAlgorithm, Is.EqualTo(algorithm));
+        Assert.That(document.Title, Is.EqualTo("Poppler.Net encrypted fixture"));
+        Assert.That(document.Metadata, Does.Contain("Poppler.Net encrypted XMP"));
+        Assert.That(
+            document.CreatePage(0).Text(),
+            Does.Contain("Encrypted managed PDF R2-R6"));
 
-        EmbeddedFile attachment = Assert.Single(document.EmbeddedFiles);
-        Assert.Equal("secret.txt", attachment.Name);
-        Assert.Equal(
-            "encrypted attachment payload",
-            Encoding.ASCII.GetString(attachment.Data.Span));
+        Assert.That(document.EmbeddedFiles, Has.Count.EqualTo(1));
+        EmbeddedFile attachment = document.EmbeddedFiles[0];
+        Assert.That(attachment.Name, Is.EqualTo("secret.txt"));
+        Assert.That(
+            Encoding.ASCII.GetString(attachment.Data.Span),
+            Is.EqualTo("encrypted attachment payload"));
     }
 
-    [Theory]
-    [MemberData(nameof(Revisions))]
+    [TestCaseSource(nameof(Revisions))]
     public void LockedDocumentCanBeRetriedWithoutRetainingWrongCredentials(
         string fileName,
         int revision,
@@ -56,25 +58,26 @@ public sealed class SecurityTests
     {
         using Document document = Document.LoadFromData(ReadFixture(fileName));
 
-        Assert.True(document.IsEncrypted);
-        Assert.True(document.IsLocked);
-        Assert.Equal(0, document.Pages);
-        Assert.Equal(PdfPasswordKind.None, document.PasswordKind);
-        Assert.Equal(revision, document.EncryptionInfo?.Revision);
-        Assert.Equal(algorithm, document.EncryptionInfo?.StreamAlgorithm);
-        Assert.Throws<PdfEncryptedException>(() => document.InfoKey("Title"));
+        Assert.That(document.IsEncrypted, Is.True);
+        Assert.That(document.IsLocked, Is.True);
+        Assert.That(document.Pages, Is.EqualTo(0));
+        Assert.That(document.PasswordKind, Is.EqualTo(PdfPasswordKind.None));
+        Assert.That(document.EncryptionInfo?.Revision, Is.EqualTo(revision));
+        Assert.That(document.EncryptionInfo?.StreamAlgorithm, Is.EqualTo(algorithm));
+        Assert.That(
+            (Action)(() => document.InfoKey("Title")),
+            Throws.TypeOf<PdfEncryptedException>());
 
-        Assert.True(document.Unlock("", "wrong-password"));
-        Assert.True(document.IsLocked);
-        Assert.False(document.Unlock("", UserPassword));
-        Assert.False(document.IsLocked);
-        Assert.Equal(PdfPasswordKind.User, document.PasswordKind);
-        Assert.Equal(1, document.Pages);
-        Assert.Equal("Poppler.Net encrypted fixture", document.Title);
+        Assert.That(document.Unlock("", "wrong-password"), Is.True);
+        Assert.That(document.IsLocked, Is.True);
+        Assert.That(document.Unlock("", UserPassword), Is.False);
+        Assert.That(document.IsLocked, Is.False);
+        Assert.That(document.PasswordKind, Is.EqualTo(PdfPasswordKind.User));
+        Assert.That(document.Pages, Is.EqualTo(1));
+        Assert.That(document.Title, Is.EqualTo("Poppler.Net encrypted fixture"));
     }
 
-    [Theory]
-    [MemberData(nameof(Revisions))]
+    [TestCaseSource(nameof(Revisions))]
     public void OwnerPasswordOverridesUserPermissionMask(
         string fileName,
         int revision,
@@ -84,14 +87,13 @@ public sealed class SecurityTests
             ReadFixture(fileName),
             ownerPassword: OwnerPassword);
 
-        Assert.False(document.IsLocked);
-        Assert.Equal(PdfPasswordKind.Owner, document.PasswordKind);
-        Assert.Equal(Permission.All, document.Permissions);
-        Assert.True(document.HasPermission(Permission.Modify));
+        Assert.That(document.IsLocked, Is.False);
+        Assert.That(document.PasswordKind, Is.EqualTo(PdfPasswordKind.Owner));
+        Assert.That(document.Permissions, Is.EqualTo(Permission.All));
+        Assert.That(document.HasPermission(Permission.Modify), Is.True);
     }
 
-    [Theory]
-    [MemberData(nameof(Revisions))]
+    [TestCaseSource(nameof(Revisions))]
     public void UserPasswordExposesPdfPermissionBits(
         string fileName,
         int revision,
@@ -101,80 +103,92 @@ public sealed class SecurityTests
             ReadFixture(fileName),
             userPassword: UserPassword);
 
-        Assert.True(document.HasPermission(Permission.Print));
-        Assert.True(document.HasPermission(Permission.Copy));
-        Assert.True(document.HasPermission(Permission.Accessibility));
-        Assert.False(document.HasPermission(Permission.Modify));
-        Assert.False(document.HasPermission(Permission.AddNotes));
-        Assert.False(document.HasPermission(Permission.FillForms));
-        Assert.False(document.HasPermission(Permission.Assemble));
-        Assert.Equal(
-            revision == 2,
-            document.HasPermission(Permission.HighResolutionPrint));
+        Assert.That(document.HasPermission(Permission.Print), Is.True);
+        Assert.That(document.HasPermission(Permission.Copy), Is.True);
+        Assert.That(document.HasPermission(Permission.Accessibility), Is.True);
+        Assert.That(document.HasPermission(Permission.Modify), Is.False);
+        Assert.That(document.HasPermission(Permission.AddNotes), Is.False);
+        Assert.That(document.HasPermission(Permission.FillForms), Is.False);
+        Assert.That(document.HasPermission(Permission.Assemble), Is.False);
+        Assert.That(
+            document.HasPermission(Permission.HighResolutionPrint),
+            Is.EqualTo(revision == 2));
     }
 
-    [Fact]
+    [Test]
     public void SupportsDifferentStringAndStreamCryptFilters()
     {
         using Document document = Document.LoadFromData(
             ReadFixture("r4-aes-128-string-identity.pdf"),
             userPassword: UserPassword);
 
-        PdfEncryptionInfo info = Assert.IsType<PdfEncryptionInfo>(document.EncryptionInfo);
-        Assert.Equal(PdfEncryptionAlgorithm.Identity, info.StringAlgorithm);
-        Assert.Equal(PdfEncryptionAlgorithm.Aes128, info.StreamAlgorithm);
-        Assert.Equal("Poppler.Net encrypted fixture", document.Title);
-        Assert.Contains("Encrypted managed PDF R2-R6", document.CreatePage(0).Text());
+        Assert.That(document.EncryptionInfo, Is.Not.Null);
+        PdfEncryptionInfo info = document.EncryptionInfo!;
+        Assert.That(info.StringAlgorithm, Is.EqualTo(PdfEncryptionAlgorithm.Identity));
+        Assert.That(info.StreamAlgorithm, Is.EqualTo(PdfEncryptionAlgorithm.Aes128));
+        Assert.That(document.Title, Is.EqualTo("Poppler.Net encrypted fixture"));
+        Assert.That(
+            document.CreatePage(0).Text(),
+            Does.Contain("Encrypted managed PDF R2-R6"));
     }
 
-    [Fact]
+    [Test]
     public void UsesEncryptMetadataFlagWhenDerivingLegacyFileKey()
     {
         using Document document = Document.LoadFromData(
             ReadFixture("r4-aes-128-unencrypted-metadata.pdf"),
             userPassword: UserPassword);
 
-        PdfEncryptionInfo info = Assert.IsType<PdfEncryptionInfo>(document.EncryptionInfo);
-        Assert.False(info.EncryptMetadata);
-        Assert.Equal("Poppler.Net encrypted fixture", document.Title);
-        Assert.Contains("Poppler.Net encrypted XMP", document.Metadata);
-        Assert.Contains("Encrypted managed PDF R2-R6", document.CreatePage(0).Text());
+        Assert.That(document.EncryptionInfo, Is.Not.Null);
+        PdfEncryptionInfo info = document.EncryptionInfo!;
+        Assert.That(info.EncryptMetadata, Is.False);
+        Assert.That(document.Title, Is.EqualTo("Poppler.Net encrypted fixture"));
+        Assert.That(document.Metadata, Does.Contain("Poppler.Net encrypted XMP"));
+        Assert.That(
+            document.CreatePage(0).Text(),
+            Does.Contain("Encrypted managed PDF R2-R6"));
     }
 
-    [Fact]
+    [Test]
     public void AppliesExplicitCryptFilterBeforeContentFilters()
     {
         using Document document = Document.LoadFromData(
             ReadFixture("r4-aes-128-explicit-crypt.pdf"),
             userPassword: UserPassword);
 
-        Assert.Equal(PdfEncryptionAlgorithm.Aes128, document.EncryptionInfo?.StreamAlgorithm);
-        Assert.Contains("Encrypted managed PDF R2-R6", document.CreatePage(0).Text());
+        Assert.That(
+            document.EncryptionInfo?.StreamAlgorithm,
+            Is.EqualTo(PdfEncryptionAlgorithm.Aes128));
+        Assert.That(
+            document.CreatePage(0).Text(),
+            Does.Contain("Encrypted managed PDF R2-R6"));
     }
 
-    [Fact]
+    [Test]
     public void SelectsEmbeddedFileCryptFilterIndependently()
     {
         using Document document = Document.LoadFromData(
             ReadFixture("r4-aes-128-embedded-file-only.pdf"),
             userPassword: UserPassword);
 
-        PdfEncryptionInfo info = Assert.IsType<PdfEncryptionInfo>(document.EncryptionInfo);
-        Assert.Equal(PdfEncryptionAlgorithm.Identity, info.StringAlgorithm);
-        Assert.Equal(PdfEncryptionAlgorithm.Identity, info.StreamAlgorithm);
-        Assert.Equal(PdfEncryptionAlgorithm.Aes128, info.EmbeddedFileAlgorithm);
-        EmbeddedFile attachment = Assert.Single(document.EmbeddedFiles);
-        Assert.Equal(
-            "encrypted attachment payload",
-            Encoding.ASCII.GetString(attachment.Data.Span));
+        Assert.That(document.EncryptionInfo, Is.Not.Null);
+        PdfEncryptionInfo info = document.EncryptionInfo!;
+        Assert.That(info.StringAlgorithm, Is.EqualTo(PdfEncryptionAlgorithm.Identity));
+        Assert.That(info.StreamAlgorithm, Is.EqualTo(PdfEncryptionAlgorithm.Identity));
+        Assert.That(info.EmbeddedFileAlgorithm, Is.EqualTo(PdfEncryptionAlgorithm.Aes128));
+        Assert.That(document.EmbeddedFiles, Has.Count.EqualTo(1));
+        EmbeddedFile attachment = document.EmbeddedFiles[0];
+        Assert.That(
+            Encoding.ASCII.GetString(attachment.Data.Span),
+            Is.EqualTo("encrypted attachment payload"));
     }
 
-    [Fact]
+    [Test]
     public void ReportsTamperedAes256PermissionsBlock()
     {
         byte[] fixture = ReadFixture("r6-aes-256.pdf");
         int marker = fixture.AsSpan().IndexOf("/Perms <"u8);
-        Assert.True(marker >= 0);
+        Assert.That(marker, Is.GreaterThanOrEqualTo(0));
         int firstHexDigit = marker + "/Perms <".Length;
         fixture[firstHexDigit] = fixture[firstHexDigit] == (byte)'0'
             ? (byte)'1'
@@ -184,10 +198,10 @@ public sealed class SecurityTests
             fixture,
             userPassword: UserPassword);
 
-        Assert.False(document.IsLocked);
-        Assert.Contains(
-            document.Diagnostics,
-            diagnostic => diagnostic.Code == "security.perms");
+        Assert.That(document.IsLocked, Is.False);
+        Assert.That(
+            document.Diagnostics.Any(diagnostic => diagnostic.Code == "security.perms"),
+            Is.True);
     }
 
     private static byte[] ReadFixture(string fileName) =>

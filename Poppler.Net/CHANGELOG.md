@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0-alpha.2 — 2026-07-26
+
+- Corrected the revision 6 SHA-2 selector switch expression by evaluating
+  `selector % 3` before entering the switch.
+- Migrated all 43 regression cases from xUnit v3 to NUnit 4.
+- Replaced xUnit theory data with NUnit `TestCaseSource` cases and converted
+  assertions to NUnit's constraint model.
+- Updated the build scripts to execute the suite with the managed NUnitLite
+  in-process runner.
+- Centrally pinned NUnit and NUnitLite as test-only managed dependencies.
+
 ## 0.3.0-alpha.1 — 2026-07-26
 
 - Ported Standard Security Handler revisions 2 through 6.

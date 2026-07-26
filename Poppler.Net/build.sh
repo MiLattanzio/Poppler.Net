@@ -15,7 +15,8 @@ dotnet run \
 dotnet run \
   --project tests/Poppler.Net.Tests/Poppler.Net.Tests.csproj \
   --configuration "$configuration" \
-  --no-build
+  --no-build \
+  -- --noresult
 dotnet pack \
   src/Poppler.Net/Poppler.Net.csproj \
   --configuration "$configuration" \

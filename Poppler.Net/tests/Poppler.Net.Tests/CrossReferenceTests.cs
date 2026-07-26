@@ -4,59 +4,64 @@ namespace Poppler.Net.Tests;
 
 public sealed class CrossReferenceTests
 {
-    [Fact]
+    [Test]
     public void ReadsXrefAndCompressedObjectStreams()
     {
         using Document document = Document.LoadFromData(PdfFixtures.CreateWithXrefStream());
 
-        Assert.Equal(1, document.Pages);
-        Assert.Contains("Compressed font object", document.CreatePage(0).Text());
+        Assert.That(document.Pages, Is.EqualTo(1));
+        Assert.That(document.CreatePage(0).Text(), Does.Contain("Compressed font object"));
     }
 
-    [Fact]
+    [Test]
     public void AppliesLatestIncrementalRevision()
     {
         using Document document = Document.LoadFromData(PdfFixtures.CreateWithIncrementalUpdate());
 
-        Assert.Equal("Updated title", document.Title);
-        Assert.Equal("Incremental update", document.Producer);
-        Assert.False(document.XrefWasRepaired);
+        Assert.That(document.Title, Is.EqualTo("Updated title"));
+        Assert.That(document.Producer, Is.EqualTo("Incremental update"));
+        Assert.That(document.XrefWasRepaired, Is.False);
     }
 
-    [Fact]
+    [Test]
     public void RepairsBrokenStartXref()
     {
         using Document document = Document.LoadFromData(PdfFixtures.CreateWithBrokenStartXref());
 
-        Assert.True(document.XrefWasRepaired);
-        Assert.Contains("Hello managed PDF", document.CreatePage(0).Text());
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "xref.repair");
+        Assert.That(document.XrefWasRepaired, Is.True);
+        Assert.That(document.CreatePage(0).Text(), Does.Contain("Hello managed PDF"));
+        Assert.That(
+            document.Diagnostics.Any(diagnostic => diagnostic.Code == "xref.repair"),
+            Is.True);
     }
 
-    [Fact]
+    [Test]
     public void RepairRecoversXrefAndCompressedObjectStreams()
     {
         using Document document = Document.LoadFromData(
             PdfFixtures.CreateXrefStreamWithBrokenStartXref());
 
-        Assert.True(document.XrefWasRepaired);
-        Assert.Contains("Compressed font object", document.CreatePage(0).Text());
+        Assert.That(document.XrefWasRepaired, Is.True);
+        Assert.That(document.CreatePage(0).Text(), Does.Contain("Compressed font object"));
     }
 
-    [Fact]
+    [Test]
     public void TreatsOffsetsAsRelativeToHeaderAfterLeadingGarbage()
     {
         using Document document = Document.LoadFromData(PdfFixtures.CreateWithLeadingGarbage());
 
-        Assert.False(document.XrefWasRepaired);
-        Assert.Contains("Hello managed PDF", document.CreatePage(0).Text());
-        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "header.prefix");
+        Assert.That(document.XrefWasRepaired, Is.False);
+        Assert.That(document.CreatePage(0).Text(), Does.Contain("Hello managed PDF"));
+        Assert.That(
+            document.Diagnostics.Any(diagnostic => diagnostic.Code == "header.prefix"),
+            Is.True);
     }
 
-    [Fact]
+    [Test]
     public void RejectsAReferenceWithTheWrongGeneration()
     {
-        Assert.Throws<PdfFormatException>(
-            () => Document.LoadFromData(PdfFixtures.CreateWithWrongPageGeneration()));
+        Assert.That(
+            (Action)(() => Document.LoadFromData(PdfFixtures.CreateWithWrongPageGeneration())),
+            Throws.TypeOf<PdfFormatException>());
     }
 }

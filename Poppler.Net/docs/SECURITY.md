@@ -1,6 +1,6 @@
 # Standard Security Handler port
 
-Version `0.3.0-alpha.1` ports the document-opening portion of Poppler
+Version `0.3.0-alpha.2` ports the document-opening portion of Poppler
 26.07.0's `SecurityHandler` and `Decrypt` subsystems to C#.
 
 ## Implemented

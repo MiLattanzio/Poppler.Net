@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.3.0-alpha.1` security release is not a complete replacement for
+> This `0.3.0-alpha.2` security release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, basic text extraction and
@@ -18,13 +18,14 @@ Requirements: .NET SDK 8.0.423. `global.json` pins the selected feature band.
 
 ```bash
 dotnet build Poppler.Net.sln
-dotnet run --project tests/Poppler.Net.Tests
+dotnet run --project tests/Poppler.Net.Tests -- --noresult
 ```
 
-`./build.sh` performs restore, Release build, executable regression tests and
+`./build.sh` performs restore, Release build, NUnitLite regression tests and
 NuGet packaging. It also rejects native or mixed-mode binaries anywhere in the
 restored NuGet graph. The production library itself has no package dependency;
-xUnit v3 is the first approved managed-only test dependency. See
+NUnit and its in-process NUnitLite runner are approved test-only managed
+dependencies. See
 `VERIFICATION.md` for the checks completed in the creation environment.
 
 RC4, MD5, SHA-2 and AES are reached only through managed C# or the .NET

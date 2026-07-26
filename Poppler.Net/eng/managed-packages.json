@@ -1,7 +1,12 @@
 {
-  "xunit.v3": {
-    "version": "3.2.2",
+  "NUnit": {
+    "version": "4.6.1",
     "scope": "tests",
-    "reason": "Managed xUnit.net v3 test framework and in-process runner."
+    "reason": "Managed NUnit test framework."
+  },
+  "NUnitLite": {
+    "version": "4.6.1",
+    "scope": "tests",
+    "reason": "Managed in-process NUnit runner used only by the executable test project."
   }
 }
