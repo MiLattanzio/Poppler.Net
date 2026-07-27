@@ -143,7 +143,8 @@ def write_fixture(name: str, data: bytes) -> dict[str, str]:
 
 def main() -> None:
     font_bytes, _, _, _ = subset_font(
-        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        text="ABCimW",
     )
     substitute = ROOT / "Helvetica.ttf"
     substitute.write_bytes(font_bytes)

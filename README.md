@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.8.0-alpha.1` compatibility release is not a complete replacement for
+> This `0.8.0-alpha.2` compatibility release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -19,7 +19,9 @@ process invocation, or native NuGet dependency.
 > patterns, gradients and text in exact content-stream order. Managed outline
 > readers cover embedded TrueType, CFF1/Type 2 and Type 1 programs; Type 3
 > CharProcs, text paint/clip modes, inline images and file-based Base-14
-> substitution are also integrated. See
+> substitution are also integrated. Alpha 2 uses Poppler's canonical Base-14
+> widths when `/Widths` is omitted and fits substituted outlines to the PDF
+> advance so proportional text does not become monospaced or overlap. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
@@ -168,6 +170,8 @@ text/vector/image ordering, executes text inside Forms, implements all `Tr`
 fill/stroke/clip modes and decodes raw inline images. It adds managed CFF1
 Type 2 and Type 1 charstring outline readers, Type 3 CharProc execution and
 optional managed font-file substitution for Base-14/non-embedded fonts.
+Alpha 2 ports the canonical Base-14 width tables and reconciles replacement
+outline geometry with PDF text advances.
 
 ## License and provenance
 

@@ -9,9 +9,10 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.8.0-alpha.1` integrates text into the graphics interpreter,
+slices. Version `0.8.0-alpha.2` integrates text into the graphics interpreter,
 adds managed CFF1/Type 2 and Type 1 outline readers, executes Type 3 CharProcs,
-decodes inline images and performs managed font-file substitution on top of
+decodes inline images, ports the canonical Base-14 width tables and performs
+managed font-file substitution with advance fitting on top of
 the hardened `0.2` foundation, `0.3` security handler, `0.4` font/text layer,
 `0.5` graphics interpreter, `0.6` image/color pipeline and `0.7` raster;
 it is not a claim that all of Poppler has already been translated.
@@ -51,6 +52,8 @@ it is not a claim that all of Poppler has already been translated.
 16. Integrate text-showing operators with `Gfx` ordering, text paint/clip
     state and Form resources; add managed CFF1/Type 2, Type 1 and Type 3
     outline execution, raw inline images and font-file substitution.
+17. Port Poppler's canonical Base-14 widths and reconcile horizontal
+    replacement outlines with PDF advances.
 
 ## Upstream-to-managed map
 
@@ -74,7 +77,7 @@ it is not a claim that all of Poppler has already been translated.
 | `GfxColorSpace`, common ICC transforms | `PdfColorSpaceDefinition`, `PdfIccProfile` | Device, calibrated, indexed, spot and common matrix/shaper profiles |
 | `SplashOutputDev`, Splash path/composite | `PdfRasterRenderer`, `RasterGeometry`, `PdfBlend`, `RasterSurface` | Initial managed page raster, antialiasing and transparency |
 | Cairo vector output | `SvgPageRenderer` | Managed SVG preview |
-| FreeType/font rasterization and shaping | managed TrueType/CFF1/Type 1 readers plus `PdfFontSubstitutionResolver` | Common outlines and file substitution; hinting/shaping remain planned |
+| FreeType/font rasterization and shaping | managed TrueType/CFF1/Type 1 readers plus `PdfFontSubstitutionResolver` and Base-14 metrics | Common outlines, canonical standard-font advances and file substitution; hinting/shaping remain planned |
 | JPEG/JPEG2000/JBIG2/CCITT | managed package codecs plus internal CCITT decoder | Image XObjects plus common inline-image data implemented |
 | color management/overprint | managed common color conversions | No LUT ICC, proofing or overprint |
 | signatures/NSS/GPGME | — | Planned |

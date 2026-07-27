@@ -202,7 +202,7 @@ internal sealed partial class PdfFontDecoder
                 string text = _toUnicode.TryGetUnicode(source, out string? mapped)
                     ? mapped
                     : DecodeSimple(value);
-                double width = GetSimpleWidth(value) * _type3WidthScale;
+                double width = GetSimpleWidth(value, text) * _type3WidthScale;
                 result.Add(new PdfDecodedGlyph(
                     value,
                     value,
@@ -455,12 +455,23 @@ internal sealed partial class PdfFontDecoder
         return "\uFFFD";
     }
 
-    private double GetSimpleWidth(byte value)
+    private double GetSimpleWidth(byte value, string decodedText)
     {
         int index = value - _firstCharacter;
-        return _widths is not null && index >= 0 && index < _widths.Length
-            ? _widths[index]
-            : _missingWidth;
+        if (_widths is not null && index >= 0 && index < _widths.Length)
+            return _widths[index];
+        string? glyphName =
+            _differenceNames.GetValueOrDefault(value) ??
+            _programEncodingNames.GetValueOrDefault(value);
+        return PdfBase14Metrics.TryGetWidth(
+            Name,
+            value,
+            _simpleEncoding,
+            decodedText,
+            glyphName,
+            out double width)
+                ? width
+                : _missingWidth;
     }
 
     private static PdfCMap ReadCompositeEncoding(

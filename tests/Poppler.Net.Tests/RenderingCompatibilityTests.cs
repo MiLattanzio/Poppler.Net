@@ -72,6 +72,36 @@ public sealed class RenderingCompatibilityTests
     }
 
     [Test]
+    public void RendersProportionalBase14TextWithCanonicalAdvances()
+    {
+        using Document document = Document.LoadFromData(
+            PdfFixtures.CreateBase14MetricsFixture(
+                "Helvetica",
+                "696D"));
+        PdfBitmap bitmap = document.CreatePage(0).Render(
+            new RasterRenderOptions
+            {
+                Dpi = 72,
+                Antialiasing = 2,
+                FontDirectories = new[] { FixtureDirectory() }
+            });
+        Assert.That(
+            CountPixels(
+                bitmap,
+                34,
+                4,
+                41,
+                42,
+                static (red, green, blue, alpha) =>
+                    alpha > 200 &&
+                    red < 80 &&
+                    green < 80 &&
+                    blue < 80),
+            Is.GreaterThan(20),
+            "the m must begin after Helvetica's 222-unit i advance, not a synthetic 500-unit cell");
+    }
+
+    [Test]
     public void DecodesAndPaintsRawInlineImageSamples()
     {
         using Document document = Load("rendering-compatibility.pdf");

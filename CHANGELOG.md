@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.8.0-alpha.2 — 2026-07-27
+
+- Replaced the synthetic constant-width fallback for Base-14 fonts without a
+  `/Widths` array with the canonical Poppler 26.07 metrics for Courier,
+  Helvetica, Times, Symbol and ZapfDingbats, including every bold, italic and
+  oblique variant.
+- Preserved explicit PDF widths as authoritative and used Base-14 metrics only
+  when the character has no declared width.
+- Reconciled horizontally substituted TrueType/CFF outlines with the PDF
+  character advance, preventing wider local replacement glyphs from
+  overlapping the following character.
+- Expanded the deterministic substitute font to contain proportional `i`,
+  `m` and `W` glyphs and added metric/raster regressions that detect the
+  monospaced spacing failure shown by the reported document.
+- Added 15 NUnit cases, bringing the suite to 123 passing cases, and visually
+  verified a multi-style Base-14 report page after rendering.
+
 ## 0.8.0-alpha.1 — 2026-07-26
 
 - Moved text-showing operators into `PdfGraphicsInterpreter` and added public

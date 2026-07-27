@@ -107,6 +107,8 @@ internal sealed class PdfRasterRenderer
                 out _,
                 out _,
                 out _);
+            double substituteAdvance = 0;
+            bool substituted = false;
             if (!hasOutline && !element.Font.IsType3)
             {
                 Rune rune = placement.Glyph.Text.EnumerateRunes().FirstOrDefault();
@@ -116,16 +118,34 @@ internal sealed class PdfRasterRenderer
                         element.FontName,
                         rune,
                         out outline,
-                        out _);
+                        out substituteAdvance);
+                substituted = hasOutline;
             }
             if (!hasOutline)
             {
                 continue;
             }
 
+            PdfMatrix glyphTransform = placement.Transform;
+            if (substituted &&
+                element.Font.WritingMode == FontWritingMode.Horizontal &&
+                substituteAdvance > 0 &&
+                placement.Glyph.AdvanceX > 0)
+            {
+                double targetAdvance = placement.Glyph.AdvanceX / 1000.0;
+                glyphTransform =
+                    new PdfMatrix(
+                        targetAdvance / substituteAdvance,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0)
+                    .Multiply(glyphTransform);
+            }
             RasterPath geometry = RasterGeometry.Flatten(
                 outline,
-                placement.Transform.Multiply(_deviceTransform));
+                glyphTransform.Multiply(_deviceTransform));
             if (fill)
             {
                 Paint(

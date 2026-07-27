@@ -17,7 +17,10 @@ ROOT = Path(__file__).resolve().parent
 TEXT = "ABC"
 
 
-def subset_font(source: Path) -> tuple[bytes, list[int], list[int], str]:
+def subset_font(
+    source: Path,
+    text: str = TEXT,
+) -> tuple[bytes, list[int], list[int], str]:
     font = TTFont(source)
     options = subset.Options()
     options.retain_gids = True
@@ -25,18 +28,18 @@ def subset_font(source: Path) -> tuple[bytes, list[int], list[int], str]:
     options.name_legacy = True
     options.name_languages = ["*"]
     subsetter = subset.Subsetter(options=options)
-    subsetter.populate(text=TEXT)
+    subsetter.populate(text=text)
     subsetter.subset(font)
     font.recalcTimestamp = False
     font["head"].created = 2082844800
     font["head"].modified = 2082844800
 
     cmap = font.getBestCmap()
-    glyph_ids = [font.getGlyphID(cmap[ord(character)]) for character in TEXT]
+    glyph_ids = [font.getGlyphID(cmap[ord(character)]) for character in text]
     units_per_em = font["head"].unitsPerEm
     widths = [
         round(font["hmtx"].metrics[cmap[ord(character)]][0] * 1000 / units_per_em)
-        for character in TEXT
+        for character in text
     ]
     postscript_name = "FixtureFont"
     for record in font["name"].names:

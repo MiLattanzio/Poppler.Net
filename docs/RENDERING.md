@@ -1,6 +1,6 @@
 # Managed raster rendering in 0.8
 
-Release `0.8.0-alpha.1` extends the pure-C# counterpart of Poppler's
+Release `0.8.0-alpha.2` extends the pure-C# counterpart of Poppler's
 `SplashOutputDev`, path scanner, compositing and font-outline responsibilities.
 It consumes the backend-neutral `Page.Graphics` display list and never loads
 Splash, Cairo, Skia, FreeType, a platform drawing API or another native
@@ -113,8 +113,12 @@ When an embedded outline is unavailable, `UseFontSubstitution` can discover
 `.ttf` and `.otf` files. Explicit `FontDirectories` are searched before
 standard operating-system font folders. Candidate scoring uses Base-14 family
 and style traits, after which the selected file is parsed by the same managed
-TrueType/CFF readers. Disable substitution or provide controlled directories
-when reproducible output is more important than local font availability.
+TrueType/CFF readers. If a standard font omits `/Widths`, the canonical
+Poppler 26.07 Base-14 metrics determine character positions. A horizontally
+substituted outline is fitted to that PDF advance so a locally wider font does
+not overlap the following glyph. Disable substitution or provide controlled
+directories when reproducible output is more important than local font
+availability.
 
 ## Safety
 
@@ -149,6 +153,12 @@ Type 1 fixture covers `ABC` plus `Tr 7` clipping; the existing OpenType/CFF
 fixture verifies three distinct Type 2 glyph outlines. Managed PNGs were
 visually checked against Poppler rather than validated only by aggregate dark
 pixel counts.
+
+Alpha 2 adds a proportional Base-14 fixture containing `i`, `m` and `W`.
+Fourteen parameterized metric cases cover every standard font/style, while a
+raster assertion ensures Helvetica's narrow `i` advances by 222 units rather
+than the former synthetic 500-unit cell. A separate multi-style report page
+was rendered and visually inspected for letter gaps, overlap and clipping.
 
 This remains an alpha rasterizer:
 

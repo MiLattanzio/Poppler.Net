@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.8.0-alpha.1
+## Works in 0.8.0-alpha.2
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -70,6 +70,8 @@
   paint state.
 - Optional managed font-file substitution for Base-14/non-embedded fonts,
   with explicit search roots and no native font API or rasterizer.
+- Canonical Poppler widths for all fourteen standard fonts when `/Widths` is
+  omitted; horizontally substituted outlines are fitted to the PDF advance.
 - Raw inline images, standard abbreviated dictionary keys/names and
   content-stream interleaving.
 - Managed SVG vector output for paths, clipping, Form content, tiling patterns,

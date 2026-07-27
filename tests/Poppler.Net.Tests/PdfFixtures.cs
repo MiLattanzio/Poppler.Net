@@ -116,6 +116,31 @@ internal static class PdfFixtures
         return BuildClassic(objects, infoObject: null);
     }
 
+    public static byte[] CreateBase14MetricsFixture(
+        string baseFont,
+        string characterCodes)
+    {
+        byte[] content = Ascii(
+            $"BT /F1 48 Tf 20 80 Td <{characterCodes}> Tj ET");
+        string encoding =
+            baseFont is "Symbol" or "ZapfDingbats"
+                ? ""
+                : " /Encoding /WinAnsiEncoding";
+        var objects = new[]
+        {
+            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+            Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 220 120] " +
+                "/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"),
+            Stream($"<< /Length {content.Length} >>", content),
+            Ascii(
+                $"<< /Type /Font /Subtype /Type1 /BaseFont /{baseFont}" +
+                $"{encoding} >>")
+        };
+        return BuildClassic(objects, infoObject: null);
+    }
+
     public static byte[] CreateType0IdentityFixture(bool vertical)
     {
         string encoding = vertical ? "Identity-V" : "Identity-H";

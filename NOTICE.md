@@ -18,6 +18,8 @@ Changed for the managed port in July 2026:
   C# and .NET cryptography APIs;
 - font character maps, CID metrics, embedded sfnt inspection and directional
   text layout ported to managed C#;
+- canonical Base-14 font widths derived from Poppler's `BuiltinFont` tables
+  and replacement-outline advance fitting added to managed text rendering;
 - path construction, graphics state, clipping, Form/Image XObjects, tiling
   patterns and axial/radial shadings ported to a managed display list;
 - Image XObject decoding, masks, common PDF image codecs and calibrated/special

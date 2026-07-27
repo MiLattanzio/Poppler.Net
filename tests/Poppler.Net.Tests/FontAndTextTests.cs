@@ -21,6 +21,37 @@ public sealed class FontAndTextTests
         Assert.That(font.HasToUnicode, Is.False);
     }
 
+    [TestCase("Courier", "696D57", 1800)]
+    [TestCase("Courier-Bold", "696D57", 1800)]
+    [TestCase("Courier-BoldOblique", "696D57", 1800)]
+    [TestCase("Courier-Oblique", "696D57", 1800)]
+    [TestCase("Helvetica", "696D57", 1999)]
+    [TestCase("Helvetica-Bold", "696D57", 2111)]
+    [TestCase("Helvetica-BoldOblique", "696D57", 2111)]
+    [TestCase("Helvetica-Oblique", "696D57", 1999)]
+    [TestCase("Times-Bold", "696D57", 2111)]
+    [TestCase("Times-BoldItalic", "696D57", 1945)]
+    [TestCase("Times-Italic", "696D57", 1833)]
+    [TestCase("Times-Roman", "696D57", 2000)]
+    [TestCase("Symbol", "414243", 2111)]
+    [TestCase("ZapfDingbats", "212223", 2909)]
+    public void AppliesCanonicalBase14WidthsWhenWidthsAreOmitted(
+        string baseFont,
+        string characterCodes,
+        int expectedUnits)
+    {
+        using Document document = Document.LoadFromData(
+            PdfFixtures.CreateBase14MetricsFixture(
+                baseFont,
+                characterCodes));
+
+        TextBox box = document.CreatePage(0).TextList().Single();
+
+        Assert.That(
+            box.BoundingBox.Right - box.BoundingBox.Left,
+            Is.EqualTo(expectedUnits * 48 / 1000.0).Within(0.01));
+    }
+
     [TestCase(false, FontWritingMode.Horizontal)]
     [TestCase(true, FontWritingMode.Vertical)]
     public void DecodesIdentityCidFonts(

@@ -38,6 +38,8 @@ glyph intact when `ToUnicode` expands it to multiple Unicode scalars.
 ## Metrics and placement
 
 - simple-font `FirstChar`, `Widths` and descriptor `MissingWidth`;
+- canonical Courier, Helvetica, Times, Symbol and ZapfDingbats metrics,
+  including all Base-14 style variants, when a standard font omits `Widths`;
 - Type 3 `FontMatrix` width scaling;
 - CID default and exceptional widths through `DW` and both `W` forms;
 - vertical defaults and exceptions through `DW2` and both `W2` forms;
@@ -83,7 +85,8 @@ also apply to fonts and CMaps.
   Bidirectional Algorithm;
 - managed file substitution is available, but it is simpler than
   Fontconfig/FreeType matching and depends on local files unless explicit
-  `FontDirectories` are supplied;
+  `FontDirectories` are supplied; horizontal replacement outlines are fitted
+  to the authoritative PDF/Base-14 advance to avoid collisions;
 - raw CFF charset/encoding fallback is partial when `ToUnicode` is absent;
 - encrypted/eexec Type 1 programs are decoded, but uncommon OtherSubrs and
   synthetic/flex behavior remain partial;
