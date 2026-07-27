@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.8.0-rc.1 — 2026-07-28
+
+- Froze the public `0.8` API behind a deterministic reflection signature and
+  regression fingerprint.
+- Made object resolution, external CMap parsing, diagnostics and lazy
+  attachment data safe for concurrent read-only use from one `Document`.
+- Snapshotted caller-owned CMap and font-directory collections at operation
+  boundaries and made file discovery deterministic. Windows path comparison
+  now follows case-insensitive filesystem conventions.
+- Added concurrent text/font/display-list/raster stress coverage, concurrent
+  embedded-file coverage, option-snapshot regression and bounded release
+  smoke budgets. Five regressions bring the suite to 147 NUnit cases.
+- Set the NuGet author to Mi Lattanzio and the project/repository URL to
+  `https://github.com/MiLattanzio/Poppler.Net`.
+- Added GitHub Actions build/test/managed-only/package gates on Ubuntu,
+  Windows and macOS. Publishing a GitHub Release deploys the verified package
+  to NuGet.org through the protected `NUGET_API_KEY` secret.
+
 ## 0.8.0-beta.2 — 2026-07-27
 
 - Added bounded managed decoding and rasterization for shading types 4–7:

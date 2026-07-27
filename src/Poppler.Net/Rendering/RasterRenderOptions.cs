@@ -48,11 +48,25 @@ public sealed record RasterRenderOptions
     public IReadOnlyList<string> FontDirectories { get; init; } =
         Array.Empty<string>();
 
+    internal RasterRenderOptions Snapshot()
+    {
+        Validate();
+        return this with
+        {
+            FontDirectories = Array.AsReadOnly(FontDirectories.ToArray())
+        };
+    }
+
     internal void Validate()
     {
         if (!double.IsFinite(Dpi) || Dpi is < 1 or > 2400)
             throw new ArgumentOutOfRangeException(nameof(Dpi));
         if (Antialiasing is not (1 or 2 or 4 or 8))
             throw new ArgumentOutOfRangeException(nameof(Antialiasing));
+        if (FontDirectories is null ||
+            FontDirectories.Any(directory => directory is null))
+        {
+            throw new ArgumentNullException(nameof(FontDirectories));
+        }
     }
 }

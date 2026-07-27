@@ -8,9 +8,12 @@
     <Deterministic>true</Deterministic>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <DebugType>embedded</DebugType>
-    <Authors>Poppler contributors; Poppler.Net port contributors</Authors>
+    <Authors>Mi Lattanzio</Authors>
     <Copyright>Copyright the Poppler and Poppler.Net contributors</Copyright>
     <PackageLicenseExpression>GPL-2.0-or-later</PackageLicenseExpression>
-    <RepositoryUrl>https://gitlab.freedesktop.org/poppler/poppler</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/MiLattanzio/Poppler.Net</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/MiLattanzio/Poppler.Net</PackageProjectUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
   </PropertyGroup>
 </Project>

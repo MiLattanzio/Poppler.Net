@@ -11,6 +11,14 @@ internal sealed class PdfFontSubstitutionResolver
 {
     private const int MaximumFontFiles = 20_000;
     private const int MaximumFontBytes = 32 * 1024 * 1024;
+    private static readonly StringComparer PathComparer =
+        OperatingSystem.IsWindows()
+            ? StringComparer.OrdinalIgnoreCase
+            : StringComparer.Ordinal;
+    private static readonly StringComparison PathComparison =
+        OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
 
     private readonly RasterRenderOptions _options;
     private readonly Dictionary<string, IReadOnlyList<SubstituteFont>> _cache =
@@ -141,7 +149,7 @@ internal sealed class PdfFontSubstitutionResolver
                 string root = Path.GetFullPath(directory)
                     .TrimEnd(Path.DirectorySeparatorChar) +
                     Path.DirectorySeparatorChar;
-                if (path.StartsWith(root, StringComparison.Ordinal))
+                if (path.StartsWith(root, PathComparison))
                     return true;
             }
             catch (ArgumentException)
@@ -160,7 +168,7 @@ internal sealed class PdfFontSubstitutionResolver
             directory => !string.IsNullOrWhiteSpace(directory)));
         roots.AddRange(DefaultFontDirectories());
         var files = new List<string>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var seen = new HashSet<string>(PathComparer);
         foreach (string root in roots)
         {
             if (files.Count >= MaximumFontFiles)
@@ -170,9 +178,10 @@ internal sealed class PdfFontSubstitutionResolver
                 if (!Directory.Exists(root))
                     continue;
                 foreach (string file in Directory.EnumerateFiles(
-                             root,
-                             "*",
-                             SearchOption.AllDirectories))
+                                 root,
+                                 "*",
+                                 SearchOption.AllDirectories)
+                             .OrderBy(path => path, PathComparer))
                 {
                     string extension = Path.GetExtension(file);
                     if (!extension.Equals(".ttf", StringComparison.OrdinalIgnoreCase) &&

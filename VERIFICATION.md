@@ -1,67 +1,65 @@
 # Verification record
 
-Verification performed on 2026-07-27 for `0.8.0-beta.2`:
+Verification performed on 2026-07-28 for `0.8.0-rc.1`:
 
 - .NET SDK 8.0.423 compiled all four solution projects in Release with
   warnings treated as errors.
-- NUnitLite executed 142 tests: 142 passed, 0 failed, 0 warnings, 0 skipped.
+- NUnitLite executed 147 tests: 147 passed, 0 failed, 0 warnings, 0 skipped.
 - The managed-only verifier accepted production source and every asset in the
   complete restored NuGet graph, including the three managed runtime codecs.
-- `Poppler.Net.0.8.0-beta.2.nupkg` was produced from the current Release
-  assembly. It contains the net8.0 DLL/XML, README, license and notice, and
-  names only the pinned CoreJ2K, JBig2Decoder.NETStandard and StbImageSharp
-  managed dependencies.
+- `Poppler.Net.0.8.0-rc.1.nupkg` contains the Release net8.0 DLL/XML, README,
+  license and notice. Its NuGet metadata names `Mi Lattanzio` as author and
+  `https://github.com/MiLattanzio/Poppler.Net` as project and git repository.
+- The package names only the pinned CoreJ2K, JBig2Decoder.NETStandard and
+  StbImageSharp managed dependencies.
 - The user corrections remain intact: revision 6 selects SHA-2 through
   `int va = selector % 3`, NUnit exception assertions retain explicit
   `Action` casts, and reusable `stackalloc` buffers remain outside loops.
 
-## Beta 2 graphics corpus
+## Release-candidate gates
 
-The deterministic six-page fixture has SHA-256
-`15597777ca00e97f67638c5a82b5c42df4bcca3e2b2297f95e4c4b79540b9433`
-and covers:
+Five new tests freeze and stress the public release surface:
 
-1. free-form and lattice Gouraud mesh shadings;
-2. Coons and tensor-product patch meshes;
-3. one uncolored tiling pattern reused with independent red and blue
-   underlying colors;
-4. a PostScript calculator transfer function plus isolated knockout-group
-   metadata;
-5. isolated and non-isolated transparency groups over a shared backdrop;
-6. process overprint mode 1 compared with ordinary replacement painting.
+- A deterministic reflection fingerprint covers every public type, member and
+  signature. The frozen SHA-256 is
+  `53e218b56813cb9cc4f209c4e3d9d704ab3515f88d44162cb9e9245af4950616`.
+- Twenty-four workers concurrently read pages, text, fonts, graphics and
+  raster output from one `Document`.
+- Thirty-two workers concurrently materialize one lazy embedded file.
+- Caller-owned font and CMap directory collections are snapshotted at operation
+  boundaries.
+- The Release smoke workload completed in 149.8 ms and allocated 14.9 MiB,
+  within the explicit 30-second and 512-MiB regression budgets.
 
-The generator was run twice and reproduced both the PDF and JSON manifest
-byte for byte. Eight tests validate mesh kinds and triangle counts, patch
-interior pixels, per-use pattern colors, transfer-function behavior, group
-flags, isolated/non-isolated composition, overprint state and the configured
-triangle limit.
+Object resolution, external-CMap parsing, diagnostics, document lifetime and
+lazy attachment data are synchronized for concurrent read-only use. External
+CMap and substitute-font discovery are ordered deterministically, with
+case-insensitive path comparison on Windows.
 
-The final managed render at 72 DPI produced:
+## Rendering compatibility
 
-| Page | Purpose | PNG SHA-256 | Poppler normalized MAE |
-| --- | --- | --- | ---: |
-| 1 | Gouraud meshes | `a226180909d49b552a6fd0a77042207280bb3db642572d68e9bc31a2083b5974` | 0.00752444 |
-| 2 | Patch meshes | `b4f3b0f473227e5b1c127f4923c4adb22cdad059e59f925b973397247b08174e` | 0.00806999 |
-| 3 | Uncolored pattern reuse | `a0e041c8cfd3e65ef63cf953f263dd16d8a3ff383879ac37d82cade719ef4f93` | 0.00575163 |
-| 4 | Calculator transfer and knockout | `ebd45bacf97b320cd8f5dd836009d82e675d8d749b7e6b7ac045c1f0d9a9648d` | 0.0186631 |
-| 5 | Isolated/non-isolated groups | `e7aa40698ee3eee7b39254092452b9f80694c22016bbfc6b386d616d03135131` | 0.00133558 |
-| 6 | Process overprint preview | `541537933cd41bec9ed2a182d112b440d3e390d8e902da23df09bcf08a390899` | 0.111111 |
+The deterministic six-page beta 2 fixture has SHA-256
+`15597777ca00e97f67638c5a82b5c42df4bcca3e2b2297f95e4c4b79540b9433`.
+It covers Gouraud and patch meshes, uncolored tiling patterns, a calculator
+transfer function, transparency groups and process overprint.
 
-The first five pages were compared with Poppler 26.05.0 and inspected
-side-by-side at original resolution. All expected gradients, patch boundaries,
-pattern colors and group differences are present; the Coons/tensor output is
-continuous without per-triangle white seams. Page 6 uses Poppler's explicit
-`-overprint` mode. Its larger color difference is expected: Poppler uses its
-CMYK color-management path, while this release deliberately exposes only a
-managed sRGB process-overprint preview and does not claim press proofing.
+The final managed render at 72 DPI was inspected at original resolution. Every
+PNG remains byte-identical to the verified beta 2 output:
 
-## Compatibility gates
+| Page | Purpose | PNG SHA-256 |
+| --- | --- | --- |
+| 1 | Gouraud meshes | `a226180909d49b552a6fd0a77042207280bb3db642572d68e9bc31a2083b5974` |
+| 2 | Patch meshes | `b4f3b0f473227e5b1c127f4923c4adb22cdad059e59f925b973397247b08174e` |
+| 3 | Uncolored pattern reuse | `a0e041c8cfd3e65ef63cf953f263dd16d8a3ff383879ac37d82cade719ef4f93` |
+| 4 | Calculator transfer and knockout | `ebd45bacf97b320cd8f5dd836009d82e675d8d749b7e6b7ac045c1f0d9a9648d` |
+| 5 | Isolated/non-isolated groups | `e7aa40698ee3eee7b39254092452b9f80694c22016bbfc6b386d616d03135131` |
+| 6 | Process overprint preview | `541537933cd41bec9ed2a182d112b440d3e390d8e902da23df09bcf08a390899` |
 
 The three pages of the Prince `drylab.pdf` sample, SHA-256
 `2c1a1a89a63bbaa842306f6bfb57f5712de7e48710b317ca5776585a2a7dd995`,
-were rerendered at 96 DPI and inspected next to Poppler. Title and body text,
-ligatures, Polish characters, colors and images remain complete. The managed
-PNG hashes are:
+were rerendered at 96 DPI and inspected together. Title and body text,
+ligatures, Polish characters, colors and images remain complete. These PNGs
+also remain byte-identical to the beta 2 baseline:
 
 | Page | PNG SHA-256 |
 | --- | --- |
@@ -72,26 +70,39 @@ PNG hashes are:
 The beta 1 font corpus, alpha 3 filtered-inline-image and page-box corpus,
 TrueType format 0, CFF1/CFF2, Type 1, Type 3, Base-14 metrics, text/graphics
 interleaving, transparency, image/color, encryption and damaged-xref
-regressions remain part of the 142-test suite. JSON manifests, shell syntax
-and forbidden-interoperability checks pass.
+regressions remain part of the 147-test suite.
+
+## CI and NuGet publishing
+
+`.github/workflows/ci.yml` defines:
+
+- Release builds, tests, managed-only verification and packaging on Ubuntu,
+  Windows and macOS for pushes and pull requests;
+- an uploaded `.nupkg` artifact after the platform matrix succeeds;
+- NuGet.org publication only for a published GitHub Release, through the
+  protected `nuget.org` environment and its `NUGET_API_KEY` secret;
+- `--skip-duplicate`, read-only repository permissions and concurrency
+  cancellation for superseded non-release runs.
+
+The workflow was parsed as YAML and the shell entry point passed `bash -n`.
+The remote workflow remains the authoritative platform and publishing gate;
+an API key is deliberately not present in the source archive.
 
 ## Distribution
 
-The source archive contains 158 files, including 80 C# files and 24,314 lines
+The source archive contains 159 files, including 81 C# files and 24,378 lines
 of production-library C#. It excludes `bin`, `obj`, NuGet packages, test
-results, generated bytecode, executables and native artifacts. The final ZIP
-was extracted into a fresh directory, matched all selected source files byte
-for byte, restored from the managed package cache, rebuilt all four projects
-without warnings, passed 142/142 tests, passed the managed-only verifier,
-reproduced the beta page-1 PNG byte for byte and produced a valid
-`Poppler.Net.0.8.0-beta.2.nupkg`.
+results, QA renders, generated bytecode, executables and native artifacts.
+The final ZIP was extracted into a fresh directory, matched all selected
+source files byte for byte, restored from the five-package managed offline
+feed, rebuilt all four projects without warnings, passed 147/147 tests,
+passed the managed-only verifier, reproduced beta page 1 byte for byte and
+produced a valid `Poppler.Net.0.8.0-rc.1.nupkg`.
 
 The environment's `dotnet` CLI intermittently cannot inspect its process
-namespace. Two initial pack processes failed inside
-`System.Diagnostics.Process.GetStat` before MSBuild read the project; an
-isolated retry completed and its package was inspected. This is an
-execution-environment issue, not a project or package error. The standard user
-entry point remains:
+namespace. Replacing the shell process with the CLI avoids
+`System.Diagnostics.Process.GetStat`; this is an execution-environment issue,
+not a project or package error. The standard user entry point remains:
 
 ```bash
 ./build.sh Release

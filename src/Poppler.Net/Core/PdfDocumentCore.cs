@@ -13,6 +13,8 @@ internal sealed class PdfDocumentCore : IDisposable
     private readonly Dictionary<PdfReference, PdfObject> _objectCache = new();
     private readonly HashSet<PdfReference> _resolving = new();
     private readonly List<PdfDiagnostic> _diagnostics = new();
+    private readonly object _resolutionSync = new();
+    private readonly object _diagnosticSync = new();
     private readonly PdfCrossReference _crossReference;
     private readonly Lazy<PdfCMapResolver> _cMapResolver;
     private PdfStandardSecurityHandler? _securityHandler;
@@ -55,7 +57,14 @@ internal sealed class PdfDocumentCore : IDisposable
     public PdfReadOptions Options => _options;
     public PdfDictionary Trailer => _crossReference.Trailer;
     public bool XrefWasRepaired => _crossReference.WasRepaired;
-    public IReadOnlyList<PdfDiagnostic> Diagnostics => _diagnostics;
+    public IReadOnlyList<PdfDiagnostic> Diagnostics
+    {
+        get
+        {
+            lock (_diagnosticSync)
+                return _diagnostics.ToArray();
+        }
+    }
     public ReadOnlyMemory<byte> OriginalBytes => _data;
     public bool IsEncrypted => _securityHandler is not null;
     public bool IsLocked => _securityHandler?.IsLocked == true;
@@ -67,39 +76,44 @@ internal sealed class PdfDocumentCore : IDisposable
 
     public PdfObject Resolve(PdfReference reference)
     {
-        if (_objectCache.TryGetValue(reference, out PdfObject? cached))
-            return cached;
-        if (!_resolving.Add(reference))
-            throw new PdfFormatException($"Circular indirect object reference at {reference}.");
-
-        try
+        lock (_resolutionSync)
         {
-            if (!_crossReference.Entries.TryGetValue(reference.ObjectNumber, out PdfXrefEntry? entry) ||
-                entry.Type == PdfXrefEntryType.Free)
-            {
-                throw new PdfFormatException($"Indirect object {reference} is missing.");
-            }
-            int expectedGeneration =
-                entry.Type == PdfXrefEntryType.Compressed ? 0 : entry.Generation;
-            if (reference.Generation != expectedGeneration)
-            {
-                throw new PdfFormatException(
-                    $"Indirect object {reference.ObjectNumber} has generation " +
-                    $"{expectedGeneration}, not {reference.Generation}.");
-            }
+            if (_objectCache.TryGetValue(reference, out PdfObject? cached))
+                return cached;
+            if (!_resolving.Add(reference))
+                throw new PdfFormatException($"Circular indirect object reference at {reference}.");
 
-            PdfObject value = entry.Type switch
+            try
             {
-                PdfXrefEntryType.Uncompressed => ReadUncompressed(reference, entry),
-                PdfXrefEntryType.Compressed => ReadCompressed(reference, entry),
-                _ => throw new PdfFormatException($"Indirect object {reference} is free.")
-            };
-            _objectCache[reference] = value;
-            return value;
-        }
-        finally
-        {
-            _resolving.Remove(reference);
+                if (!_crossReference.Entries.TryGetValue(
+                        reference.ObjectNumber,
+                        out PdfXrefEntry? entry) ||
+                    entry.Type == PdfXrefEntryType.Free)
+                {
+                    throw new PdfFormatException($"Indirect object {reference} is missing.");
+                }
+                int expectedGeneration =
+                    entry.Type == PdfXrefEntryType.Compressed ? 0 : entry.Generation;
+                if (reference.Generation != expectedGeneration)
+                {
+                    throw new PdfFormatException(
+                        $"Indirect object {reference.ObjectNumber} has generation " +
+                        $"{expectedGeneration}, not {reference.Generation}.");
+                }
+
+                PdfObject value = entry.Type switch
+                {
+                    PdfXrefEntryType.Uncompressed => ReadUncompressed(reference, entry),
+                    PdfXrefEntryType.Compressed => ReadCompressed(reference, entry),
+                    _ => throw new PdfFormatException($"Indirect object {reference} is free.")
+                };
+                _objectCache[reference] = value;
+                return value;
+            }
+            finally
+            {
+                _resolving.Remove(reference);
+            }
         }
     }
 
@@ -180,8 +194,11 @@ internal sealed class PdfDocumentCore : IDisposable
         PdfDiagnosticSeverity severity,
         string code,
         string message,
-        long? offset = null) =>
-        _diagnostics.Add(new PdfDiagnostic(severity, code, message, offset));
+        long? offset = null)
+    {
+        lock (_diagnosticSync)
+            _diagnostics.Add(new PdfDiagnostic(severity, code, message, offset));
+    }
 
     public int ToPhysicalOffset(long logicalOffset)
     {
@@ -204,8 +221,11 @@ internal sealed class PdfDocumentCore : IDisposable
 
     public void ResetResolutionCache()
     {
-        _objectCache.Clear();
-        _resolving.Clear();
+        lock (_resolutionSync)
+        {
+            _objectCache.Clear();
+            _resolving.Clear();
+        }
     }
 
     public void Dispose() => _securityHandler?.Dispose();

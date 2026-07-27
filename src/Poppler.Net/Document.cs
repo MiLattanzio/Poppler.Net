@@ -7,7 +7,7 @@ namespace Poppler;
 /// <summary>Read-only managed representation of a PDF document.</summary>
 public sealed class Document : IDisposable
 {
-    public const string PortVersion = "0.8.0-beta.2";
+    public const string PortVersion = "0.8.0-rc.1";
     public const string UpstreamVersion = "26.07.0";
 
     private readonly byte[] _data;
@@ -20,6 +20,7 @@ public sealed class Document : IDisposable
         new(EmptyInformation);
     private Lazy<IReadOnlyList<EmbeddedFile>> _embeddedFiles =
         new(() => Array.Empty<EmbeddedFile>());
+    private readonly object _lifecycleSync = new();
     private bool _disposed;
 
     private Document(
@@ -191,8 +192,7 @@ public sealed class Document : IDisposable
         PdfReadOptions? options = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
-        PdfReadOptions effectiveOptions = options ?? PdfReadOptions.Default;
-        effectiveOptions.Validate();
+        PdfReadOptions effectiveOptions = (options ?? PdfReadOptions.Default).Snapshot();
         var info = new FileInfo(fileName);
         if (!info.Exists)
             throw new FileNotFoundException("PDF file was not found.", fileName);
@@ -215,8 +215,7 @@ public sealed class Document : IDisposable
         string userPassword = "",
         PdfReadOptions? options = null)
     {
-        PdfReadOptions effectiveOptions = options ?? PdfReadOptions.Default;
-        effectiveOptions.Validate();
+        PdfReadOptions effectiveOptions = (options ?? PdfReadOptions.Default).Snapshot();
         if (data.Length > effectiveOptions.MaximumInputBytes)
         {
             throw new PdfLimitException(
@@ -233,8 +232,7 @@ public sealed class Document : IDisposable
         PdfReadOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        PdfReadOptions effectiveOptions = options ?? PdfReadOptions.Default;
-        effectiveOptions.Validate();
+        PdfReadOptions effectiveOptions = (options ?? PdfReadOptions.Default).Snapshot();
         using var output = new MemoryStream();
         byte[] buffer = new byte[81920];
         int read;
@@ -286,45 +284,48 @@ public sealed class Document : IDisposable
     /// </summary>
     public bool Unlock(string ownerPassword, string userPassword)
     {
-        EnsureNotDisposed();
         ArgumentNullException.ThrowIfNull(ownerPassword);
         ArgumentNullException.ThrowIfNull(userPassword);
-        if (!IsLocked)
+        lock (_lifecycleSync)
+        {
+            EnsureNotDisposed();
+            if (!IsLocked)
+                return false;
+
+            var candidate = new PdfDocumentCore(_data, _options, ownerPassword, userPassword);
+            if (candidate.IsLocked)
+            {
+                candidate.Dispose();
+                return true;
+            }
+
+            PdfDictionary candidateCatalog;
+            IReadOnlyList<PdfPageNode> candidatePageNodes;
+            PageLabelTree candidatePageLabels;
+            try
+            {
+                candidateCatalog = candidate.FindCatalog();
+                candidatePageNodes = PdfPageTreeReader.Read(candidate, candidateCatalog);
+                candidatePageLabels = new PageLabelTree(
+                    candidateCatalog.GetValueOrNull("PageLabels"),
+                    candidate);
+            }
+            catch
+            {
+                candidate.Dispose();
+                throw;
+            }
+
+            _core.Dispose();
+            _core = candidate;
+            _catalog = candidateCatalog;
+            _pageNodes = candidatePageNodes;
+            _pageLabels = candidatePageLabels;
+            _information = new Lazy<IReadOnlyDictionary<string, string>>(ReadInformation);
+            _embeddedFiles = new Lazy<IReadOnlyList<EmbeddedFile>>(
+                () => EmbeddedFileReader.Read(_core, _catalog));
             return false;
-
-        var candidate = new PdfDocumentCore(_data, _options, ownerPassword, userPassword);
-        if (candidate.IsLocked)
-        {
-            candidate.Dispose();
-            return true;
         }
-
-        PdfDictionary candidateCatalog;
-        IReadOnlyList<PdfPageNode> candidatePageNodes;
-        PageLabelTree candidatePageLabels;
-        try
-        {
-            candidateCatalog = candidate.FindCatalog();
-            candidatePageNodes = PdfPageTreeReader.Read(candidate, candidateCatalog);
-            candidatePageLabels = new PageLabelTree(
-                candidateCatalog.GetValueOrNull("PageLabels"),
-                candidate);
-        }
-        catch
-        {
-            candidate.Dispose();
-            throw;
-        }
-
-        _core.Dispose();
-        _core = candidate;
-        _catalog = candidateCatalog;
-        _pageNodes = candidatePageNodes;
-        _pageLabels = candidatePageLabels;
-        _information = new Lazy<IReadOnlyDictionary<string, string>>(ReadInformation);
-        _embeddedFiles = new Lazy<IReadOnlyList<EmbeddedFile>>(
-            () => EmbeddedFileReader.Read(_core, _catalog));
-        return false;
     }
 
     public void Save(string fileName) => SaveACopy(fileName);
@@ -338,10 +339,13 @@ public sealed class Document : IDisposable
 
     public void Dispose()
     {
-        if (_disposed)
-            return;
-        _core.Dispose();
-        _disposed = true;
+        lock (_lifecycleSync)
+        {
+            if (_disposed)
+                return;
+            _core.Dispose();
+            _disposed = true;
+        }
     }
 
     internal bool Locked => IsLocked;

@@ -33,6 +33,15 @@ public sealed record PdfReadOptions
     public int MaximumTreeDepth { get; init; } = 128;
     public bool AttemptXrefRepair { get; init; } = true;
 
+    internal PdfReadOptions Snapshot()
+    {
+        Validate();
+        return this with
+        {
+            CMapDirectories = Array.AsReadOnly(CMapDirectories.ToArray())
+        };
+    }
+
     internal void Validate()
     {
         if (MaximumInputBytes < 8)

@@ -36,7 +36,7 @@ internal sealed class PdfRasterRenderer
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(options);
-        options.Validate();
+        options = options.Snapshot();
 
         PdfRectangle source = page.PageRect(options.PageBox);
         double left = Math.Min(source.Left, source.Right);

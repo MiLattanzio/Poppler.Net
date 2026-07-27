@@ -406,7 +406,7 @@ internal static class Cli
     {
         Console.WriteLine(
             """
-            poppler-net — managed-only Poppler 26.07 port (beta)
+            poppler-net — managed-only Poppler 26.07 port (release candidate)
 
             Usage:
               poppler-net info <input.pdf> [password options]

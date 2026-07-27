@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.8.0-beta.2` compatibility release is not a complete replacement for
+> This `0.8.0-rc.1` compatibility release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -28,7 +28,10 @@ process invocation, or native NuGet dependency.
 > targeted OpenType vertical/ligature substitution and multi-candidate
 > Narrow/Condensed font matching. Beta 2 adds all four triangle/patch mesh
 > shading families, uncolored tiling patterns, calculator transfer functions,
-> advanced transparency-group surfaces and process-CMYK overprint preview. See
+> advanced transparency-group surfaces and process-CMYK overprint preview.
+> RC 1 freezes the public API, makes shared-document read paths concurrency
+> safe, snapshots caller-owned option collections and makes external font/CMap
+> discovery deterministic. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
@@ -50,6 +53,20 @@ NUnitLite runner are approved test-only managed dependencies. See
 RC4, MD5, SHA-2 and AES are reached only through managed C# or the .NET
 cryptography API. The solution does not ship OpenSSL, a platform crypto library
 or any native cryptography asset.
+
+## CI and NuGet publishing
+
+The GitHub Actions workflow builds, tests, verifies and packs the solution on
+Ubuntu, Windows and macOS for pushes to `master` and pull requests. It also
+stores the generated `.nupkg` as a workflow artifact.
+
+Publishing a GitHub Release runs the same gates and then publishes the package
+to NuGet.org. Configure a `NUGET_API_KEY` secret in the protected
+`nuget.org` GitHub environment before publishing the first release. Ordinary
+pushes, pull requests and manual workflow runs never execute the deploy job.
+
+Package author and project metadata identify **Mi Lattanzio** and
+<https://github.com/MiLattanzio/Poppler.Net>.
 
 ## CLI
 
@@ -186,7 +203,9 @@ managed CFF2 default-instance path, non-contextual `vert`/`vrt2` and
 `liga`/`rlig` GSUB substitution, and improved Narrow/Condensed font-file
 matching. Beta 2 adds shading types 4–7, `PaintType 2` patterns, bounded
 calculator functions, isolated/non-isolated/knockout group surfaces and
-process-CMYK overprint-mode-1 preview. Full variable-font interpolation,
+process-CMYK overprint-mode-1 preview. RC 1 freezes the public API and hardens
+concurrent read-only use, option ownership and deterministic resource
+discovery. Full variable-font interpolation,
 complex shaping, ICC proofing and spot-color overprint remain outside this
 release.
 

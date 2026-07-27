@@ -2,8 +2,7 @@ namespace Poppler;
 
 public sealed class EmbeddedFile
 {
-    private readonly Func<byte[]> _dataFactory;
-    private byte[]? _data;
+    private readonly Lazy<byte[]> _data;
 
     internal EmbeddedFile(
         string name,
@@ -22,7 +21,7 @@ public sealed class EmbeddedFile
         CreationDate = creationDate;
         ModificationDate = modificationDate;
         Checksum = checksum;
-        _dataFactory = dataFactory;
+        _data = new Lazy<byte[]>(dataFactory);
     }
 
     public bool IsValid => !string.IsNullOrEmpty(Name);
@@ -35,7 +34,7 @@ public sealed class EmbeddedFile
     public DateTimeOffset? CreationDate { get; }
     public DateTimeOffset? ModificationDate { get; }
     public ReadOnlyMemory<byte> Checksum { get; }
-    public ReadOnlyMemory<byte> Data => _data ??= _dataFactory();
+    public ReadOnlyMemory<byte> Data => _data.Value;
 
     public void SaveTo(string path)
     {

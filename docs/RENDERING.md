@@ -1,6 +1,6 @@
 # Managed raster rendering in 0.8
 
-Release `0.8.0-beta.2` extends the pure-C# counterpart of Poppler's
+Release `0.8.0-rc.1` extends the pure-C# counterpart of Poppler's
 `SplashOutputDev`, path scanner, compositing and font-outline responsibilities.
 It consumes the backend-neutral `Page.Graphics` display list and never loads
 Splash, Cairo, Skia, FreeType, a platform drawing API or another native

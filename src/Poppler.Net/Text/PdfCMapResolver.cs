@@ -16,15 +16,23 @@ internal sealed class PdfCMapResolver
         new(StringComparer.Ordinal);
     private readonly HashSet<string> _active = new(StringComparer.Ordinal);
     private readonly HashSet<PdfReference> _activeStreams = new();
+    private readonly object _sync = new();
     private Dictionary<string, string>? _files;
 
     public PdfCMapResolver(PdfDocumentCore document)
         => _document = document;
 
-    public PdfCMap? Resolve(string name) => Resolve(name, depth: 0);
+    public PdfCMap? Resolve(string name)
+    {
+        lock (_sync)
+            return Resolve(name, depth: 0);
+    }
 
-    public PdfCMap ParseStream(PdfStream stream) =>
-        ParseStream(stream, depth: 0);
+    public PdfCMap ParseStream(PdfStream stream)
+    {
+        lock (_sync)
+            return ParseStream(stream, depth: 0);
+    }
 
     private PdfCMap ParseStream(PdfStream stream, int depth)
     {
@@ -133,9 +141,10 @@ internal sealed class PdfCMapResolver
                 if (!Directory.Exists(root))
                     continue;
                 foreach (string file in Directory.EnumerateFiles(
-                             root,
-                             "*",
-                             SearchOption.AllDirectories))
+                                 root,
+                                 "*",
+                                 SearchOption.AllDirectories)
+                             .OrderBy(path => path, StringComparer.Ordinal))
                 {
                     result.TryAdd(Path.GetFileName(file), Path.GetFullPath(file));
                     if (result.Count >= MaximumIndexedFiles)

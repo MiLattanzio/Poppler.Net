@@ -133,6 +133,19 @@ the graphics state also reports fill/stroke overprint and overprint mode.
 The display list is immutable from the caller's perspective and is evaluated
 lazily once per `Page`.
 
+## Concurrency and lifetime
+
+Independent read operations may use the same unlocked `Document` and its
+`Page` instances concurrently. Object, CMap, diagnostic, page and attachment
+caches synchronize initialization and return immutable or read-only results.
+`PdfReadOptions.CMapDirectories` is copied when the document is loaded, and
+`RasterRenderOptions.FontDirectories` is copied when a render begins, so later
+caller mutations cannot change an operation already in progress.
+
+Do not call `Unlock` or `Dispose` concurrently with another operation.
+`Dispose` is idempotent, but the caller remains responsible for ending all
+readers before disposing their owner document.
+
 ## Decoded images
 
 ```csharp
