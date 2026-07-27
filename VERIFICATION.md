@@ -1,109 +1,97 @@
 # Verification record
 
-Verification performed on 2026-07-27 for `0.8.0-alpha.3`:
+Verification performed on 2026-07-27 for `0.8.0-beta.2`:
 
-- .NET SDK 8.0.423 restored and compiled all four solution projects in Release
-  with warnings treated as errors.
-- NUnitLite executed 128 tests: 128 passed, 0 failed, 0 warnings, 0 skipped.
-- the managed-only verifier accepted production source and every asset in the
-  complete restored NuGet graph, including the three runtime codecs.
-- `Poppler.Net.0.8.0-alpha.3.nupkg` was assembled from the current Release
-  DLL/XML and the previously generated NuGet pack layout; its manifest and
-  package metadata identify alpha 3, contain the three pinned managed codec
-  dependencies and contain no native/runtime asset.
-- the user corrections remain intact: revision 6 selects SHA-2 through
-  `int va = selector % 3`, and every NUnit exception assertion explicitly
-  casts its lambda to `Action`.
-- the two CA2014 sites previously identified allocate their reusable
-  `stackalloc` spans before their loops; no `stackalloc` occurs inside a loop
-  body.
-- the deterministic image/color fixture contains 12 decoded Image XObjects:
-  raw RGB, Indexed, Separation, DeviceN sampled tint, Lab, ICCBased,
-  DCT/JPEG, JPX/JPEG 2000, CCITT Group 3 and Group 4, JBIG2 and an RGB image
-  with soft mask.
-- fixture assertions verify exact raw/indexed/tint pixels, calibrated/ICC
-  conversion ranges, JPEG/JPX output, CCITT rows, JBIG2 dimensions/content,
-  straight-alpha soft masks, PNG structure and SVG embedding.
-- the same fixture exercises Separation and Lab colors on graphics paths so
-  image and vector paint use the same color-space implementation.
-- the deterministic rendering fixture covers Multiply, constant alpha, Alpha
-  and Luminosity graphics-state soft masks, an isolated Form transparency
-  group, clipping and `/Rotate 90`.
-- managed and Poppler 26.05.0 output are both 320×240 at 72 DPI for rendering
-  fixture page 1; blend, group, clip and soft-mask sample pixels match exactly
-  or within one 8-bit channel unit.
-- ImageMagick reports normalized mean absolute error `0.000186547` for the
-  rendering fixture and `0.00235634` for the pre-existing vector fixture.
-- embedded TrueType `ABC` is painted from managed `glyf` outlines; disabling
-  `RasterRenderOptions.IncludeText` removes all dark pixels from the text-only
-  fixture.
-- a separate embedded TrueType fixture uses only `cmap` format 0, arbitrary
-  PDF codes `01`–`03`, `ToUnicode` and an RGB fill color; managed rendering
-  paints the expected orange `ABC` directly from the retained source codes.
-- the `0.8` graphics fixture retains two text runs and one raw RGB inline image
-  among seven display-list elements. Assertions verify that a blue vector
-  overlay follows Base-14 `ABC`, that the image samples are exactly red/green
-  and that the Type 3 CharProc inherits the expected blue paint.
-- Base-14 substitution was exercised with an explicit fixture directory and
-  no platform font API. Disabling substitution removes the non-embedded text.
-- all fourteen standard font/style variants were checked against the canonical
-  widths ported from Poppler 26.07. The proportional `imW` cases distinguish
-  narrow, ordinary and wide advances and fail against the former constant
-  500-unit fallback.
-- the controlled substitute font contains `ABCimW`. A raster regression checks
-  that Helvetica `m` begins after the canonical 222-unit `i` advance, and
-  horizontal replacement outlines are fitted to the PDF advance.
-- a synthetic report page mirroring the reported failure was rendered with
-  Helvetica, Helvetica-Bold and Times-Roman. Visual inspection found no
-  internal letter gaps, overlap, truncation or clipping. The reported source
-  PDF itself was not available; only its rendered PNG was supplied.
-- the alpha 3 differential corpus has four pages covering whitespace-delimited
-  `EI` bytes inside ASCII85, RunLength and JPEG data, a quadratic `/TR`
-  transfer function on an Alpha soft mask, Crop/Bleed boxes outside
-  `MediaBox`, and a damaged page tree with no inherited `MediaBox`.
-- managed output and Poppler 26.05.0 have the same dimensions on all four
-  alpha 3 pages. The transfer-function, page-box and default-geometry pages
-  are pixel-identical at 72 DPI. The filtered-image page has normalized mean
-  absolute error `0.011755836`, confined to codec sample differences; all
-  three inline images and the following graphics operators are retained.
-- the OpenType/CFF fixture renders distinct `A`, `B` and `C` Type 2 outlines;
-  the embedded PFB Type 1 fixture renders distinct `A`, `B` and `C` outlines
-  and applies a `Tr 7` text clip to a blue path.
-- managed/Poppler 26.05.0 normalized mean absolute errors at 72 DPI are
-  `0.00322099` for the mixed compatibility fixture, `0.000470635` for Type 1
-  and `0.0000252752` for OpenType/CFF. All three pairs were also inspected
-  visually so an aggregate pixel count cannot hide a missing glyph.
-- the three-page Prince `drylab.pdf` compatibility sample uses five embedded
-  TrueType subsets with format 0 CMaps. Managed output at 96 DPI was visually
-  checked page-by-page against Poppler output: title/body/footer text,
-  multi-scalar ligatures, Polish characters, device colors and images are
-  present on all pages.
-- rendered PNG verification covers RGBA layout, straight alpha, dimensions,
-  page rotation, configurable transparency, PNG structure and render-pixel
-  limits.
-- `pdfinfo` parsed the image fixture as a one-page PDF 1.7 document measuring
-  600×800 points, and `pdfimages -list` identified all expected image
-  encodings and color spaces.
-- regenerating the image/color fixture updates a SHA-256 manifest and produces
-  deterministic PDF bytes for the installed generator versions.
-- all nine encrypted fixture hashes, all three embedded-font fixture hashes and the
-  graphics fixture hash continue to match their manifests.
-- project/XML/JSON/YAML structure, local Markdown links, shell syntax and
-  forbidden-interoperability source scans pass.
-- the source archive contains 141 files, including 75 C# sources and 21,249
-  lines of production C#; it excludes `bin`, `obj`, NuGet packages, generated
-  bytecode, executables and native artifacts.
-- the final source ZIP was extracted into a fresh directory, matched all 141
-  source files byte for byte, restored from the same five managed NuGet
-  packages, rebuilt all four projects without warnings, passed 128/128 tests
-  and produced a byte-identical alpha 3 transfer-function regression PNG.
+- .NET SDK 8.0.423 compiled all four solution projects in Release with
+  warnings treated as errors.
+- NUnitLite executed 142 tests: 142 passed, 0 failed, 0 warnings, 0 skipped.
+- The managed-only verifier accepted production source and every asset in the
+  complete restored NuGet graph, including the three managed runtime codecs.
+- `Poppler.Net.0.8.0-beta.2.nupkg` was produced from the current Release
+  assembly. It contains the net8.0 DLL/XML, README, license and notice, and
+  names only the pinned CoreJ2K, JBig2Decoder.NETStandard and StbImageSharp
+  managed dependencies.
+- The user corrections remain intact: revision 6 selects SHA-2 through
+  `int va = selector % 3`, NUnit exception assertions retain explicit
+  `Action` casts, and reusable `stackalloc` buffers remain outside loops.
 
-The environment's `dotnet` CLI cannot reliably inspect its process namespace.
-Serialized restore/build succeeded, but repeated direct `dotnet pack` startup
-attempts failed inside `System.Diagnostics.Process.GetStat` before MSBuild
-could read the project. The package layout was therefore validated separately
-from the compiled Release DLL and XML. This is an execution-environment issue,
-not a project or package error. The standard user entry point remains:
+## Beta 2 graphics corpus
+
+The deterministic six-page fixture has SHA-256
+`15597777ca00e97f67638c5a82b5c42df4bcca3e2b2297f95e4c4b79540b9433`
+and covers:
+
+1. free-form and lattice Gouraud mesh shadings;
+2. Coons and tensor-product patch meshes;
+3. one uncolored tiling pattern reused with independent red and blue
+   underlying colors;
+4. a PostScript calculator transfer function plus isolated knockout-group
+   metadata;
+5. isolated and non-isolated transparency groups over a shared backdrop;
+6. process overprint mode 1 compared with ordinary replacement painting.
+
+The generator was run twice and reproduced both the PDF and JSON manifest
+byte for byte. Eight tests validate mesh kinds and triangle counts, patch
+interior pixels, per-use pattern colors, transfer-function behavior, group
+flags, isolated/non-isolated composition, overprint state and the configured
+triangle limit.
+
+The final managed render at 72 DPI produced:
+
+| Page | Purpose | PNG SHA-256 | Poppler normalized MAE |
+| --- | --- | --- | ---: |
+| 1 | Gouraud meshes | `a226180909d49b552a6fd0a77042207280bb3db642572d68e9bc31a2083b5974` | 0.00752444 |
+| 2 | Patch meshes | `b4f3b0f473227e5b1c127f4923c4adb22cdad059e59f925b973397247b08174e` | 0.00806999 |
+| 3 | Uncolored pattern reuse | `a0e041c8cfd3e65ef63cf953f263dd16d8a3ff383879ac37d82cade719ef4f93` | 0.00575163 |
+| 4 | Calculator transfer and knockout | `ebd45bacf97b320cd8f5dd836009d82e675d8d749b7e6b7ac045c1f0d9a9648d` | 0.0186631 |
+| 5 | Isolated/non-isolated groups | `e7aa40698ee3eee7b39254092452b9f80694c22016bbfc6b386d616d03135131` | 0.00133558 |
+| 6 | Process overprint preview | `541537933cd41bec9ed2a182d112b440d3e390d8e902da23df09bcf08a390899` | 0.111111 |
+
+The first five pages were compared with Poppler 26.05.0 and inspected
+side-by-side at original resolution. All expected gradients, patch boundaries,
+pattern colors and group differences are present; the Coons/tensor output is
+continuous without per-triangle white seams. Page 6 uses Poppler's explicit
+`-overprint` mode. Its larger color difference is expected: Poppler uses its
+CMYK color-management path, while this release deliberately exposes only a
+managed sRGB process-overprint preview and does not claim press proofing.
+
+## Compatibility gates
+
+The three pages of the Prince `drylab.pdf` sample, SHA-256
+`2c1a1a89a63bbaa842306f6bfb57f5712de7e48710b317ca5776585a2a7dd995`,
+were rerendered at 96 DPI and inspected next to Poppler. Title and body text,
+ligatures, Polish characters, colors and images remain complete. The managed
+PNG hashes are:
+
+| Page | PNG SHA-256 |
+| --- | --- |
+| 1 | `2dd5d63520e0eff4629fe72ab8034403077d9316688de728b3b85d993661c061` |
+| 2 | `f369bc9fcb56e85f31c924b12ed3d1ae1c362d081d788111e9100c44b791698b` |
+| 3 | `a901f43cf1e48d39d0fa73d04e5057851d9df11e4c51114544b6f430880abb2a` |
+
+The beta 1 font corpus, alpha 3 filtered-inline-image and page-box corpus,
+TrueType format 0, CFF1/CFF2, Type 1, Type 3, Base-14 metrics, text/graphics
+interleaving, transparency, image/color, encryption and damaged-xref
+regressions remain part of the 142-test suite. JSON manifests, shell syntax
+and forbidden-interoperability checks pass.
+
+## Distribution
+
+The source archive contains 158 files, including 80 C# files and 24,314 lines
+of production-library C#. It excludes `bin`, `obj`, NuGet packages, test
+results, generated bytecode, executables and native artifacts. The final ZIP
+was extracted into a fresh directory, matched all selected source files byte
+for byte, restored from the managed package cache, rebuilt all four projects
+without warnings, passed 142/142 tests, passed the managed-only verifier,
+reproduced the beta page-1 PNG byte for byte and produced a valid
+`Poppler.Net.0.8.0-beta.2.nupkg`.
+
+The environment's `dotnet` CLI intermittently cannot inspect its process
+namespace. Two initial pack processes failed inside
+`System.Diagnostics.Process.GetStat` before MSBuild read the project; an
+isolated retry completed and its package was inspected. This is an
+execution-environment issue, not a project or package error. The standard user
+entry point remains:
 
 ```bash
 ./build.sh Release

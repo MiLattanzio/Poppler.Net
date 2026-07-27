@@ -177,7 +177,11 @@ public sealed record PdfSolidBrush(PdfColor Color) : PdfBrush;
 public enum PdfShadingKind
 {
     Axial,
-    Radial
+    Radial,
+    FreeFormGouraud,
+    LatticeGouraud,
+    CoonsPatch,
+    TensorProductPatch
 }
 
 public sealed record PdfGradientStop(double Offset, PdfColor Color);
@@ -207,6 +211,39 @@ public sealed record PdfGradientBrush : PdfBrush
     public IReadOnlyList<PdfGradientStop> Stops { get; }
     public bool ExtendStart { get; }
     public bool ExtendEnd { get; }
+    public PdfMatrix Matrix { get; }
+}
+
+/// <summary>A vertex and its decoded color in a PDF mesh shading.</summary>
+public readonly record struct PdfMeshVertex(PdfPoint Point, PdfColor Color);
+
+/// <summary>A color-interpolated triangle in a PDF mesh shading.</summary>
+public readonly record struct PdfMeshTriangle(
+    PdfMeshVertex First,
+    PdfMeshVertex Second,
+    PdfMeshVertex Third);
+
+/// <summary>
+/// A type 4-7 PDF mesh shading. Patch meshes are adaptively represented by a
+/// bounded triangle tessellation so rendering remains backend-neutral.
+/// </summary>
+public sealed record PdfMeshShadingBrush : PdfBrush
+{
+    public PdfMeshShadingBrush(
+        PdfShadingKind kind,
+        IEnumerable<PdfMeshTriangle> triangles,
+        PdfMatrix matrix)
+    {
+        ArgumentNullException.ThrowIfNull(triangles);
+        if (kind is PdfShadingKind.Axial or PdfShadingKind.Radial)
+            throw new ArgumentOutOfRangeException(nameof(kind));
+        Kind = kind;
+        Triangles = Array.AsReadOnly(triangles.ToArray());
+        Matrix = matrix;
+    }
+
+    public PdfShadingKind Kind { get; }
+    public IReadOnlyList<PdfMeshTriangle> Triangles { get; }
     public PdfMatrix Matrix { get; }
 }
 
@@ -259,6 +296,9 @@ public sealed record PdfGraphicsState
     public double StrokeAlpha { get; init; } = 1;
     public string BlendMode { get; init; } = "Normal";
     public PdfSoftMask? SoftMask { get; init; }
+    public bool FillOverprint { get; init; }
+    public bool StrokeOverprint { get; init; }
+    public int OverprintMode { get; init; }
 }
 
 public enum PdfSoftMaskMode
@@ -284,19 +324,25 @@ public sealed record PdfSoftMask
         PdfSoftMaskMode mode,
         IEnumerable<PdfGraphicsElement> elements,
         PdfColor backdrop,
-        PdfFunction? transferFunction)
+        PdfFunction? transferFunction,
+        bool isolated = true,
+        bool knockout = false)
     {
         ArgumentNullException.ThrowIfNull(elements);
         Mode = mode;
         Elements = new ReadOnlyCollection<PdfGraphicsElement>(elements.ToArray());
         Backdrop = backdrop;
         TransferFunction = transferFunction;
+        Isolated = isolated;
+        Knockout = knockout;
     }
 
     public PdfSoftMaskMode Mode { get; }
     public IReadOnlyList<PdfGraphicsElement> Elements { get; }
     public PdfColor Backdrop { get; }
     public bool HasTransferFunction => TransferFunction is not null;
+    public bool Isolated { get; }
+    public bool Knockout { get; }
     internal PdfFunction? TransferFunction { get; }
 }
 
@@ -375,6 +421,14 @@ public sealed record PdfShadingElement(
     string? SourceResource = null)
     : PdfGraphicsElement(State, ClipPaths, SourceResource);
 
+public sealed record PdfMeshShadingElement(
+    string ResourceName,
+    PdfMeshShadingBrush Shading,
+    PdfGraphicsState State,
+    IReadOnlyList<PdfClipPath> ClipPaths,
+    string? SourceResource = null)
+    : PdfGraphicsElement(State, ClipPaths, SourceResource);
+
 /// <summary>
 /// A Form XObject whose group dictionary declares a PDF transparency group.
 /// Child elements are composited on an intermediate surface before the result
@@ -397,7 +451,9 @@ public sealed record PdfTilingPatternBrush : PdfBrush
         double xStep,
         double yStep,
         PdfMatrix matrix,
-        IEnumerable<PdfGraphicsElement> elements)
+        IEnumerable<PdfGraphicsElement> elements,
+        bool isColored = true,
+        PdfColor? underlyingColor = null)
     {
         ResourceName = resourceName;
         BoundingBox = boundingBox;
@@ -405,6 +461,8 @@ public sealed record PdfTilingPatternBrush : PdfBrush
         YStep = yStep;
         Matrix = matrix;
         Elements = new ReadOnlyCollection<PdfGraphicsElement>(elements.ToArray());
+        IsColored = isColored;
+        UnderlyingColor = underlyingColor;
     }
 
     public string ResourceName { get; }
@@ -413,4 +471,17 @@ public sealed record PdfTilingPatternBrush : PdfBrush
     public double YStep { get; }
     public PdfMatrix Matrix { get; }
     public IReadOnlyList<PdfGraphicsElement> Elements { get; }
+    public bool IsColored { get; }
+    public PdfColor? UnderlyingColor { get; }
+
+    internal PdfTilingPatternBrush WithUnderlyingColor(PdfColor color) =>
+        new(
+            ResourceName,
+            BoundingBox,
+            XStep,
+            YStep,
+            Matrix,
+            Elements,
+            IsColored,
+            color);
 }

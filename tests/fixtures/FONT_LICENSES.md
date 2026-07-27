@@ -18,3 +18,8 @@ document containing text displayed by that font.
 The fixtures contain only the glyphs required for `ABC`. They are test data,
 not runtime font dependencies. Their reproducible source is
 `generate_font_fixtures.py`.
+
+The fonts in `beta-fonts/` are deterministic synthetic fixtures generated from
+original rectangular test outlines by `generate_beta1_text_corpus.py`. They do
+not contain third-party font outlines and are distributed under the project
+license solely as test data.

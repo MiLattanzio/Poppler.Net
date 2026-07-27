@@ -15,6 +15,7 @@ internal sealed class PdfCMap
     private readonly List<CodeSpaceRange> _codeSpaces = new();
     private readonly SortedSet<int> _knownLengths = new();
     private readonly int _maximumMappings;
+    private bool _writingModeExplicit;
 
     private PdfCMap(int maximumMappings)
     {
@@ -40,7 +41,10 @@ internal sealed class PdfCMap
         return result;
     }
 
-    public static PdfCMap Parse(byte[] bytes, int maximumMappings)
+    public static PdfCMap Parse(
+        byte[] bytes,
+        int maximumMappings,
+        Func<string, PdfCMap?>? baseResolver = null)
     {
         ArgumentNullException.ThrowIfNull(bytes);
         var result = new PdfCMap(maximumMappings);
@@ -52,9 +56,12 @@ internal sealed class PdfCMap
             if (token == "def" && index >= 2)
             {
                 if (tokens[index - 2] == "/WMode" &&
-                    tokens[index - 1] == "1")
+                    tokens[index - 1] is "0" or "1")
                 {
-                    result.WritingMode = FontWritingMode.Vertical;
+                    result.WritingMode = tokens[index - 1] == "1"
+                        ? FontWritingMode.Vertical
+                        : FontWritingMode.Horizontal;
+                    result._writingModeExplicit = true;
                 }
                 else if (tokens[index - 2] == "/CMapName" &&
                          tokens[index - 1].StartsWith('/'))
@@ -67,12 +74,14 @@ internal sealed class PdfCMap
                 string baseName = tokens[index - 1].TrimStart('/');
                 if (baseName is "Identity-H" or "Identity-V")
                 {
-                    result.Name = baseName;
-                    result.WritingMode = baseName.EndsWith("-V", StringComparison.Ordinal)
-                        ? FontWritingMode.Vertical
-                        : FontWritingMode.Horizontal;
-                    result.AddCodeSpace("<0000>", "<FFFF>");
+                    result.MergeBase(Identity(
+                        baseName.EndsWith("-V", StringComparison.Ordinal)
+                            ? FontWritingMode.Vertical
+                            : FontWritingMode.Horizontal,
+                        maximumMappings));
                 }
+                else if (baseResolver?.Invoke(baseName) is { } baseMap)
+                    result.MergeBase(baseMap);
             }
             else if (TrySectionCount(tokens, index, "begincodespacerange", out int count))
             {
@@ -148,8 +157,9 @@ internal sealed class PdfCMap
             return cid;
 
         uint code = ToUInt(source);
-        foreach (CidRange range in _cidRanges)
+        for (int index = _cidRanges.Count - 1; index >= 0; index--)
         {
+            CidRange range = _cidRanges[index];
             if (range.Length == source.Length && code >= range.Start && code <= range.End)
             {
                 ulong mapped = (ulong)range.FirstCid + code - range.Start;
@@ -158,6 +168,38 @@ internal sealed class PdfCMap
         }
 
         return fallback;
+    }
+
+    internal PdfCMap WithBase(PdfCMap? baseMap)
+    {
+        if (baseMap is not null)
+            MergeBase(baseMap);
+        return this;
+    }
+
+    private void MergeBase(PdfCMap baseMap)
+    {
+        EnsureMappingLimit(
+            (ulong)_unicode.Count +
+            (ulong)_cidCharacters.Count +
+            (ulong)_cidRanges.Count +
+            (ulong)baseMap._unicode.Count +
+            (ulong)baseMap._cidCharacters.Count +
+            (ulong)baseMap._cidRanges.Count);
+        foreach ((string key, string value) in baseMap._unicode)
+            _unicode.TryAdd(key, value);
+        foreach ((string key, uint value) in baseMap._cidCharacters)
+            _cidCharacters.TryAdd(key, value);
+        _cidRanges.InsertRange(0, baseMap._cidRanges);
+        foreach (CodeSpaceRange range in baseMap._codeSpaces)
+        {
+            if (!_codeSpaces.Contains(range))
+                _codeSpaces.Add(range);
+        }
+        foreach (int length in baseMap._knownLengths)
+            _knownLengths.Add(length);
+        if (!_writingModeExplicit)
+            WritingMode = baseMap.WritingMode;
     }
 
     private static bool TrySectionCount(

@@ -1,0 +1,12 @@
+/CIDInit /ProcSet findresource begin
+12 dict begin begincmap
+/CMapName /BetaBase-H def
+/WMode 0 def
+1 begincodespacerange
+<0000> <FFFF>
+endcodespacerange
+2 begincidchar
+<0001> 1
+<0002> 2
+endcidchar
+endcmap end end

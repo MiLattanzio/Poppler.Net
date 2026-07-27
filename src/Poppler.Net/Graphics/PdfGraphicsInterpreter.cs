@@ -1073,27 +1073,41 @@ internal sealed class PdfGraphicsInterpreter
         string? sourceResource)
     {
         PdfObject? shading = LookupResource(resources, "Shading", resourceName);
-        if (!PdfShadingReader.TryRead(
+        if (!PdfShadingReader.TryReadBrush(
                 shading,
                 _document,
                 PdfMatrix.Identity,
-                out PdfGradientBrush? brush) ||
+                out PdfBrush? brush) ||
             brush is null)
         {
             ReportOnce(
                 "graphics.shading.unsupported",
-                "A shading other than axial/radial or an unsupported color space was skipped.");
+                "An unsupported shading or color space was skipped.");
             return;
         }
 
-        Emit(
-            output,
-            new PdfShadingElement(
-                resourceName,
-                brush,
-                context.Graphics,
-                context.Clips.ToArray(),
-                sourceResource));
+        if (brush is PdfGradientBrush gradient)
+        {
+            Emit(
+                output,
+                new PdfShadingElement(
+                    resourceName,
+                    gradient,
+                    context.Graphics,
+                    context.Clips.ToArray(),
+                    sourceResource));
+        }
+        else if (brush is PdfMeshShadingBrush mesh)
+        {
+            Emit(
+                output,
+                new PdfMeshShadingElement(
+                    resourceName,
+                    mesh,
+                    context.Graphics,
+                    context.Clips.ToArray(),
+                    sourceResource));
+        }
     }
 
     private void SetGenericColor(
@@ -1109,7 +1123,12 @@ internal sealed class PdfGraphicsInterpreter
         PdfBrush? brush = null;
         if (pattern && values.LastOrDefault() is PdfName patternName)
         {
-            brush = ReadPattern(resources, patternName.Value, depth);
+            PdfBrush? underlying = ReadSolidColor(values, colorSpace);
+            brush = ReadPattern(
+                resources,
+                patternName.Value,
+                depth,
+                underlying is PdfSolidBrush solid ? solid.Color : null);
         }
 
         brush ??= ReadSolidColor(values, colorSpace);
@@ -1123,7 +1142,8 @@ internal sealed class PdfGraphicsInterpreter
     private PdfBrush? ReadPattern(
         PdfDictionary? resources,
         string resourceName,
-        int depth)
+        int depth,
+        PdfColor? underlyingColor = null)
     {
         PdfObject? patternObject = LookupResource(resources, "Pattern", resourceName);
         if (patternObject is null)
@@ -1131,7 +1151,12 @@ internal sealed class PdfGraphicsInterpreter
         PdfObject resolved = patternObject.Resolve(_document);
         PdfReference? reference = patternObject as PdfReference;
         if (reference is not null && _patternCache.TryGetValue(reference, out PdfBrush? cached))
-            return cached;
+        {
+            return cached is PdfTilingPatternBrush { IsColored: false } uncolored &&
+                   underlyingColor.HasValue
+                ? uncolored.WithUnderlyingColor(underlyingColor.Value)
+                : cached;
+        }
         PdfDictionary? dictionary = resolved switch
         {
             PdfStream stream => stream.Dictionary,
@@ -1148,22 +1173,24 @@ internal sealed class PdfGraphicsInterpreter
             PdfMatrix.Identity);
         PdfBrush? result = null;
         if (patternType == 2 &&
-            PdfShadingReader.TryRead(
+            PdfShadingReader.TryReadBrush(
                 dictionary.GetValueOrNull("Shading"),
                 _document,
                 matrix,
-                out PdfGradientBrush? shading))
+                out PdfBrush? shading))
         {
             result = shading;
         }
         else if (patternType == 1 && resolved is PdfStream patternStream)
         {
             int paintType = dictionary.GetValueOrNull("PaintType").AsInteger(_document) ?? 1;
-            if (paintType != 1)
+            if (paintType is not (1 or 2))
+                return null;
+            if (paintType == 2 && !underlyingColor.HasValue)
             {
                 ReportOnce(
                     "graphics.pattern.uncolored",
-                    "Uncolored tiling patterns are detected but not yet painted.");
+                    "An uncolored tiling pattern did not provide its underlying color.");
                 return null;
             }
 
@@ -1203,13 +1230,17 @@ internal sealed class PdfGraphicsInterpreter
                     patternElements,
                     depth + 1,
                     $"Pattern:{resourceName}");
-                result = new PdfTilingPatternBrush(
+                var tiling = new PdfTilingPatternBrush(
                     resourceName,
                     boundingBox.Value,
                     xStep.Value,
                     yStep.Value,
                     matrix,
-                    patternElements);
+                    patternElements,
+                    isColored: paintType == 1);
+                result = paintType == 2
+                    ? tiling.WithUnderlyingColor(underlyingColor!.Value)
+                    : tiling;
             }
             finally
             {
@@ -1219,7 +1250,19 @@ internal sealed class PdfGraphicsInterpreter
         }
 
         if (result is not null && reference is not null)
-            _patternCache[reference] = result;
+        {
+            _patternCache[reference] =
+                result is PdfTilingPatternBrush { IsColored: false } uncolored
+                    ? new PdfTilingPatternBrush(
+                        uncolored.ResourceName,
+                        uncolored.BoundingBox,
+                        uncolored.XStep,
+                        uncolored.YStep,
+                        uncolored.Matrix,
+                        uncolored.Elements,
+                        isColored: false)
+                    : result;
+        }
         return result;
     }
 
@@ -1289,6 +1332,23 @@ internal sealed class PdfGraphicsInterpreter
             state = state with { StrokeAlpha = ClampUnit(strokeAlpha) };
         if (dictionary.GetValueOrNull("ca").AsNumber(_document) is { } fillAlpha)
             state = state with { FillAlpha = ClampUnit(fillAlpha) };
+        if (dictionary.GetValueOrNull("OP")?.Resolve(_document)
+            is PdfBoolean { Value: var strokeOverprint })
+        {
+            state = state with { StrokeOverprint = strokeOverprint };
+        }
+        if (dictionary.GetValueOrNull("op")?.Resolve(_document)
+            is PdfBoolean { Value: var fillOverprint })
+        {
+            state = state with { FillOverprint = fillOverprint };
+        }
+        else if (dictionary.GetValueOrNull("OP")?.Resolve(_document)
+                 is PdfBoolean { Value: var sharedOverprint })
+        {
+            state = state with { FillOverprint = sharedOverprint };
+        }
+        if (dictionary.GetValueOrNull("OPM").AsInteger(_document) is { } overprintMode)
+            state = state with { OverprintMode = overprintMode == 1 ? 1 : 0 };
         string? blendMode = ReadBlendMode(dictionary.GetValueOrNull("BM"));
         if (blendMode is not null)
             state = state with { BlendMode = blendMode };
@@ -1357,6 +1417,9 @@ internal sealed class PdfGraphicsInterpreter
             var elements = new List<PdfGraphicsElement>();
             PdfObject? childResources =
                 stream.Dictionary.GetValueOrNull("Resources") ?? resources;
+            PdfDictionary? group = stream.Dictionary
+                .GetValueOrNull("Group")
+                .AsDictionary(_document);
             Execute(
                 _document.Decode(stream),
                 childResources,
@@ -1368,7 +1431,20 @@ internal sealed class PdfGraphicsInterpreter
                 dictionary.GetValueOrNull("S").AsName(_document) == "Luminosity"
                     ? PdfSoftMaskMode.Luminosity
                     : PdfSoftMaskMode.Alpha;
-            PdfColor backdrop = ReadBackdrop(dictionary.GetValueOrNull("BC"));
+            PdfColorSpaceDefinition? blendingColorSpace =
+                PdfColorSpaceDefinition.Parse(
+                    group?.GetValueOrNull("CS"),
+                    childResources.AsDictionary(_document),
+                    _document);
+            PdfColor backdrop = ReadBackdrop(
+                dictionary.GetValueOrNull("BC"),
+                blendingColorSpace);
+            bool isolated =
+                group?.GetValueOrNull("I")?.Resolve(_document)
+                    is PdfBoolean { Value: true };
+            bool knockout =
+                group?.GetValueOrNull("K")?.Resolve(_document)
+                    is PdfBoolean { Value: true };
             PdfObject? transferObject = dictionary.GetValueOrNull("TR");
             string? transferName = transferObject.AsName(_document);
             PdfFunction? transferFunction =
@@ -1391,7 +1467,9 @@ internal sealed class PdfGraphicsInterpreter
                 mode,
                 elements,
                 backdrop,
-                transferFunction);
+                transferFunction,
+                isolated,
+                knockout);
         }
         finally
         {
@@ -1400,7 +1478,9 @@ internal sealed class PdfGraphicsInterpreter
         }
     }
 
-    private PdfColor ReadBackdrop(PdfObject? value)
+    private PdfColor ReadBackdrop(
+        PdfObject? value,
+        PdfColorSpaceDefinition? colorSpace = null)
     {
         PdfArray? array = value.AsArray(_document);
         if (array is null)
@@ -1410,6 +1490,8 @@ internal sealed class PdfGraphicsInterpreter
             .Where(number => number.HasValue)
             .Select(number => number!.Value)
             .ToArray();
+        if (colorSpace is not null && components.Length >= colorSpace.Components)
+            return colorSpace.Convert(components);
         return components.Length switch
         {
             1 => PdfColor.Gray(components[0]),

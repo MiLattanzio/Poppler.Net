@@ -1,0 +1,11 @@
+/CIDInit /ProcSet findresource begin
+12 dict begin begincmap
+/CMapName /BetaUnicode def
+1 begincodespacerange
+<0000> <FFFF>
+endcodespacerange
+2 beginbfchar
+<0001> <0041>
+<0002> <0042>
+endbfchar
+endcmap end end

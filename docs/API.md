@@ -30,6 +30,10 @@ var options = new PdfReadOptions
     MaximumInputBytes = 64 * 1024 * 1024,
     MaximumDecodedStreamBytes = 32 * 1024 * 1024,
     MaximumCMapMappings = 100_000,
+    MaximumExternalCMapBytes = 4 * 1024 * 1024,
+    MaximumCMapUseDepth = 8,
+    CMapDirectories = new[] { "application-cmaps" },
+    UseSystemCMaps = false,
     MaximumGraphicsElements = 100_000,
     MaximumPathSegments = 250_000,
     MaximumImagePixels = 25_000_000,
@@ -38,11 +42,17 @@ var options = new PdfReadOptions
     MaximumFunctionSamples = 250_000,
     MaximumXObjectDepth = 16,
     MaximumTransparencyGroupDepth = 16,
+    MaximumMeshTriangles = 16_384,
     MaximumRenderPixels = 25_000_000,
     MaximumPages = 2_000,
     AttemptXrefRepair = false
 };
 ```
+
+Explicit CMap directories are searched before common system `poppler-data`
+locations. `UseSystemCMaps = false` disables the latter. External CMaps are
+data files only: the managed parser reads their declarative mapping and
+`usecmap` inheritance without executing PostScript.
 
 ## Document inspection
 
@@ -109,11 +119,16 @@ the selected `PdfTextRenderingMode`; source codes and glyph matrices remain
 internal so subset-font selection cannot be corrupted by a Unicode round trip.
 `PdfImageElement` exposes Image XObject metadata and its optional decoded
 `PdfImage`.
-`PdfShadingElement` exposes an axial or radial gradient. Paint is represented
-by `PdfSolidBrush`, `PdfTilingPatternBrush` or `PdfGradientBrush`; each element
-also retains the active clipping paths and source Form resource.
+`PdfShadingElement` exposes an axial or radial gradient.
+`PdfMeshShadingElement` exposes free-form/lattice Gouraud or Coons/tensor
+patch data through a bounded `PdfMeshShadingBrush` triangle list. Paint is
+represented by `PdfSolidBrush`, `PdfTilingPatternBrush`, `PdfGradientBrush` or
+`PdfMeshShadingBrush`; each element also retains the active clipping paths and
+source Form resource. Uncolored tiling brushes expose their per-use
+`UnderlyingColor`.
 `PdfTransparencyGroupElement` retains isolated/knockout flags and a nested
-display list. `PdfGraphicsState.SoftMask` exposes Alpha/Luminosity group masks.
+display list. `PdfGraphicsState.SoftMask` exposes Alpha/Luminosity group masks;
+the graphics state also reports fill/stroke overprint and overprint mode.
 
 The display list is immutable from the caller's perspective and is evaluated
 lazily once per `Page`.
@@ -183,7 +198,7 @@ page.SavePng("page.png", new RasterRenderOptions { Dpi = 144 });
 RGBA rows. `Page.RenderToPng` returns encoded PNG bytes. The raster backend
 paints the graphics display list with clipping, images, gradients, patterns,
 PDF blend modes and graphics-state soft masks. Text is painted at its exact
-display-list position from embedded TrueType, CFF1/Type 2 or Type 1 outlines,
+display-list position from embedded TrueType, CFF1/CFF2 Type 2 or Type 1 outlines,
 Type 3 CharProcs, or optional managed font-file substitution. See
 [RENDERING.md](RENDERING.md) for the current text, stroke, group and color
 limits.

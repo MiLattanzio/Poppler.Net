@@ -5,6 +5,31 @@ namespace Poppler.Graphics;
 
 internal static class PdfShadingReader
 {
+    public static bool TryReadBrush(
+        PdfObject? value,
+        PdfDocumentCore document,
+        PdfMatrix matrix,
+        out PdfBrush? brush)
+    {
+        if (TryRead(value, document, matrix, out PdfGradientBrush? gradient))
+        {
+            brush = gradient;
+            return true;
+        }
+        if (PdfMeshShadingReader.TryRead(
+                value,
+                document,
+                matrix,
+                out PdfMeshShadingBrush? mesh))
+        {
+            brush = mesh;
+            return true;
+        }
+
+        brush = null;
+        return false;
+    }
+
     public static bool TryRead(
         PdfObject? value,
         PdfDocumentCore document,

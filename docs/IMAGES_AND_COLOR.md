@@ -55,13 +55,15 @@ nearest-neighbor sampling.
 ## Explicit limitations
 
 - ICC LUT/device-link profiles, proofing, black-point compensation, rendering
-  intents, spot-color calibration and overprint simulation are not present.
+  intents, spot-color calibration and spot-color overprint are not present.
+  Beta 2 provides only the documented managed process-CMYK overprint preview.
 - JPEG arithmetic coding, unusual JPEG color transforms and JPEG 2000 Part 2
   are not guaranteed by the selected managed codecs.
-- Inline images (`BI`/`ID`/`EI`) are not decoded.
-- Release `0.7` rasterizes Image XObjects and graphics-state Alpha/Luminosity
-  soft masks. Soft-mask transfer functions, knockout interaction and overprint
-  remain incomplete.
+- Raw and common ASCIIHex/ASCII85/RunLength/DCT inline images are decoded;
+  ambiguous Flate/LZW/CCITT/JBIG2/JPX boundaries remain incomplete.
+- Graphics-state Alpha/Luminosity soft masks support sampled, exponential,
+  stitching and calculator transfer functions. Nested knockout opacity and
+  full color-managed overprint remain incomplete.
 - Release `0.7` adds full-page RGBA/PNG output; visual conformance remains
   limited by the raster and font restrictions in
   [RENDERING.md](RENDERING.md).

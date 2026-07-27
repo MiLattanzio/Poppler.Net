@@ -15,6 +15,7 @@ internal sealed partial class PdfFontDecoder
     private readonly PdfCMap _encodingCMap;
     private readonly PdfCidMetrics? _cidMetrics;
     private readonly PdfOpenTypeCmap? _openTypeCmap;
+    private readonly PdfOpenTypeLayout? _openTypeLayout;
     private readonly PdfTrueTypeFont? _trueTypeFont;
     private readonly PdfCffFont? _cffFont;
     private readonly PdfType1Font? _type1Font;
@@ -81,6 +82,7 @@ internal sealed partial class PdfFontDecoder
                 _openTypeCmap = PdfOpenTypeCmap.TryParse(
                     fontProgram,
                     document.Options.MaximumCMapMappings);
+                _openTypeLayout = PdfOpenTypeLayout.TryParse(fontProgram);
                 _trueTypeFont = PdfTrueTypeFont.TryParse(fontProgram);
             }
             if (embeddedFormat is EmbeddedFontFormat.Cff or EmbeddedFontFormat.OpenType)
@@ -97,9 +99,7 @@ internal sealed partial class PdfFontDecoder
         PdfStream? toUnicode = dictionary.GetValueOrNull("ToUnicode").AsStream(document);
         _toUnicode = toUnicode is null
             ? PdfCMap.Empty(document.Options.MaximumCMapMappings)
-            : PdfCMap.Parse(
-                document.Decode(toUnicode),
-                document.Options.MaximumCMapMappings);
+            : document.CMapResolver.ParseStream(toUnicode);
 
         if (_composite)
         {
@@ -277,6 +277,8 @@ internal sealed partial class PdfFontDecoder
         if (_openTypeCmap is not null &&
             _openTypeCmap.TryGetGlyph(rune.Value, out uint glyph))
         {
+            if (WritingMode == FontWritingMode.Vertical)
+                glyph = _openTypeLayout?.ApplyVertical(glyph) ?? glyph;
             if (_trueTypeFont?.TryGetGlyph(glyph, out path, out advance) == true)
                 return true;
             if (_cffFont?.TryGetGlyph(glyph, out path, out advance) == true)
@@ -348,6 +350,8 @@ internal sealed partial class PdfFontDecoder
             }
         }
 
+        if (WritingMode == FontWritingMode.Vertical)
+            glyph = _openTypeLayout?.ApplyVertical(glyph) ?? glyph;
         if (_trueTypeFont?.TryGetGlyph(glyph, out path, out advance) == true)
             return true;
         if (_cffFont?.TryGetGlyph(glyph, out path, out advance) == true)
@@ -485,15 +489,23 @@ internal sealed partial class PdfFontDecoder
             FontWritingMode mode = name.EndsWith("-V", StringComparison.Ordinal)
                 ? FontWritingMode.Vertical
                 : FontWritingMode.Horizontal;
+            PdfCMap? resolved = document.CMapResolver.Resolve(name);
+            if (resolved is not null)
+                return resolved;
+            if (name is not "Identity-H" and not "Identity-V")
+            {
+                document.AddDiagnostic(
+                    PdfDiagnosticSeverity.Warning,
+                    "font.cmap.external.missing",
+                    $"Named CMap /{name} could not be resolved; identity decoding was used.");
+            }
             return PdfCMap.Identity(mode, document.Options.MaximumCMapMappings);
         }
 
         PdfStream? stream = encoding.AsStream(document);
         return stream is null
             ? PdfCMap.Identity(FontWritingMode.Horizontal, document.Options.MaximumCMapMappings)
-            : PdfCMap.Parse(
-                document.Decode(stream),
-                document.Options.MaximumCMapMappings);
+            : document.CMapResolver.ParseStream(stream);
     }
 
     private static string ReadEncodingName(

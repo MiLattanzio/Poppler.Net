@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text;
 using Poppler.Core;
 
 namespace Poppler.Graphics;
@@ -66,6 +68,13 @@ internal abstract class PdfFunction
                 range,
                 expectedOutputCount,
                 depth),
+            4 when resolved is PdfStream stream =>
+                CalculatorFunction.TryCreate(
+                    stream,
+                    document,
+                    domain,
+                    range,
+                    expectedOutputCount),
             _ => null
         };
     }
@@ -478,6 +487,593 @@ internal abstract class PdfFunction
             }
 
             return checked(index * outputs);
+        }
+    }
+
+    private sealed class CalculatorFunction : PdfFunction
+    {
+        private static readonly HashSet<string> Operators = new(
+            StringComparer.Ordinal)
+        {
+            "abs", "add", "and", "atan", "ceiling", "copy", "cos", "cvi",
+            "cvr", "div", "dup", "eq", "exch", "exp", "false", "floor",
+            "ge", "gt", "idiv", "if", "ifelse", "index", "le", "ln", "log",
+            "lt", "mod", "mul", "ne", "neg", "not", "or", "pop", "roll",
+            "round", "sin", "sqrt", "sub", "true", "truncate", "xor"
+        };
+
+        private readonly CalculatorProcedure _procedure;
+        private readonly int _outputCount;
+        private readonly int _maximumOperations;
+
+        private CalculatorFunction(
+            double[] domain,
+            double[]? range,
+            CalculatorProcedure procedure,
+            int outputCount,
+            int maximumOperations)
+            : base(domain, range)
+        {
+            _procedure = procedure;
+            _outputCount = outputCount;
+            _maximumOperations = maximumOperations;
+        }
+
+        public static PdfFunction? TryCreate(
+            PdfStream stream,
+            PdfDocumentCore document,
+            double[] domain,
+            double[]? range,
+            int expectedOutputCount)
+        {
+            try
+            {
+                string source = Encoding.ASCII.GetString(document.Decode(stream));
+                var parser = new CalculatorParser(source);
+                CalculatorProcedure procedure = parser.Parse();
+                if (!Validate(procedure, depth: 0))
+                    return null;
+                int outputCount = range?.Length / 2 ?? expectedOutputCount;
+                if (outputCount < 1 ||
+                    outputCount > document.Options.MaximumImageComponents)
+                {
+                    return null;
+                }
+                return new CalculatorFunction(
+                    domain,
+                    range,
+                    procedure,
+                    outputCount,
+                    Math.Min(document.Options.MaximumGraphicsOperations, 100_000));
+            }
+            catch (PdfException)
+            {
+                return null;
+            }
+        }
+
+        protected override double[] EvaluateCore(ReadOnlySpan<double> input)
+        {
+            var stack = new List<CalculatorValue>(input.Length + _outputCount + 8);
+            for (int index = 0; index < input.Length; index++)
+                stack.Add(CalculatorValue.Number(input[index]));
+            var context = new CalculatorContext(stack, _maximumOperations);
+            try
+            {
+                Execute(_procedure, context, depth: 0);
+                if (stack.Count < _outputCount)
+                    return new double[_outputCount];
+                var result = new double[_outputCount];
+                int start = stack.Count - result.Length;
+                for (int index = 0; index < result.Length; index++)
+                    result[index] = stack[start + index].AsNumber();
+                return result;
+            }
+            catch (PdfException)
+            {
+                return new double[_outputCount];
+            }
+        }
+
+        protected override int GetNaturalOutputCount() => _outputCount;
+
+        private static bool Validate(CalculatorProcedure procedure, int depth)
+        {
+            if (depth > 32)
+                return false;
+            foreach (object token in procedure.Tokens)
+            {
+                if (token is string operation && !Operators.Contains(operation))
+                    return false;
+                if (token is CalculatorProcedure child && !Validate(child, depth + 1))
+                    return false;
+            }
+            return true;
+        }
+
+        private static void Execute(
+            CalculatorProcedure procedure,
+            CalculatorContext context,
+            int depth)
+        {
+            if (depth > 32)
+                throw new PdfLimitException("Calculator function nesting exceeds its limit.");
+            foreach (object token in procedure.Tokens)
+            {
+                context.Count();
+                switch (token)
+                {
+                    case double number:
+                        context.Push(CalculatorValue.Number(number));
+                        break;
+                    case bool boolean:
+                        context.Push(CalculatorValue.Boolean(boolean));
+                        break;
+                    case CalculatorProcedure child:
+                        context.Push(CalculatorValue.Procedure(child));
+                        break;
+                    case string operation:
+                        ExecuteOperator(operation, context, depth);
+                        break;
+                }
+            }
+        }
+
+        private static void ExecuteOperator(
+            string operation,
+            CalculatorContext context,
+            int depth)
+        {
+            switch (operation)
+            {
+                case "true":
+                    context.Push(CalculatorValue.Boolean(true));
+                    return;
+                case "false":
+                    context.Push(CalculatorValue.Boolean(false));
+                    return;
+                case "dup":
+                    context.Push(context.Peek());
+                    return;
+                case "exch":
+                {
+                    CalculatorValue second = context.Pop();
+                    CalculatorValue first = context.Pop();
+                    context.Push(second);
+                    context.Push(first);
+                    return;
+                }
+                case "pop":
+                    context.Pop();
+                    return;
+                case "copy":
+                {
+                    int count = context.PopInteger();
+                    if (count < 0 || count > context.Stack.Count)
+                        throw new PdfFormatException("Invalid calculator copy.");
+                    CalculatorValue[] values =
+                        context.Stack.Skip(context.Stack.Count - count).ToArray();
+                    foreach (CalculatorValue value in values)
+                        context.Push(value);
+                    return;
+                }
+                case "index":
+                {
+                    int index = context.PopInteger();
+                    if (index < 0 || index >= context.Stack.Count)
+                        throw new PdfFormatException("Invalid calculator index.");
+                    context.Push(context.Stack[context.Stack.Count - 1 - index]);
+                    return;
+                }
+                case "roll":
+                {
+                    int amount = context.PopInteger();
+                    int count = context.PopInteger();
+                    if (count < 0 || count > context.Stack.Count)
+                        throw new PdfFormatException("Invalid calculator roll.");
+                    if (count == 0)
+                        return;
+                    amount %= count;
+                    if (amount < 0)
+                        amount += count;
+                    int start = context.Stack.Count - count;
+                    CalculatorValue[] values = context.Stack.Skip(start).ToArray();
+                    context.Stack.RemoveRange(start, count);
+                    for (int index = 0; index < count; index++)
+                        context.Push(values[(index - amount + count) % count]);
+                    return;
+                }
+                case "if":
+                {
+                    CalculatorProcedure procedure = context.Pop().AsProcedure();
+                    if (context.Pop().AsBoolean())
+                        Execute(procedure, context, depth + 1);
+                    return;
+                }
+                case "ifelse":
+                {
+                    CalculatorProcedure whenFalse = context.Pop().AsProcedure();
+                    CalculatorProcedure whenTrue = context.Pop().AsProcedure();
+                    Execute(
+                        context.Pop().AsBoolean() ? whenTrue : whenFalse,
+                        context,
+                        depth + 1);
+                    return;
+                }
+                case "abs":
+                    Unary(context, Math.Abs);
+                    return;
+                case "neg":
+                    Unary(context, value => -value);
+                    return;
+                case "ceiling":
+                    Unary(context, Math.Ceiling);
+                    return;
+                case "floor":
+                    Unary(context, Math.Floor);
+                    return;
+                case "round":
+                    Unary(context, value => Math.Round(value, MidpointRounding.AwayFromZero));
+                    return;
+                case "truncate":
+                case "cvi":
+                    Unary(context, Math.Truncate);
+                    return;
+                case "cvr":
+                    Unary(context, value => value);
+                    return;
+                case "sqrt":
+                    Unary(context, value => Math.Sqrt(Math.Max(0, value)));
+                    return;
+                case "ln":
+                    Unary(context, Math.Log);
+                    return;
+                case "log":
+                    Unary(context, Math.Log10);
+                    return;
+                case "sin":
+                    Unary(context, value => Math.Sin(value * Math.PI / 180));
+                    return;
+                case "cos":
+                    Unary(context, value => Math.Cos(value * Math.PI / 180));
+                    return;
+                case "add":
+                    Binary(context, (first, second) => first + second);
+                    return;
+                case "sub":
+                    Binary(context, (first, second) => first - second);
+                    return;
+                case "mul":
+                    Binary(context, (first, second) => first * second);
+                    return;
+                case "div":
+                    Binary(context, (first, second) => first / second);
+                    return;
+                case "idiv":
+                    Binary(context, (first, second) => Math.Truncate(first / second));
+                    return;
+                case "mod":
+                    Binary(context, (first, second) => first % second);
+                    return;
+                case "exp":
+                    Binary(context, Math.Pow);
+                    return;
+                case "atan":
+                    Binary(
+                        context,
+                        (first, second) =>
+                        {
+                            double angle = Math.Atan2(first, second) * 180 / Math.PI;
+                            return angle < 0 ? angle + 360 : angle;
+                        });
+                    return;
+                case "eq":
+                    Compare(context, static (first, second) => first == second);
+                    return;
+                case "ne":
+                    Compare(context, static (first, second) => first != second);
+                    return;
+                case "gt":
+                    Compare(context, static (first, second) => first > second);
+                    return;
+                case "ge":
+                    Compare(context, static (first, second) => first >= second);
+                    return;
+                case "lt":
+                    Compare(context, static (first, second) => first < second);
+                    return;
+                case "le":
+                    Compare(context, static (first, second) => first <= second);
+                    return;
+                case "and":
+                    BooleanOrBitwise(context, static (first, second) => first && second,
+                        static (first, second) => first & second);
+                    return;
+                case "or":
+                    BooleanOrBitwise(context, static (first, second) => first || second,
+                        static (first, second) => first | second);
+                    return;
+                case "xor":
+                    BooleanOrBitwise(context, static (first, second) => first ^ second,
+                        static (first, second) => first ^ second);
+                    return;
+                case "not":
+                {
+                    CalculatorValue value = context.Pop();
+                    context.Push(value.Kind == CalculatorValueKind.Boolean
+                        ? CalculatorValue.Boolean(!value.AsBoolean())
+                        : CalculatorValue.Number(~value.AsInteger()));
+                    return;
+                }
+                default:
+                    throw new PdfUnsupportedFeatureException(
+                        $"calculator function operator {operation}");
+            }
+        }
+
+        private static void Unary(
+            CalculatorContext context,
+            Func<double, double> function)
+        {
+            double value = context.Pop().AsNumber();
+            context.Push(CalculatorValue.Number(function(value)));
+        }
+
+        private static void Binary(
+            CalculatorContext context,
+            Func<double, double, double> function)
+        {
+            double second = context.Pop().AsNumber();
+            double first = context.Pop().AsNumber();
+            context.Push(CalculatorValue.Number(function(first, second)));
+        }
+
+        private static void Compare(
+            CalculatorContext context,
+            Func<double, double, bool> function)
+        {
+            double second = context.Pop().AsNumber();
+            double first = context.Pop().AsNumber();
+            context.Push(CalculatorValue.Boolean(function(first, second)));
+        }
+
+        private static void BooleanOrBitwise(
+            CalculatorContext context,
+            Func<bool, bool, bool> booleanFunction,
+            Func<int, int, int> integerFunction)
+        {
+            CalculatorValue second = context.Pop();
+            CalculatorValue first = context.Pop();
+            context.Push(first.Kind == CalculatorValueKind.Boolean &&
+                         second.Kind == CalculatorValueKind.Boolean
+                ? CalculatorValue.Boolean(
+                    booleanFunction(first.AsBoolean(), second.AsBoolean()))
+                : CalculatorValue.Number(
+                    integerFunction(first.AsInteger(), second.AsInteger())));
+        }
+
+        private sealed record CalculatorProcedure(IReadOnlyList<object> Tokens);
+
+        private enum CalculatorValueKind
+        {
+            Number,
+            Boolean,
+            Procedure
+        }
+
+        private readonly record struct CalculatorValue(
+            CalculatorValueKind Kind,
+            double NumberValue,
+            bool BooleanValue,
+            CalculatorProcedure? ProcedureValue)
+        {
+            public static CalculatorValue Number(double value) =>
+                new(CalculatorValueKind.Number, value, false, null);
+
+            public static CalculatorValue Boolean(bool value) =>
+                new(CalculatorValueKind.Boolean, 0, value, null);
+
+            public static CalculatorValue Procedure(CalculatorProcedure value) =>
+                new(CalculatorValueKind.Procedure, 0, false, value);
+
+            public double AsNumber() => Kind == CalculatorValueKind.Number
+                ? NumberValue
+                : throw new PdfFormatException("Calculator value is not numeric.");
+
+            public int AsInteger()
+            {
+                double value = AsNumber();
+                if (!double.IsFinite(value) ||
+                    value < int.MinValue ||
+                    value > int.MaxValue)
+                {
+                    throw new PdfFormatException("Calculator integer is out of range.");
+                }
+                return (int)Math.Truncate(value);
+            }
+
+            public bool AsBoolean() => Kind == CalculatorValueKind.Boolean
+                ? BooleanValue
+                : throw new PdfFormatException("Calculator value is not boolean.");
+
+            public CalculatorProcedure AsProcedure() =>
+                Kind == CalculatorValueKind.Procedure && ProcedureValue is not null
+                    ? ProcedureValue
+                    : throw new PdfFormatException("Calculator value is not a procedure.");
+        }
+
+        private sealed class CalculatorContext
+        {
+            private int _operations;
+            private readonly int _maximumOperations;
+
+            public CalculatorContext(
+                List<CalculatorValue> stack,
+                int maximumOperations)
+            {
+                Stack = stack;
+                _maximumOperations = maximumOperations;
+            }
+
+            public List<CalculatorValue> Stack { get; }
+
+            public void Count()
+            {
+                _operations++;
+                if (_operations > _maximumOperations)
+                    throw new PdfLimitException("Calculator function operation limit exceeded.");
+            }
+
+            public void Push(CalculatorValue value)
+            {
+                if (Stack.Count >= 1_024)
+                    throw new PdfLimitException("Calculator function stack limit exceeded.");
+                Stack.Add(value);
+            }
+
+            public CalculatorValue Pop()
+            {
+                if (Stack.Count == 0)
+                    throw new PdfFormatException("Calculator function stack underflow.");
+                CalculatorValue value = Stack[^1];
+                Stack.RemoveAt(Stack.Count - 1);
+                return value;
+            }
+
+            public CalculatorValue Peek()
+            {
+                if (Stack.Count == 0)
+                    throw new PdfFormatException("Calculator function stack underflow.");
+                return Stack[^1];
+            }
+
+            public int PopInteger() => Pop().AsInteger();
+        }
+
+        private sealed class CalculatorParser
+        {
+            private readonly string _source;
+            private int _offset;
+            private int _tokenCount;
+
+            public CalculatorParser(string source) => _source = source;
+
+            public CalculatorProcedure Parse()
+            {
+                SkipSpace();
+                CalculatorProcedure result;
+                if (Peek() == '{')
+                {
+                    _offset++;
+                    result = ParseProcedure(expectClosingBrace: true, depth: 0);
+                }
+                else
+                {
+                    result = ParseProcedure(expectClosingBrace: false, depth: 0);
+                }
+                SkipSpace();
+                if (_offset != _source.Length)
+                    throw new PdfFormatException("Trailing calculator function data.");
+                return result;
+            }
+
+            private CalculatorProcedure ParseProcedure(
+                bool expectClosingBrace,
+                int depth)
+            {
+                if (depth > 32)
+                    throw new PdfLimitException("Calculator function nesting exceeds its limit.");
+                var tokens = new List<object>();
+                while (true)
+                {
+                    SkipSpace();
+                    char current = Peek();
+                    if (current == '\0')
+                    {
+                        if (expectClosingBrace)
+                            throw new PdfFormatException("Unterminated calculator procedure.");
+                        break;
+                    }
+                    if (current == '}')
+                    {
+                        if (!expectClosingBrace)
+                            throw new PdfFormatException("Unexpected calculator procedure terminator.");
+                        _offset++;
+                        break;
+                    }
+                    if (current == '{')
+                    {
+                        _offset++;
+                        tokens.Add(ParseProcedure(expectClosingBrace: true, depth + 1));
+                    }
+                    else
+                    {
+                        string token = ReadToken();
+                        if (double.TryParse(
+                                token,
+                                NumberStyles.Float,
+                                CultureInfo.InvariantCulture,
+                                out double number))
+                        {
+                            tokens.Add(number);
+                        }
+                        else if (token == "true")
+                        {
+                            tokens.Add(true);
+                        }
+                        else if (token == "false")
+                        {
+                            tokens.Add(false);
+                        }
+                        else
+                        {
+                            tokens.Add(token);
+                        }
+                    }
+
+                    _tokenCount++;
+                    if (_tokenCount > 10_000)
+                        throw new PdfLimitException("Calculator function token limit exceeded.");
+                }
+                return new CalculatorProcedure(tokens.AsReadOnly());
+            }
+
+            private string ReadToken()
+            {
+                int start = _offset;
+                while (_offset < _source.Length)
+                {
+                    char value = _source[_offset];
+                    if (char.IsWhiteSpace(value) || value is '{' or '}' or '%')
+                        break;
+                    _offset++;
+                }
+                if (_offset == start)
+                    throw new PdfFormatException("Invalid calculator function token.");
+                return _source[start.._offset];
+            }
+
+            private void SkipSpace()
+            {
+                while (_offset < _source.Length)
+                {
+                    if (char.IsWhiteSpace(_source[_offset]))
+                    {
+                        _offset++;
+                        continue;
+                    }
+                    if (_source[_offset] != '%')
+                        break;
+                    while (_offset < _source.Length &&
+                           _source[_offset] is not ('\r' or '\n'))
+                    {
+                        _offset++;
+                    }
+                }
+            }
+
+            private char Peek() =>
+                _offset < _source.Length ? _source[_offset] : '\0';
         }
     }
 

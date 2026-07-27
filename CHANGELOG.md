@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.8.0-beta.2 — 2026-07-27
+
+- Added bounded managed decoding and rasterization for shading types 4–7:
+  free-form and lattice Gouraud triangles plus Coons and tensor-product patch
+  meshes. Patch meshes use deterministic 12×12 tessellation and the public
+  display list exposes `PdfMeshShadingElement`, `PdfMeshShadingBrush`,
+  vertices and triangles.
+- Added `PaintType 2` uncolored tiling patterns with per-use underlying colors.
+  Reusing one pattern resource with different `scn`/`SCN` colors no longer
+  leaks the first cached color into later paint operations.
+- Added a bounded pure-managed calculator-function evaluator for function type
+  4, including arithmetic, relational, boolean, stack and conditional
+  operators. Calculator `/TR` functions now apply to Alpha and Luminosity soft
+  masks.
+- Added isolated/non-isolated and knockout group surface handling, preserved
+  the same flags on soft-mask groups, and decoded soft-mask backdrop colors in
+  the declared group blending color space.
+- Added `/OP`, `/op` and `/OPM` graphics-state support plus a managed
+  process-CMYK overprint-mode-1 simulation for solid DeviceCMYK/DeviceGray
+  paint. This is an sRGB preview, not ICC proofing or spot-color simulation.
+- Added `MaximumMeshTriangles` and a deterministic six-page graphics corpus.
+  Eight regressions bring the suite to 142 passing NUnit cases.
+
+## 0.8.0-beta.1 — 2026-07-27
+
+- Added bounded external CMap resolution from explicit directories and common
+  `poppler-data` locations, including named encoding CMaps, external
+  `ToUnicode` maps, `/UseCMap` dictionaries and PostScript `usecmap`
+  inheritance.
+- Added a managed CFF2 outline path for raw and OpenType `CFF2` programs,
+  including 32-bit INDEX data, FDArray/FDSelect format 4 routing, the default
+  variation instance and the common escaped Type 2 arithmetic, stack,
+  transient-array and logical operators.
+- Added bounded OpenType GSUB processing for `vert`/`vrt2` single
+  substitutions and exact `liga`/`rlig` ligatures. Vertical embedded glyphs
+  and multi-scalar fallback glyphs can therefore select the intended outline
+  without a native shaping engine.
+- Improved non-embedded font selection with Narrow/Condensed and
+  Expanded/Extended family traits. The resolver now retains several ranked
+  candidates and continues when the preferred file lacks the requested
+  glyph.
+- Added CLI `--cmap-dir` and public `PdfReadOptions.CMapDirectories`,
+  `UseSystemCMaps`, `MaximumExternalCMapBytes` and
+  `MaximumCMapUseDepth`.
+- Added a deterministic four-page beta text corpus covering CFF2 escaped and
+  blend operators, inherited external vertical CMaps, vertical alternates,
+  `fi` ligatures and narrow-font matching. Six regressions bring the suite to
+  134 passing NUnit cases.
+
 ## 0.8.0-alpha.3 — 2026-07-27
 
 - Made inline-image boundary recovery filter-aware for ASCIIHex, ASCII85,

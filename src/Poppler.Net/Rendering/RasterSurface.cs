@@ -40,6 +40,13 @@ internal sealed class RasterSurface
     public int Height { get; }
     public byte[] Pixels => _pixels;
 
+    public RasterSurface Clone()
+    {
+        var clone = new RasterSurface(Width, Height);
+        _pixels.CopyTo(clone._pixels, 0);
+        return clone;
+    }
+
     public void Clear(RasterColor color)
     {
         byte red = ToByte(color.Red);
@@ -69,7 +76,10 @@ internal sealed class RasterSurface
         int x,
         int y,
         RasterColor source,
-        string blendMode)
+        string blendMode,
+        PdfColor? sourcePdfColor = null,
+        bool overprint = false,
+        int overprintMode = 0)
     {
         if ((uint)x >= (uint)Width ||
             (uint)y >= (uint)Height ||
@@ -84,11 +94,71 @@ internal sealed class RasterSurface
             _pixels[offset + 1] / 255.0,
             _pixels[offset + 2] / 255.0,
             _pixels[offset + 3] / 255.0);
+        if (overprint && overprintMode == 1 && sourcePdfColor.HasValue)
+            source = ApplyProcessOverprint(backdrop, source, sourcePdfColor.Value);
         RasterColor result = PdfBlend.Composite(backdrop, source, blendMode);
-        _pixels[offset] = ToByte(result.Red);
-        _pixels[offset + 1] = ToByte(result.Green);
-        _pixels[offset + 2] = ToByte(result.Blue);
-        _pixels[offset + 3] = ToByte(result.Alpha);
+        SetPixel(x, y, result);
+    }
+
+    public void SetPixel(int x, int y, RasterColor color)
+    {
+        if ((uint)x >= (uint)Width || (uint)y >= (uint)Height)
+            return;
+        int offset = checked((y * Width + x) * 4);
+        _pixels[offset] = ToByte(color.Red);
+        _pixels[offset + 1] = ToByte(color.Green);
+        _pixels[offset + 2] = ToByte(color.Blue);
+        _pixels[offset + 3] = ToByte(color.Alpha);
+    }
+
+    private static RasterColor ApplyProcessOverprint(
+        RasterColor backdrop,
+        RasterColor source,
+        PdfColor sourcePdfColor)
+    {
+        (double cyan, double magenta, double yellow, double black) =
+            RgbToCmyk(backdrop);
+        switch (sourcePdfColor.Space)
+        {
+            case PdfColorSpace.DeviceCmyk:
+                if (sourcePdfColor.Component1 > 1e-12)
+                    cyan = sourcePdfColor.Component1;
+                if (sourcePdfColor.Component2 > 1e-12)
+                    magenta = sourcePdfColor.Component2;
+                if (sourcePdfColor.Component3 > 1e-12)
+                    yellow = sourcePdfColor.Component3;
+                if (sourcePdfColor.Component4 > 1e-12)
+                    black = sourcePdfColor.Component4;
+                break;
+            case PdfColorSpace.DeviceGray:
+            {
+                double sourceBlack = 1 - sourcePdfColor.Component1;
+                if (sourceBlack > 1e-12)
+                    black = sourceBlack;
+                break;
+            }
+            default:
+                return source;
+        }
+
+        RasterColor converted = RasterColor.FromPdf(
+            PdfColor.Cmyk(cyan, magenta, yellow, black),
+            source.Alpha);
+        return converted;
+    }
+
+    private static (double Cyan, double Magenta, double Yellow, double Black)
+        RgbToCmyk(RasterColor color)
+    {
+        double black = 1 - Math.Max(color.Red, Math.Max(color.Green, color.Blue));
+        if (black >= 1 - 1e-12)
+            return (0, 0, 0, 1);
+        double scale = 1 - black;
+        return (
+            RasterColor.Clamp((1 - color.Red - black) / scale),
+            RasterColor.Clamp((1 - color.Green - black) / scale),
+            RasterColor.Clamp((1 - color.Blue - black) / scale),
+            RasterColor.Clamp(black));
     }
 
     public void CompositeSurface(

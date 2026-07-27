@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Poppler.Core.Filters;
 using Poppler.Security;
+using Poppler.Text;
 
 namespace Poppler.Core;
 
@@ -13,6 +14,7 @@ internal sealed class PdfDocumentCore : IDisposable
     private readonly HashSet<PdfReference> _resolving = new();
     private readonly List<PdfDiagnostic> _diagnostics = new();
     private readonly PdfCrossReference _crossReference;
+    private readonly Lazy<PdfCMapResolver> _cMapResolver;
     private PdfStandardSecurityHandler? _securityHandler;
     private PdfReference? _encryptionReference;
 
@@ -24,6 +26,7 @@ internal sealed class PdfDocumentCore : IDisposable
     {
         _data = data ?? throw new ArgumentNullException(nameof(data));
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _cMapResolver = new Lazy<PdfCMapResolver>(() => new PdfCMapResolver(this));
         ArgumentNullException.ThrowIfNull(ownerPassword);
         ArgumentNullException.ThrowIfNull(userPassword);
         (PdfVersion, HeaderOffset) = ReadHeader(data);
@@ -60,6 +63,7 @@ internal sealed class PdfDocumentCore : IDisposable
     public PdfPasswordKind PasswordKind =>
         _securityHandler?.PasswordKind ?? PdfPasswordKind.None;
     public PdfEncryptionInfo? EncryptionInfo => _securityHandler?.EncryptionInfo;
+    internal PdfCMapResolver CMapResolver => _cMapResolver.Value;
 
     public PdfObject Resolve(PdfReference reference)
     {

@@ -1,6 +1,6 @@
 # Managed raster rendering in 0.8
 
-Release `0.8.0-alpha.3` extends the pure-C# counterpart of Poppler's
+Release `0.8.0-beta.2` extends the pure-C# counterpart of Poppler's
 `SplashOutputDev`, path scanner, compositing and font-outline responsibilities.
 It consumes the backend-neutral `Page.Graphics` display list and never loads
 Splash, Cairo, Skia, FreeType, a platform drawing API or another native
@@ -52,18 +52,18 @@ pixels at alpha zero.
 2. Cubic Bézier paths are flattened adaptively in device space.
 3. Fill, stroke and clipping coverage are sampled on a configurable 1×, 2×,
    4× or 8× grid per pixel.
-4. Solid colors, axial/radial gradients and colored tiling patterns supply
-   straight RGBA source samples.
+4. Solid colors, axial/radial gradients, colored/uncolored tiling patterns and
+   type 4–7 mesh shadings supply straight RGBA source samples.
 5. Decoded Image XObjects use nearest-neighbor or bilinear sampling according
    to `/Interpolate`; existing image/mask alpha remains straight.
 6. Source samples are composited with the active constant alpha, blend mode,
    clip and optional graphics-state soft mask. Sampled, exponential and
-   stitching `/TR` functions transform the resulting mask value.
+   stitching or calculator `/TR` functions transform the resulting mask value.
 7. Transparency Form XObjects render to intermediate RGBA surfaces before
    their result is composited into the parent.
 8. Text-showing operations are consumed at their exact display-list position,
    including nested Forms and transparency groups.
-9. Embedded TrueType, CFF1/Type 2 and Type 1 outlines are selected from
+9. Embedded TrueType, CFF1/CFF2 Type 2 and Type 1 outlines are selected from
    retained PDF character codes/CIDs and antialiased by the same path scanner.
    Type 3 CharProcs execute as nested managed graphics programs.
 10. All `Tr` fill/stroke/invisible/clip modes retain the active fill/stroke
@@ -84,14 +84,21 @@ transparency model rather than applying an RGB-only CSS approximation.
 
 `PdfGraphicsInterpreter` retains transparency Form XObjects as
 `PdfTransparencyGroupElement` instead of flattening them. `/I` and `/K` are
-reported through `Isolated` and `Knockout`; isolated groups are composited on
-an intermediate transparent surface.
+reported through `Isolated` and `Knockout`; isolated groups start with a
+transparent backdrop, non-isolated groups retain the parent backdrop and
+knockout groups evaluate children against their initial group backdrop.
 
 Extended graphics-state `/SMask` dictionaries become `PdfSoftMask` values.
 Both `/S /Alpha` and `/S /Luminosity` are rendered, including `/BC` backdrop
-color for luminosity masks. Function types 0, 2 and 3 in `/TR` are applied
-through a bounded cached lookup table and exposed through
+color in the declared blending color space for luminosity masks. Function
+types 0, 2, 3 and 4 in `/TR` are applied through a bounded cached lookup table
+and exposed through
 `HasTransferFunction`. `/SMask /None` clears the current mask.
+
+Solid DeviceCMYK and DeviceGray paint also honors `/OP`, `/op` and `/OPM`.
+Mode 1 preserves zero-valued process colorants from the backdrop before the
+result is converted to managed sRGB. This is a preview path, not
+ICC/profile-aware print proofing or spot-color overprint simulation.
 
 ## Managed font outlines
 
@@ -110,15 +117,24 @@ common flex operators. The Type 1 reader accepts PFA/PFB containers, decrypts
 eexec and charstrings, honors `lenIV`, and executes ordinary path/subroutine
 operators. Neither reader invokes a native font engine.
 
+The beta CFF2 path accepts raw and OpenType `CFF2` tables, 32-bit INDEX data,
+FDArray/FDSelect format 4 routing and the default variation instance. Its Type
+2 evaluator also covers common arithmetic, stack, transient-array and logical
+escaped operators. OpenType GSUB processing applies non-contextual
+`vert`/`vrt2` alternates and exact `liga`/`rlig` ligatures before the managed
+outline is selected.
+
 Type 3 fonts execute their named CharProc stream through the graphics
 interpreter using the font matrix and font resources. This permits vector
 paths, images and Forms inside ordinary Type 3 glyphs.
 
 When an embedded outline is unavailable, `UseFontSubstitution` can discover
 `.ttf` and `.otf` files. Explicit `FontDirectories` are searched before
-standard operating-system font folders. Candidate scoring uses Base-14 family
-and style traits, after which the selected file is parsed by the same managed
-TrueType/CFF readers. If a standard font omits `/Widths`, the canonical
+standard operating-system font folders. Candidate scoring uses Base-14 family,
+style and Narrow/Condensed or Expanded/Extended traits. Several ranked files
+may be tried when the preferred candidate lacks the requested glyph; the
+selected file is parsed by the same managed TrueType/CFF readers. If a
+standard font omits `/Widths`, the canonical
 Poppler 26.07 Base-14 metrics determine character positions. A horizontally
 substituted outline is fitted to that PDF advance so a locally wider font does
 not overlap the following glyph. Disable substitution or provide controlled
@@ -129,7 +145,9 @@ availability.
 
 `PdfReadOptions.MaximumRenderPixels` defaults to 100,000,000 and is checked
 before allocating the output surface. `MaximumTransparencyGroupDepth`
-defaults to 32 and bounds both intermediate groups and soft masks. Existing
+defaults to 32 and bounds both intermediate groups and soft masks.
+`MaximumMeshTriangles` defaults to 65,536 and bounds decoded/tessellated mesh
+data. Existing
 graphics-operation, path-segment, XObject, image and decoded-stream limits
 remain active.
 
@@ -174,23 +192,39 @@ fallback pages are pixel-identical at 72 DPI. The filtered-image page has
 normalized mean absolute error `0.011755836`, confined to managed codec sample
 differences. `drylab.pdf` was rechecked visually on all three pages at 96 DPI.
 
-This remains an alpha rasterizer:
+Beta 1 adds a deterministic four-page text corpus for CFF2 escaped/default
+blend execution, inherited external vertical CMaps, `vert`/`vrt2`, exact
+`liga` substitution and Narrow/Condensed fallback. Each feature is checked
+through distinct glyph regions rather than aggregate non-white pixel counts.
 
-- knockout and non-isolated group backdrop interaction is not yet complete;
-- calculator and unsupported transfer functions on soft masks are ignored
-  with a diagnostic;
+Beta 2 adds a deterministic six-page graphics corpus for free-form/lattice
+Gouraud meshes, Coons/tensor patch meshes, per-use uncolored patterns,
+calculator soft-mask transfer, isolated/non-isolated/knockout groups and
+process overprint. Raster pages were inspected side by side with Poppler at
+72 DPI; the patch tessellation is visually continuous. Poppler comparison for
+overprint uses its explicit `-overprint` preview mode. RGB values differ
+because Poppler applies its CMYK color-management path while this beta uses
+the documented managed sRGB conversion.
+
+This remains a beta rasterizer:
+
+- nested knockout shape/opacity and non-isolated groups with non-Normal
+  boundary blend modes remain approximations;
+- unsupported calculator operators are rejected and reported rather than
+  executed;
 - line caps, joins, miter clipping and dash continuity across subpaths are
   approximated by the first managed stroke scanner;
-- CFF2, uncommon Type 1/CFF operators, Type 1 `seac`, advanced Type 3
-  behavior, hinting, GSUB/GPOS, shaping and vertical glyph forms remain
-  unsupported;
+- CFF2 variation-region interpolation, uncommon Type 1/CFF operators, Type 1
+  `seac`, advanced Type 3 behavior and hinting remain unsupported;
+- GSUB is limited to non-contextual `vert`/`vrt2` and exact `liga`/`rlig`;
+  contextual GSUB, GPOS and complex-script shaping remain unsupported;
 - file-based substitution is deliberately simpler than Fontconfig/FreeType
   fallback and depends on local fonts unless explicit directories are used;
 - inline images whose first filter has no deterministic boundary handled by
   this alpha, unusual filter chains or unsupported color spaces may not
   decode;
-- uncolored tiling patterns, mesh shadings, overprint and full ICC
-  LUT/device-link behavior remain unsupported.
+- function-based shading type 1, adaptive patch subdivision, spot-color
+  overprint and full ICC LUT/device-link behavior remain unsupported.
 
 These limits are narrower than the `0.6` absence of page rasterization, but
 the output is not yet a general visual-conformance replacement for Splash.

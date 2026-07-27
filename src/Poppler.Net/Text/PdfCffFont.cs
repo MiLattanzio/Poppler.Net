@@ -6,8 +6,8 @@ using GraphicsMatrix = global::Poppler.PdfMatrix;
 namespace Poppler.Text;
 
 /// <summary>
-/// Bounded CFF1/Type 2 charstring reader. It covers raw Type1C,
-/// CIDFontType0C and the CFF table inside OpenType without FreeType.
+/// Bounded CFF1/CFF2 Type 2 charstring reader. It covers raw Type1C,
+/// CIDFontType0C and CFF/CFF2 tables inside OpenType without FreeType.
 /// </summary>
 internal sealed class PdfCffFont
 {
@@ -38,6 +38,8 @@ internal sealed class PdfCffFont
     private readonly Dictionary<uint, int> _glyphByCid;
     private readonly Dictionary<int, int> _glyphByUnicode;
     private readonly GraphicsMatrix _fontMatrix;
+    private readonly int[] _variationRegionCounts;
+    private readonly bool _isCff2;
 
     private PdfCffFont(
         IReadOnlyList<byte[]> charStrings,
@@ -46,7 +48,9 @@ internal sealed class PdfCffFont
         int[] fontDictionaryByGlyph,
         Dictionary<uint, int> glyphByCid,
         Dictionary<int, int> glyphByUnicode,
-        GraphicsMatrix fontMatrix)
+        GraphicsMatrix fontMatrix,
+        int[] variationRegionCounts,
+        bool isCff2)
     {
         _charStrings = charStrings;
         _globalSubroutines = globalSubroutines;
@@ -55,6 +59,8 @@ internal sealed class PdfCffFont
         _glyphByCid = glyphByCid;
         _glyphByUnicode = glyphByUnicode;
         _fontMatrix = fontMatrix;
+        _variationRegionCounts = variationRegionCounts;
+        _isCff2 = isCff2;
     }
 
     public static PdfCffFont? TryParse(byte[] program)
@@ -63,8 +69,10 @@ internal sealed class PdfCffFont
         {
             ReadOnlyMemory<byte> cffMemory = FindCff(program);
             ReadOnlySpan<byte> cff = cffMemory.Span;
-            if (cff.Length < 4 || cff[0] != 1)
+            if (cff.Length < 4 || cff[0] is not (1 or 2))
                 return null;
+            if (cff[0] == 2)
+                return ParseCff2(program, cff);
             int position = cff[2];
             if (position < 4 || position > cff.Length)
                 return null;
@@ -145,7 +153,9 @@ internal sealed class PdfCffFont
                 fdByGlyph,
                 glyphByCid,
                 glyphByUnicode,
-                fontMatrix);
+                fontMatrix,
+                Array.Empty<int>(),
+                isCff2: false);
         }
         catch (Exception exception) when (
             exception is ArgumentOutOfRangeException or
@@ -155,6 +165,93 @@ internal sealed class PdfCffFont
         {
             return null;
         }
+    }
+
+    private static PdfCffFont? ParseCff2(
+        byte[] program,
+        ReadOnlySpan<byte> cff)
+    {
+        if (cff.Length < 5 || cff[1] != 0)
+            return null;
+        int headerSize = cff[2];
+        int topLength = BinaryPrimitives.ReadUInt16BigEndian(cff[3..]);
+        if (headerSize < 5 ||
+            topLength < 1 ||
+            headerSize > cff.Length - topLength)
+        {
+            return null;
+        }
+
+        Dictionary<int, double[]> top =
+            ReadDictionary(cff.Slice(headerSize, topLength));
+        int position = headerSize + topLength;
+        IReadOnlyList<byte[]> globalSubroutines =
+            ReadIndex(cff, ref position, cff2: true);
+        int charStringsOffset = Integer(top, 17);
+        if (charStringsOffset <= 0 || charStringsOffset >= cff.Length)
+            return null;
+        int charStringsPosition = charStringsOffset;
+        IReadOnlyList<byte[]> charStrings =
+            ReadIndex(cff, ref charStringsPosition, cff2: true);
+        if (charStrings.Count == 0 || charStrings.Count > MaximumEntries)
+            return null;
+
+        PrivateData[] privateData;
+        int[] fdByGlyph;
+        int fdArrayOffset = Integer(top, 1236);
+        if (fdArrayOffset > 0)
+        {
+            int fdPosition = fdArrayOffset;
+            IReadOnlyList<byte[]> fdIndex =
+                ReadIndex(cff, ref fdPosition, cff2: true);
+            if (fdIndex.Count == 0 || fdIndex.Count > 256)
+                return null;
+            privateData = new PrivateData[fdIndex.Count];
+            for (int index = 0; index < fdIndex.Count; index++)
+            {
+                privateData[index] = ReadPrivateData(
+                    cff,
+                    ReadDictionary(fdIndex[index]),
+                    cff2: true);
+            }
+            fdByGlyph = ReadFdSelect(
+                cff,
+                Integer(top, 1237),
+                charStrings.Count,
+                privateData.Length);
+        }
+        else
+        {
+            privateData = new[]
+            {
+                ReadPrivateData(cff, top, cff2: true)
+            };
+            fdByGlyph = new int[charStrings.Count];
+        }
+
+        var glyphByCid = new Dictionary<uint, int>();
+        for (int glyph = 0; glyph < charStrings.Count; glyph++)
+            glyphByCid[(uint)glyph] = glyph;
+        GraphicsMatrix fontMatrix = ReadFontMatrix(top);
+        if (!top.ContainsKey(1207) &&
+            TryReadUnitsPerEm(program, out int unitsPerEm))
+        {
+            double scale = 1.0 / unitsPerEm;
+            fontMatrix = new GraphicsMatrix(scale, 0, 0, scale, 0, 0);
+        }
+        int[] variationRegionCounts = ReadVariationRegionCounts(
+            cff,
+            Integer(top, 24));
+        return new PdfCffFont(
+            charStrings,
+            globalSubroutines,
+            privateData,
+            fdByGlyph,
+            glyphByCid,
+            new Dictionary<int, int>(),
+            fontMatrix,
+            variationRegionCounts,
+            isCff2: true);
     }
 
     public bool TryGetGlyphByCid(
@@ -203,7 +300,9 @@ internal sealed class PdfCffFont
         var state = new CharStringState(
             _fontMatrix,
             privateData.DefaultWidth,
-            privateData.NominalWidth);
+            privateData.NominalWidth,
+            hasWidths: !_isCff2,
+            _variationRegionCounts);
         if (!Execute(
                 _charStrings[(int)glyphId],
                 privateData,
@@ -317,11 +416,21 @@ internal sealed class PdfCffFont
                 case 11:
                     return subroutine;
                 case 14:
+                    if (_isCff2)
+                        return false;
                     state.TakeWidthForEnd();
                     state.Stack.Clear();
                     state.CloseContour();
                     state.Ended = true;
                     return true;
+                case 15 when _isCff2:
+                    if (!state.SetVariationStoreIndex())
+                        return false;
+                    break;
+                case 16 when _isCff2:
+                    if (!state.ApplyBlend())
+                        return false;
+                    break;
                 case 19:
                 case 20:
                     state.TakeWidthForStem();
@@ -436,7 +545,7 @@ internal sealed class PdfCffFont
             }
         }
 
-        return subroutine || state.Ended;
+        return _isCff2 || subroutine || state.Ended;
     }
 
     private static bool StraightCurves(
@@ -526,6 +635,80 @@ internal sealed class PdfCffFont
     {
         switch (operation)
         {
+            case 3:
+                if (!state.Binary(static (left, right) =>
+                        left != 0 && right != 0 ? 1 : 0))
+                    return false;
+                return true;
+            case 4:
+                if (!state.Binary(static (left, right) =>
+                        left != 0 || right != 0 ? 1 : 0))
+                    return false;
+                return true;
+            case 5:
+                if (!state.Unary(static value => value == 0 ? 1 : 0))
+                    return false;
+                return true;
+            case 9:
+                if (!state.Unary(Math.Abs))
+                    return false;
+                return true;
+            case 10:
+                if (!state.Binary(static (left, right) => left + right))
+                    return false;
+                return true;
+            case 11:
+                if (!state.Binary(static (left, right) => left - right))
+                    return false;
+                return true;
+            case 12:
+                if (!state.Binary(static (left, right) =>
+                        right == 0 ? double.NaN : left / right))
+                    return false;
+                return double.IsFinite(state.Stack[^1]);
+            case 14:
+                if (!state.Unary(static value => -value))
+                    return false;
+                return true;
+            case 15:
+                if (!state.Binary(static (left, right) => left == right ? 1 : 0))
+                    return false;
+                return true;
+            case 18:
+                return state.TryPop(out _);
+            case 20:
+                return state.PutTransient();
+            case 21:
+                return state.GetTransient();
+            case 22:
+                return state.IfElse();
+            case 23:
+                state.Stack.Add(0.5);
+                return true;
+            case 24:
+                if (!state.Binary(static (left, right) => left * right))
+                    return false;
+                return double.IsFinite(state.Stack[^1]);
+            case 26:
+                if (!state.Unary(static value =>
+                        value < 0 ? double.NaN : Math.Sqrt(value)))
+                    return false;
+                return double.IsFinite(state.Stack[^1]);
+            case 27:
+                if (state.Stack.Count == 0 || state.Stack.Count >= 96)
+                    return false;
+                state.Stack.Add(state.Stack[^1]);
+                return true;
+            case 28:
+                if (state.Stack.Count < 2)
+                    return false;
+                (state.Stack[^2], state.Stack[^1]) =
+                    (state.Stack[^1], state.Stack[^2]);
+                return true;
+            case 29:
+                return state.Index();
+            case 30:
+                return state.Roll();
             case 34 when state.Stack.Count == 7:
                 state.Curve(
                     state.Stack[0], 0,
@@ -589,7 +772,7 @@ internal sealed class PdfCffFont
 
     private static ReadOnlyMemory<byte> FindCff(byte[] program)
     {
-        if (program.Length >= 4 && program[0] == 1)
+        if (program.Length >= 4 && program[0] is 1 or 2)
             return program;
         if (program.Length < 12 ||
             !program.AsSpan(0, 4).SequenceEqual("OTTO"u8))
@@ -608,7 +791,8 @@ internal sealed class PdfCffFont
         for (int index = 0; index < tableCount; index++)
         {
             int record = 12 + index * 16;
-            if (!program.AsSpan(record, 4).SequenceEqual("CFF "u8))
+            if (!program.AsSpan(record, 4).SequenceEqual("CFF "u8) &&
+                !program.AsSpan(record, 4).SequenceEqual("CFF2"u8))
                 continue;
             uint offset = BinaryPrimitives.ReadUInt32BigEndian(
                 program.AsSpan(record + 8, 4));
@@ -627,12 +811,19 @@ internal sealed class PdfCffFont
 
     private static IReadOnlyList<byte[]> ReadIndex(
         ReadOnlySpan<byte> cff,
-        ref int position)
+        ref int position,
+        bool cff2 = false)
     {
-        if (position > cff.Length - 2)
+        int countSize = cff2 ? 4 : 2;
+        if (position > cff.Length - countSize)
             throw new PdfFormatException("CFF INDEX is truncated.");
-        int count = BinaryPrimitives.ReadUInt16BigEndian(cff[position..]);
-        position += 2;
+        uint rawCount = cff2
+            ? BinaryPrimitives.ReadUInt32BigEndian(cff[position..])
+            : BinaryPrimitives.ReadUInt16BigEndian(cff[position..]);
+        position += countSize;
+        if (rawCount > int.MaxValue)
+            throw new PdfFormatException("CFF INDEX is too large.");
+        int count = (int)rawCount;
         if (count == 0)
             return Array.Empty<byte[]>();
         if (count > MaximumEntries || position >= cff.Length)
@@ -818,7 +1009,8 @@ internal sealed class PdfCffFont
 
     private static PrivateData ReadPrivateData(
         ReadOnlySpan<byte> cff,
-        IReadOnlyDictionary<int, double[]> dictionary)
+        IReadOnlyDictionary<int, double[]> dictionary,
+        bool cff2 = false)
     {
         if (!dictionary.TryGetValue(18, out double[]? range) || range.Length < 2)
             return PrivateData.Empty;
@@ -835,7 +1027,7 @@ internal sealed class PdfCffFont
         if (relativeSubroutines > 0)
         {
             int subroutinePosition = checked(offset + relativeSubroutines);
-            subroutines = ReadIndex(cff, ref subroutinePosition);
+            subroutines = ReadIndex(cff, ref subroutinePosition, cff2);
         }
 
         return new PrivateData(defaultWidth, nominalWidth, subroutines);
@@ -911,7 +1103,15 @@ internal sealed class PdfCffFont
             return result;
         }
         if (format != 3)
+        {
+            if (format == 4)
+                return ReadFdSelectFormat4(
+                    cff,
+                    ref position,
+                    glyphCount,
+                    dictionaryCount);
             throw new PdfFormatException("Unsupported CFF FDSelect format.");
+        }
         int ranges = BinaryPrimitives.ReadUInt16BigEndian(cff[position..]);
         position += 2;
         int previousFirst = -1;
@@ -941,6 +1141,118 @@ internal sealed class PdfCffFont
             result[glyph] = previousFd;
         }
         return result;
+    }
+
+    private static int[] ReadFdSelectFormat4(
+        ReadOnlySpan<byte> cff,
+        ref int position,
+        int glyphCount,
+        int dictionaryCount)
+    {
+        var result = new int[glyphCount];
+        uint rawRanges = BinaryPrimitives.ReadUInt32BigEndian(cff[position..]);
+        position += 4;
+        if (rawRanges > int.MaxValue || rawRanges > (uint)glyphCount + 1)
+            throw new PdfFormatException("CFF2 FDSelect range count is invalid.");
+        int previousFirst = -1;
+        int previousFd = 0;
+        for (int range = 0; range < (int)rawRanges; range++)
+        {
+            uint rawFirst = BinaryPrimitives.ReadUInt32BigEndian(cff[position..]);
+            int fd = BinaryPrimitives.ReadUInt16BigEndian(cff[(position + 4)..]);
+            position += 6;
+            if (rawFirst > int.MaxValue ||
+                fd >= dictionaryCount ||
+                (int)rawFirst < previousFirst)
+            {
+                throw new PdfFormatException("CFF2 FDSelect range is invalid.");
+            }
+            int first = (int)rawFirst;
+            if (previousFirst >= 0)
+            {
+                for (int glyph = previousFirst;
+                     glyph < first && glyph < glyphCount;
+                     glyph++)
+                {
+                    result[glyph] = previousFd;
+                }
+            }
+            previousFirst = first;
+            previousFd = fd;
+        }
+        uint rawSentinel = BinaryPrimitives.ReadUInt32BigEndian(cff[position..]);
+        if (rawSentinel > int.MaxValue || (int)rawSentinel < previousFirst)
+            throw new PdfFormatException("CFF2 FDSelect sentinel is invalid.");
+        int sentinel = (int)rawSentinel;
+        for (int glyph = Math.Max(0, previousFirst);
+             glyph < sentinel && glyph < glyphCount;
+             glyph++)
+        {
+            result[glyph] = previousFd;
+        }
+        return result;
+    }
+
+    private static int[] ReadVariationRegionCounts(
+        ReadOnlySpan<byte> cff,
+        int offset)
+    {
+        if (offset <= 0 || offset > cff.Length - 8)
+            return Array.Empty<int>();
+        int dataCount = BinaryPrimitives.ReadUInt16BigEndian(cff[(offset + 6)..]);
+        if (dataCount < 0 ||
+            dataCount > 4096 ||
+            offset + 8L + dataCount * 4L > cff.Length)
+        {
+            return Array.Empty<int>();
+        }
+        var result = new int[dataCount];
+        for (int index = 0; index < dataCount; index++)
+        {
+            uint relative = BinaryPrimitives.ReadUInt32BigEndian(
+                cff[(offset + 8 + index * 4)..]);
+            ulong itemOffset = (ulong)offset + relative;
+            if (itemOffset + 6 > (ulong)cff.Length)
+                return Array.Empty<int>();
+            result[index] = BinaryPrimitives.ReadUInt16BigEndian(
+                cff[((int)itemOffset + 4)..]);
+            if (result[index] > 4096)
+                return Array.Empty<int>();
+        }
+        return result;
+    }
+
+    private static bool TryReadUnitsPerEm(byte[] program, out int unitsPerEm)
+    {
+        unitsPerEm = 0;
+        if (program.Length < 12 ||
+            !program.AsSpan(0, 4).SequenceEqual("OTTO"u8))
+        {
+            return false;
+        }
+        int tableCount = BinaryPrimitives.ReadUInt16BigEndian(program.AsSpan(4, 2));
+        if (tableCount < 1 ||
+            tableCount > 4096 ||
+            12L + tableCount * 16L > program.Length)
+        {
+            return false;
+        }
+        for (int index = 0; index < tableCount; index++)
+        {
+            int record = 12 + index * 16;
+            if (!program.AsSpan(record, 4).SequenceEqual("head"u8))
+                continue;
+            uint offset = BinaryPrimitives.ReadUInt32BigEndian(
+                program.AsSpan(record + 8, 4));
+            uint length = BinaryPrimitives.ReadUInt32BigEndian(
+                program.AsSpan(record + 12, 4));
+            if (length < 20 || offset + 20UL > (ulong)program.Length)
+                return false;
+            unitsPerEm = BinaryPrimitives.ReadUInt16BigEndian(
+                program.AsSpan((int)offset + 18, 2));
+            return unitsPerEm is >= 16 and <= 16384;
+        }
+        return false;
     }
 
     private static GraphicsMatrix ReadFontMatrix(
@@ -1005,17 +1317,24 @@ internal sealed class PdfCffFont
         private readonly GraphicsMatrix _matrix;
         private readonly double _defaultWidth;
         private readonly double _nominalWidth;
+        private readonly bool _hasWidths;
+        private readonly int[] _variationRegionCounts;
+        private readonly double[] _transient = new double[32];
         private bool _widthRead;
         private bool _contourOpen;
 
         public CharStringState(
             GraphicsMatrix matrix,
             double defaultWidth,
-            double nominalWidth)
+            double nominalWidth,
+            bool hasWidths,
+            int[] variationRegionCounts)
         {
             _matrix = matrix;
             _defaultWidth = defaultWidth;
             _nominalWidth = nominalWidth;
+            _hasWidths = hasWidths;
+            _variationRegionCounts = variationRegionCounts;
             Width = defaultWidth;
         }
 
@@ -1027,9 +1346,15 @@ internal sealed class PdfCffFont
         public int HintCount { get; set; }
         public int OperationCount { get; set; }
         public bool Ended { get; set; }
+        public int VariationStoreIndex { get; private set; }
 
         public void TakeWidthForStem()
         {
+            if (!_hasWidths)
+            {
+                _widthRead = true;
+                return;
+            }
             if (!_widthRead && Stack.Count % 2 == 1)
             {
                 Width = _nominalWidth + Stack[0];
@@ -1040,6 +1365,11 @@ internal sealed class PdfCffFont
 
         public void TakeWidthForMove(int expected)
         {
+            if (!_hasWidths)
+            {
+                _widthRead = true;
+                return;
+            }
             if (!_widthRead && Stack.Count > expected)
             {
                 Width = _nominalWidth + Stack[0];
@@ -1050,6 +1380,11 @@ internal sealed class PdfCffFont
 
         public void TakeWidthForEnd()
         {
+            if (!_hasWidths)
+            {
+                _widthRead = true;
+                return;
+            }
             if (!_widthRead && Stack.Count is 1 or 5)
                 Width = _nominalWidth + Stack[0];
             _widthRead = true;
@@ -1064,6 +1399,137 @@ internal sealed class PdfCffFont
             }
             value = Stack[^1];
             Stack.RemoveAt(Stack.Count - 1);
+            return true;
+        }
+
+        public bool Unary(Func<double, double> operation)
+        {
+            if (!TryPop(out double value))
+                return false;
+            Stack.Add(operation(value));
+            return true;
+        }
+
+        public bool Binary(Func<double, double, double> operation)
+        {
+            if (!TryPop(out double right) || !TryPop(out double left))
+                return false;
+            Stack.Add(operation(left, right));
+            return true;
+        }
+
+        public bool PutTransient()
+        {
+            if (!TryPop(out double value) ||
+                !TryPop(out double rawIndex) ||
+                rawIndex != Math.Truncate(rawIndex) ||
+                rawIndex is < 0 or >= 32)
+            {
+                return false;
+            }
+            _transient[(int)rawIndex] = value;
+            return true;
+        }
+
+        public bool GetTransient()
+        {
+            if (!TryPop(out double rawIndex) ||
+                rawIndex != Math.Truncate(rawIndex) ||
+                rawIndex is < 0 or >= 32)
+            {
+                return false;
+            }
+            Stack.Add(_transient[(int)rawIndex]);
+            return true;
+        }
+
+        public bool IfElse()
+        {
+            if (!TryPop(out double secondComparison) ||
+                !TryPop(out double firstComparison) ||
+                !TryPop(out double secondValue) ||
+                !TryPop(out double firstValue))
+            {
+                return false;
+            }
+            Stack.Add(firstComparison <= secondComparison
+                ? firstValue
+                : secondValue);
+            return true;
+        }
+
+        public bool Index()
+        {
+            if (!TryPop(out double rawIndex) ||
+                rawIndex != Math.Truncate(rawIndex) ||
+                Stack.Count == 0)
+            {
+                return false;
+            }
+            int index = Math.Clamp((int)rawIndex, 0, Stack.Count - 1);
+            Stack.Add(Stack[Stack.Count - 1 - index]);
+            return true;
+        }
+
+        public bool Roll()
+        {
+            if (!TryPop(out double rawShift) ||
+                !TryPop(out double rawCount) ||
+                rawShift != Math.Truncate(rawShift) ||
+                rawCount != Math.Truncate(rawCount) ||
+                rawCount is < 0 or > 96 ||
+                rawCount > Stack.Count)
+            {
+                return false;
+            }
+            int count = (int)rawCount;
+            if (count <= 1)
+                return true;
+            int shift = (int)rawShift % count;
+            if (shift < 0)
+                shift += count;
+            if (shift == 0)
+                return true;
+            int start = Stack.Count - count;
+            double[] values = Stack.GetRange(start, count).ToArray();
+            for (int index = 0; index < count; index++)
+                Stack[start + (index + shift) % count] = values[index];
+            return true;
+        }
+
+        public bool SetVariationStoreIndex()
+        {
+            if (!TryPop(out double rawIndex) ||
+                rawIndex != Math.Truncate(rawIndex) ||
+                rawIndex < 0 ||
+                rawIndex > int.MaxValue)
+            {
+                return false;
+            }
+            VariationStoreIndex = (int)rawIndex;
+            return VariationStoreIndex < _variationRegionCounts.Length ||
+                   _variationRegionCounts.Length == 0 &&
+                   VariationStoreIndex == 0;
+        }
+
+        public bool ApplyBlend()
+        {
+            if (!TryPop(out double rawBlendCount) ||
+                rawBlendCount != Math.Truncate(rawBlendCount) ||
+                rawBlendCount is < 0 or > 96)
+            {
+                return false;
+            }
+            int blendCount = (int)rawBlendCount;
+            int regionCount = _variationRegionCounts.Length == 0
+                ? 0
+                : _variationRegionCounts[VariationStoreIndex];
+            int deltaCount = checked(blendCount * regionCount);
+            if (Stack.Count < blendCount + deltaCount)
+                return false;
+            int deltaStart = Stack.Count - deltaCount;
+            if (deltaCount > 0)
+                Stack.RemoveRange(deltaStart, deltaCount);
             return true;
         }
 

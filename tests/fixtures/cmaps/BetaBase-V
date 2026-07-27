@@ -1,0 +1,6 @@
+/CIDInit /ProcSet findresource begin
+12 dict begin begincmap
+/BetaBase-H usecmap
+/CMapName /BetaBase-V def
+/WMode 1 def
+endcmap end end

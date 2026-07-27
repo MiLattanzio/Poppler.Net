@@ -13,7 +13,7 @@ internal sealed class PdfFontSubstitutionResolver
     private const int MaximumFontBytes = 32 * 1024 * 1024;
 
     private readonly RasterRenderOptions _options;
-    private readonly Dictionary<string, SubstituteFont?> _cache =
+    private readonly Dictionary<string, IReadOnlyList<SubstituteFont>> _cache =
         new(StringComparer.Ordinal);
     private string[]? _fontFiles;
 
@@ -22,34 +22,63 @@ internal sealed class PdfFontSubstitutionResolver
 
     public bool TryGetGlyph(
         string pdfFontName,
-        Rune rune,
+        string text,
+        FontWritingMode writingMode,
         out PdfGraphicsPath path,
         out double advance)
     {
         path = new PdfGraphicsPath(Array.Empty<PdfPathSegment>());
         advance = 0;
-        if (!_options.UseFontSubstitution || Rune.IsWhiteSpace(rune))
+        if (!_options.UseFontSubstitution ||
+            string.IsNullOrEmpty(text) ||
+            text.EnumerateRunes().All(Rune.IsWhiteSpace))
             return false;
         string key = NormalizePdfFontName(pdfFontName);
-        if (!_cache.TryGetValue(key, out SubstituteFont? font))
+        if (!_cache.TryGetValue(key, out IReadOnlyList<SubstituteFont>? fonts))
         {
-            font = Resolve(key);
-            _cache[key] = font;
+            fonts = Resolve(key);
+            _cache[key] = fonts;
         }
-        if (font is null ||
-            !font.Cmap.TryGetGlyph(rune.Value, out uint glyph))
+        Rune[] runes = text.EnumerateRunes().ToArray();
+        foreach (SubstituteFont font in fonts)
         {
-            return false;
+            uint[] glyphs = runes
+                .Select(rune => font.Cmap.TryGetGlyph(rune.Value, out uint glyph)
+                    ? glyph
+                    : uint.MaxValue)
+                .ToArray();
+            if (glyphs.Length == 0 ||
+                glyphs.Any(glyph => glyph == uint.MaxValue))
+            {
+                continue;
+            }
+            uint selected = glyphs[0];
+            if (glyphs.Length > 1 &&
+                font.Layout?.TryGetLigature(glyphs, out uint ligature) == true)
+            {
+                selected = ligature;
+            }
+            if (writingMode == FontWritingMode.Vertical)
+                selected = font.Layout?.ApplyVertical(selected) ?? selected;
+            if (font.TrueType?.TryGetGlyph(
+                    selected,
+                    out path,
+                    out advance) == true ||
+                font.Cff?.TryGetGlyph(
+                    selected,
+                    out path,
+                    out advance) == true)
+            {
+                return true;
+            }
         }
-
-        if (font.TrueType?.TryGetGlyph(glyph, out path, out advance) == true)
-            return true;
-        return font.Cff?.TryGetGlyph(glyph, out path, out advance) == true;
+        return false;
     }
 
-    private SubstituteFont? Resolve(string pdfFontName)
+    private IReadOnlyList<SubstituteFont> Resolve(string pdfFontName)
     {
         string[] files = _fontFiles ??= DiscoverFontFiles();
+        var result = new List<SubstituteFont>();
         foreach (string file in files
                      .Select(path => (
                          Path: path,
@@ -78,7 +107,15 @@ internal sealed class PdfFontSubstitutionResolver
                     ? PdfCffFont.TryParse(bytes)
                     : null;
                 if (trueType is not null || cff is not null)
-                    return new SubstituteFont(cmap, trueType, cff);
+                {
+                    result.Add(new SubstituteFont(
+                        cmap,
+                        PdfOpenTypeLayout.TryParse(bytes),
+                        trueType,
+                        cff));
+                    if (result.Count >= 8)
+                        break;
+                }
             }
             catch (Exception exception) when (
                 exception is IOException or
@@ -90,7 +127,7 @@ internal sealed class PdfFontSubstitutionResolver
             }
         }
 
-        return null;
+        return result;
     }
 
     private bool IsConfiguredFont(string path)
@@ -210,6 +247,14 @@ internal sealed class PdfFontSubstitutionResolver
             requested.Contains("times", StringComparison.Ordinal) ||
             requested.Contains("serif", StringComparison.Ordinal) ||
             requested.Contains("roman", StringComparison.Ordinal);
+        bool narrow =
+            requested.Contains("narrow", StringComparison.Ordinal) ||
+            requested.Contains("condensed", StringComparison.Ordinal) ||
+            requested.Contains("compressed", StringComparison.Ordinal);
+        bool expanded =
+            requested.Contains("expanded", StringComparison.Ordinal) ||
+            requested.Contains("extended", StringComparison.Ordinal) ||
+            requested.Contains("wide", StringComparison.Ordinal);
         int score = 0;
         if (mono)
         {
@@ -237,6 +282,21 @@ internal sealed class PdfFontSubstitutionResolver
             name.Contains("oblique", StringComparison.Ordinal);
         score += candidateBold == bold ? 20 : -10;
         score += candidateItalic == italic ? 20 : -10;
+        bool candidateNarrow =
+            name.Contains("narrow", StringComparison.Ordinal) ||
+            name.Contains("condensed", StringComparison.Ordinal) ||
+            name.Contains("compressed", StringComparison.Ordinal);
+        bool candidateExpanded =
+            name.Contains("expanded", StringComparison.Ordinal) ||
+            name.Contains("extended", StringComparison.Ordinal) ||
+            name.Contains("wide", StringComparison.Ordinal);
+        score += candidateNarrow == narrow ? 35 : -25;
+        score += candidateExpanded == expanded ? 35 : -25;
+        if (name.Contains(requested, StringComparison.Ordinal) ||
+            requested.Contains(name, StringComparison.Ordinal))
+        {
+            score += 50;
+        }
         if (name.Contains("dejavu", StringComparison.Ordinal) ||
             name.Contains("liberation", StringComparison.Ordinal) ||
             name.Contains("nimbus", StringComparison.Ordinal))
@@ -259,6 +319,7 @@ internal sealed class PdfFontSubstitutionResolver
 
     private sealed record SubstituteFont(
         PdfOpenTypeCmap Cmap,
+        PdfOpenTypeLayout? Layout,
         PdfTrueTypeFont? TrueType,
         PdfCffFont? Cff);
 }

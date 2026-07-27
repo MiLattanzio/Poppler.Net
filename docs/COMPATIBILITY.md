@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.8.0-alpha.3
+## Works in 0.8.0-beta.2
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -25,11 +25,14 @@
   Differences and Adobe-style Unicode glyph names.
 - Clear-text encoding discovery in embedded Type 1 programs.
 - Bounded `ToUnicode` codespace, bfchar and bfrange CMaps.
+- External encoding and `ToUnicode` CMaps from explicit directories and
+  common system `poppler-data` locations, including `/UseCMap` and
+  PostScript `usecmap` inheritance.
 - Type 0 Encoding CMaps with codespaces, cidchar/cidrange and separate
   source-code-to-CID/source-code-to-Unicode handling.
 - CIDFontType0/CIDFontType2 `DW`/`W`, `DW2`/`W2`, CIDToGIDMap and
   Identity-H/Identity-V.
-- Embedded Type 1, CFF, TrueType and OpenType identification.
+- Embedded Type 1, CFF1, CFF2, TrueType and OpenType identification.
 - Managed sfnt cmap format 4/12 Unicode fallback for embedded TrueType and
   OpenType fonts without `ToUnicode`, plus format 0 source-character-code
   mapping for byte-encoded TrueType subsets.
@@ -53,25 +56,31 @@
 - Image masks, explicit masks, color-key masks and luminosity soft masks.
 - CalGray, CalRGB, Lab, common matrix/shaper ICCBased, Indexed, Separation and
   DeviceN conversion to managed sRGB.
-- PDF function types 0 sampled, 2 exponential and 3 stitching for tint
-  transforms and gradient stops.
+- PDF function types 0 sampled, 2 exponential, 3 stitching and bounded type 4
+  calculator functions for tint transforms, gradients and soft masks.
 - Public `Page.Images`, managed PNG encoding, CLI image extraction and SVG
   image embedding.
-- Colored tiling patterns and shading patterns.
+- Colored and uncolored tiling patterns plus shading patterns.
 - Type 2 axial and type 3 radial shadings in device color spaces using
   exponential and stitching functions.
+- Type 4 free-form and type 5 lattice Gouraud meshes plus type 6 Coons and
+  type 7 tensor-product patch meshes, exposed through bounded triangle lists.
 - Public backend-neutral `Page.Graphics` display lists.
 - Public `PdfTextElement` entries in exact page/Form content-stream order,
   carrying font, size, glyph count, graphics state and all eight `Tr` modes.
 - Managed text fill/stroke/invisible/clip painting, including accumulated text
   clips and graphics-state alpha, blend, soft-mask and clipping interaction.
-- Embedded TrueType `glyf`, CFF1/Type 2 and PFA/PFB Type 1 outlines through
-  bounded managed readers; common CFF CID subroutines and Type 1 eexec/`lenIV`
+- Embedded TrueType `glyf`, CFF1/CFF2 Type 2 and PFA/PFB Type 1 outlines
+  through bounded managed readers; common CFF CID subroutines, CFF2
+  FDSelect format 4/default-instance blend data and Type 1 eexec/`lenIV`
   programs are supported.
+- OpenType GSUB single substitutions for `vert`/`vrt2` and exact
+  `liga`/`rlig` ligatures for embedded or substituted managed fonts.
 - Type 3 CharProc execution with font matrices, resources and inherited text
   paint state.
 - Optional managed font-file substitution for Base-14/non-embedded fonts,
-  with explicit search roots and no native font API or rasterizer.
+  with explicit search roots, Narrow/Condensed and Expanded/Extended family
+  scoring, ranked glyph fallback and no native font API or rasterizer.
 - Canonical Poppler widths for all fourteen standard fonts when `/Widths` is
   omitted; horizontally substituted outlines are fitted to the PDF advance.
 - Raw and commonly filtered inline images, standard abbreviated dictionary
@@ -86,9 +95,12 @@
   tiling patterns.
 - Straight-alpha compositing for the 16 standard separable/nonseparable PDF
   blend modes.
-- Preserved Form transparency groups, isolated intermediate surfaces,
+- Preserved Form transparency groups, isolated/non-isolated and knockout
+  intermediate surfaces,
   graphics-state Alpha/Luminosity soft masks, luminosity backdrop color and
-  sampled/exponential/stitching soft-mask transfer functions.
+  sampled/exponential/stitching/calculator soft-mask transfer functions.
+- `/OP`, `/op` and `/OPM` state plus process-CMYK overprint-mode-1 preview for
+  solid DeviceCMYK and DeviceGray paint.
 - Embedded TrueType `glyf` simple/composite outlines, common component
   transforms, quadratic contour conversion and managed antialiased glyph
   painting.
@@ -122,23 +134,31 @@
   this alpha (including ambiguous Flate/LZW/CCITT/JBIG2/JPX cases), unusual
   filter chains or unsupported color spaces may still require more complete
   recovery.
-- Knockout and non-isolated group backdrop interaction, calculator transfer
-  functions and overprint are incomplete. SVG remains a preview backend.
-- Uncolored tiling patterns, shading types 1 and 4–7, calculator functions and
-  mesh shadings are not painted.
+- Non-isolated groups with non-Normal boundary blend modes and nested knockout
+  shape/opacity interactions remain approximations. SVG remains a preview
+  backend and does not paint mesh shadings.
+- Shading type 1 is not painted. Patch meshes use a fixed bounded tessellation
+  rather than Poppler's adaptive device-space subdivision.
 - ICC LUT/device-link profiles, rendering intents, black-point compensation,
-  proofing, spot-color calibration and overprint simulation are not
-  implemented. ICCBased falls back to `/Alternate` outside common
+  proofing, spot-color calibration and spot-color overprint are not
+  implemented. Process overprint is an sRGB managed preview rather than a
+  color-managed proof. ICCBased falls back to `/Alternate` outside common
   matrix/shaper profiles.
-- Complex-script shaping, GSUB/GPOS, full bidi, arbitrary external named CMaps
-  and vertical glyph substitution are not implemented.
-- CFF2, rare Type 1/CFF operators, Type 1 `seac`, advanced Type 3 behavior and
-  font hinting are not implemented. Font substitution is file-based and its
-  choice can vary with installed fonts unless explicit roots are supplied.
+- Complex-script shaping, contextual GSUB, GPOS and the full Unicode
+  Bidirectional Algorithm are not implemented. GSUB coverage is deliberately
+  limited to non-contextual `vert`/`vrt2` and exact `liga`/`rlig` lookups.
+- CFF2 uses the default variation instance; full variation-region
+  interpolation, rare Type 1/CFF operators, Type 1 `seac`, advanced Type 3
+  behavior and font hinting are not implemented. Font substitution is
+  file-based and its choice can vary with installed fonts unless explicit
+  roots are supplied.
+- External named CMaps require local CMap data and support the codespace,
+  bfchar/bfrange, cidchar/cidrange and inheritance syntax used by common
+  `poppler-data` packs; unsupported PostScript procedures are ignored.
 - Pattern and special-color-space text paint has the same limitations as its
   corresponding vector brush implementation.
-- Vertical writing is supported for extraction and metrics; vertical glyph
-  forms are not substituted.
+- Vertical writing supports metrics and non-contextual `vert`/`vrt2`
+  alternates; contextual vertical shaping remains unsupported.
 - Stroke cap/join/miter geometry and dash continuity use the first managed
   approximation and are not yet pixel-equivalent to Splash in every case.
 - JPEG 2000 Part 2, unusual JPEG color transforms and malformed/extension
@@ -151,11 +171,13 @@
 
 ## Safety limits
 
-Default limits are 256 MiB input, 256 MiB decoded per stream, 1,000,000
+Default limits are 256 MiB input, 256 MiB decoded per stream, 16 MiB per
+external CMap, 16 inherited CMaps, 1,000,000
 indirect objects, 1,000,000 direct collection items, 250,000 CMap mappings,
 1,000,000 graphics operations, 250,000 display-list elements, 1,000,000 path
 segments, 100,000,000 decoded pixels per image, 32 image components, 16 MiB
 per ICC profile, 1,000,000 sampled-function samples, graphics stack depth 256,
 XObject depth 32, transparency-group depth 32, 100,000,000 rendered pixels,
-33 shading stops, 10,000 pages, tree depth 128 and object recursion 64. Use
+33 shading stops, 65,536 mesh triangles, 10,000 pages, tree depth 128 and
+object recursion 64. Use
 `PdfReadOptions` to lower limits for server workloads.

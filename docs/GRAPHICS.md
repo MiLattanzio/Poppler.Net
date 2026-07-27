@@ -1,6 +1,6 @@
 # Managed graphics engine
 
-Version `0.8.0-alpha.3` retains and extends the backend-neutral slice of Poppler
+Version `0.8.0-beta.2` retains and extends the backend-neutral slice of Poppler
 26.07.0 `Gfx`, `GfxState`, `Function`, pattern and XObject behavior. It parses
 page content into immutable managed objects; it does not call Poppler, Cairo,
 FreeType or another native renderer.
@@ -16,6 +16,7 @@ list of:
 - `PdfTextElement` for a text-showing operation, its font, source glyph count,
   rendering mode and graphics state;
 - `PdfShadingElement` for directly painted gradients;
+- `PdfMeshShadingElement` for directly painted Gouraud or patch meshes;
 - `PdfTransparencyGroupElement` for Form XObjects that declare a transparency
   group.
 
@@ -37,7 +38,7 @@ images and shadings therefore preserve their exact content-stream ordering.
 | Clipping | `W`, `W*` |
 | Device color | `G`, `g`, `RG`, `rg`, `K`, `k`, `CS`, `cs`, `SC`, `sc`, `SCN`, `scn` |
 | Resources | `gs`, `Do`, `sh` |
-| `ExtGState` | `LW`, `LC`, `LJ`, `ML`, `D`, `CA`, `ca`, `BM`, `SMask` |
+| `ExtGState` | `LW`, `LC`, `LJ`, `ML`, `D`, `CA`, `ca`, `BM`, `SMask`, `OP`, `op`, `OPM` |
 | Text state | `BT`, `ET`, `Tf`, `Tm`, `Td`, `TD`, `T*`, `Tc`, `Tw`, `Tz`, `TL`, `Ts`, `Tr` |
 | Text showing | `Tj`, `TJ`, `'`, `"` |
 | Inline images | `BI`, `ID`, `EI` |
@@ -67,9 +68,11 @@ metadata elements and diagnostics rather than aborting the full display list.
 
 ## Patterns and shading
 
-Colored tiling patterns (`PatternType 1`, `PaintType 1`) interpret their own
-content stream and resources into a nested display list. The pattern BBox,
-steps and matrix are retained.
+Colored and uncolored tiling patterns (`PatternType 1`, `PaintType 1/2`)
+interpret their own content stream and resources into a nested display list.
+For `PaintType 2`, the underlying `scn`/`SCN` color is retained per use rather
+than cached with the pattern resource. The pattern BBox, steps and matrix are
+retained.
 
 Shading patterns and direct `sh` painting support:
 
@@ -79,10 +82,14 @@ Shading patterns and direct `sh` painting support:
   pipeline;
 - function type 0 sampled and type 2 exponential interpolation;
 - function type 3 stitching, including function arrays;
+- bounded function type 4 calculator programs;
 - `/Extend` flags and bounded generated stops.
+- type 4 free-form and type 5 lattice Gouraud triangle meshes;
+- type 6 Coons and type 7 tensor-product patch meshes, converted to a bounded
+  deterministic triangle list.
 
-Uncolored tiling patterns, calculator functions and function/triangle/patch
-mesh shadings remain explicit limitations.
+Function-based shading type 1 remains an explicit limitation. Mesh rendering
+is currently raster-only; the SVG preview skips mesh elements.
 
 ## Resource limits
 
@@ -97,6 +104,7 @@ mesh shadings remain explicit limitations.
 | `MaximumXObjectDepth` | 32 |
 | `MaximumTransparencyGroupDepth` | 32 |
 | `MaximumShadingStops` | 33 |
+| `MaximumMeshTriangles` | 65,536 |
 
 Limit failures throw `PdfLimitException` and are covered by NUnit tests.
 
@@ -110,7 +118,8 @@ Limit failures throw `PdfLimitException` and are covered by NUnit tests.
 | clipping state | `PdfClipPath` |
 | `GfxTilingPattern` | `PdfTilingPatternBrush` |
 | `GfxAxialShading`/`GfxRadialShading` | `PdfGradientBrush` |
-| exponential/stitching `Function` | `PdfShadingReader` |
+| Gouraud/Coons/tensor mesh shadings | `PdfMeshShadingBrush` |
+| sampled/exponential/stitching/calculator `Function` | `PdfFunction` |
 | `OutputDev` boundary | `PdfGraphicsElement` display list, including `PdfTextElement` |
 | initial vector output backend | `SvgPageRenderer` |
 | initial Splash output backend | `PdfRasterRenderer` |

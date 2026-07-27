@@ -171,7 +171,7 @@ internal static class Cli
                 $"{elements.OfType<PdfPathElement>().Count()} paths, " +
                 $"{elements.OfType<PdfTextElement>().Count()} text runs, " +
                 $"{elements.OfType<PdfImageElement>().Count()} images, " +
-                $"{elements.OfType<PdfShadingElement>().Count()} shadings, " +
+                $"{elements.OfType<PdfShadingElement>().Count() + elements.OfType<PdfMeshShadingElement>().Count()} shadings, " +
                 $"{elements.OfType<PdfTransparencyGroupElement>().Count()} transparency groups");
         }
 
@@ -310,7 +310,11 @@ internal static class Cli
         Document.LoadFromFile(
             args[inputIndex],
             ownerPassword: GetStringOption(args, "--owner-password"),
-            userPassword: GetStringOption(args, "--user-password"));
+            userPassword: GetStringOption(args, "--user-password"),
+            options: new PdfReadOptions
+            {
+                CMapDirectories = GetStringOptions(args, "--cmap-dir")
+            });
 
     private static string GetStringOption(string[] args, string option)
     {
@@ -402,7 +406,7 @@ internal static class Cli
     {
         Console.WriteLine(
             """
-            poppler-net — managed-only Poppler 26.07 port (alpha)
+            poppler-net — managed-only Poppler 26.07 port (beta)
 
             Usage:
               poppler-net info <input.pdf> [password options]
@@ -410,7 +414,7 @@ internal static class Cli
               poppler-net fonts <input.pdf> [--page N] [password options]
               poppler-net graphics <input.pdf> [--page N] [password options]
               poppler-net images <input.pdf> <output-dir> [--page N] [password options]
-              poppler-net render <input.pdf> <output.png> [--page N] [--dpi N] [--antialias 1|2|4|8] [--transparent] [--font-dir PATH] [--no-font-substitution] [password options]
+              poppler-net render <input.pdf> <output.png> [--page N] [--dpi N] [--antialias 1|2|4|8] [--transparent] [--font-dir PATH] [--no-font-substitution] [common options]
               poppler-net attachments <input.pdf> <output-dir> [password options]
               poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds] [--image-bounds] [password options]
               poppler-net version
@@ -418,6 +422,9 @@ internal static class Cli
             Password options:
               --user-password VALUE
               --owner-password VALUE
+
+            Common options:
+              --cmap-dir PATH       Add a directory containing Adobe CMap data.
 
             Page numbers accepted by the CLI are one-based.
             """);

@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.8.0-alpha.3` compatibility release is not a complete replacement for
+> This `0.8.0-beta.2` compatibility release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -17,13 +17,18 @@ process invocation, or native NuGet dependency.
 > calibrated and special color spaces to sRGB, exposes pixels, writes PNG and
 > embeds decoded images in SVG. The raster slice paints paths, images,
 > patterns, gradients and text in exact content-stream order. Managed outline
-> readers cover embedded TrueType, CFF1/Type 2 and Type 1 programs; Type 3
+> readers cover embedded TrueType, CFF1/CFF2 Type 2 and Type 1 programs; Type 3
 > CharProcs, text paint/clip modes, inline images and file-based Base-14
 > substitution are also integrated. Alpha 2 uses Poppler's canonical Base-14
 > widths when `/Widths` is omitted and fits substituted outlines to the PDF
 > advance so proportional text does not become monospaced or overlap. Alpha 3
 > adds filter-aware inline-image boundaries, soft-mask transfer functions and
-> Poppler-compatible page-box normalization/fallback. See
+> Poppler-compatible page-box normalization/fallback. Beta 1 adds external
+> file-based CMaps with inheritance, initial CFF2/default-instance execution,
+> targeted OpenType vertical/ligature substitution and multi-candidate
+> Narrow/Condensed font matching. Beta 2 adds all four triangle/patch mesh
+> shading families, uncolored tiling patterns, calculator transfer functions,
+> advanced transparency-group surfaces and process-CMYK overprint preview. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
@@ -56,6 +61,7 @@ dotnet run --project src/Poppler.Net.Cli -- graphics input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- images input.pdf output-images
 dotnet run --project src/Poppler.Net.Cli -- render input.pdf page.png --page 1 --dpi 144
 dotnet run --project src/Poppler.Net.Cli -- render input.pdf page.png --font-dir fonts
+dotnet run --project src/Poppler.Net.Cli -- render input.pdf page.png --cmap-dir cmaps
 dotnet run --project src/Poppler.Net.Cli -- attachments input.pdf output-dir
 dotnet run --project src/Poppler.Net.Cli -- svg input.pdf page.svg --page 1
 ```
@@ -175,7 +181,14 @@ optional managed font-file substitution for Base-14/non-embedded fonts.
 Alpha 2 ports the canonical Base-14 width tables and reconciles replacement
 outline geometry with PDF text advances. Alpha 3 adds filter-aware inline
 image recovery, soft-mask transfer functions and damaged page-tree geometry
-fallback.
+fallback. Beta 1 adds bounded external CMap discovery and inheritance, a
+managed CFF2 default-instance path, non-contextual `vert`/`vrt2` and
+`liga`/`rlig` GSUB substitution, and improved Narrow/Condensed font-file
+matching. Beta 2 adds shading types 4–7, `PaintType 2` patterns, bounded
+calculator functions, isolated/non-isolated/knockout group surfaces and
+process-CMYK overprint-mode-1 preview. Full variable-font interpolation,
+complex shaping, ICC proofing and spot-color overprint remain outside this
+release.
 
 ## License and provenance
 

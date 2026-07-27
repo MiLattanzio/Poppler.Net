@@ -1,4 +1,4 @@
-# Fonts and text in 0.4
+# Fonts and text
 
 Version `0.4.0-alpha.1` ports the read-only font and text responsibilities
 needed before the graphics interpreter. All decoding executes in managed C#.
@@ -23,6 +23,13 @@ This is required for custom CMaps where the source value and CID differ.
 Codespace, `cidchar`, `cidrange`, `bfchar` and `bfrange` entries are supported.
 Identity-H and Identity-V are built in. CID ranges remain compressed to avoid
 allocating one entry per CID.
+
+Release `0.8.0-beta.1` can also resolve named encoding and `ToUnicode` CMaps
+from explicit `PdfReadOptions.CMapDirectories` and conventional system
+`poppler-data` locations. Both dictionary `/UseCMap` and PostScript `usecmap`
+inheritance are bounded by byte and depth limits. Explicit directories take
+priority; `UseSystemCMaps = false` makes resolution fully controlled by the
+application.
 
 When a PDF omits `ToUnicode`, an embedded TrueType or OpenType font can supply
 a fallback through sfnt `cmap` format 4 or 12. Format 0 byte-encoding tables
@@ -73,29 +80,35 @@ owned by the document and are not exposed as mutable buffers.
 
 `PdfReadOptions.MaximumCMapMappings` defaults to 250,000. It covers expanded
 Unicode entries and explicit CID entries. CID ranges themselves use a bounded
-range record. Existing input, decoded stream, object and collection limits
-also apply to fonts and CMaps.
+range record. `MaximumExternalCMapBytes` defaults to 16 MiB per file and
+`MaximumCMapUseDepth` defaults to 16. Existing input, decoded stream, object
+and collection limits also apply to fonts and CMaps.
 
 ## Deliberate limits
 
-- release `0.8` rasterizes common embedded TrueType, CFF1/Type 2 and Type 1
-  outlines, plus Type 3 CharProcs, but not CFF2, rare charstring operators,
-  hinting or Type 1 `seac`;
-- no complex-script shaping, OpenType GSUB/GPOS processing or full Unicode
-  Bidirectional Algorithm;
+- release `0.8.0-beta.1` rasterizes common embedded TrueType, CFF1/CFF2 Type 2
+  and Type 1 outlines, plus Type 3 CharProcs. CFF2 uses its default variation
+  instance; complete region interpolation, rare charstring operators, hinting
+  and Type 1 `seac` remain unsupported;
+- GSUB processing covers non-contextual `vert`/`vrt2` single substitutions
+  and exact `liga`/`rlig` ligatures. Contextual GSUB, GPOS, complex-script
+  shaping and the full Unicode Bidirectional Algorithm remain unsupported;
 - managed file substitution is available, but it is simpler than
   Fontconfig/FreeType matching and depends on local files unless explicit
-  `FontDirectories` are supplied; horizontal replacement outlines are fitted
-  to the authoritative PDF/Base-14 advance to avoid collisions;
+  `FontDirectories` are supplied. Narrow/Condensed and Expanded/Extended
+  traits participate in scoring, several ranked candidates are tried for a
+  glyph, and horizontal replacement outlines are fitted to the authoritative
+  PDF/Base-14 advance to avoid collisions;
 - raw CFF charset/encoding fallback is partial when `ToUnicode` is absent;
 - encrypted/eexec Type 1 programs are decoded, but uncommon OtherSubrs and
   synthetic/flex behavior remain partial;
-- no external `poppler-data` CMap packs and no arbitrary named `usecmap`
-  inheritance beyond Identity-H/Identity-V;
+- external CMaps support the common declarative mapping and inheritance
+  syntax, but do not execute arbitrary PostScript procedures;
 - advanced Type 3 color/glyph behavior and text clipping through Type 3
   outlines remain partial.
 
 Raster text is now part of the graphics display list, including Form-nested
 text, exact operator interleaving and all eight fill/stroke/clip modes. Pattern
 and special-color text inherit the limits of the corresponding vector brush;
-shaping and vertical glyph substitution remain future work.
+contextual shaping remains future work; simple vertical alternates are applied
+through `vert`/`vrt2`.

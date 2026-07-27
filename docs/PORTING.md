@@ -9,13 +9,17 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.8.0-alpha.3` integrates text into the graphics interpreter,
+slices. Version `0.8.0-beta.2` integrates text into the graphics interpreter,
 adds managed CFF1/Type 2 and Type 1 outline readers, executes Type 3 CharProcs,
 decodes inline images, ports the canonical Base-14 width tables and performs
 managed font-file substitution with advance fitting. It also adds
-filter-aware inline-image boundaries, soft-mask transfer functions and
-Poppler-compatible damaged page-box recovery on top of
-the hardened `0.2` foundation, `0.3` security handler, `0.4` font/text layer,
+filter-aware inline-image boundaries, soft-mask transfer functions,
+Poppler-compatible damaged page-box recovery, bounded external CMap
+inheritance, initial CFF2/default-instance execution, targeted OpenType
+vertical/ligature substitution and improved font-family matching. Beta 2 adds
+triangle/patch meshes, uncolored patterns, calculator functions, transparency
+group refinements and process-overprint preview on top of the hardened `0.2`
+foundation, `0.3` security handler, `0.4` font/text layer,
 `0.5` graphics interpreter, `0.6` image/color pipeline and `0.7` raster;
 it is not a claim that all of Poppler has already been translated.
 
@@ -59,6 +63,12 @@ it is not a claim that all of Poppler has already been translated.
 18. Make common filtered inline-image boundaries deterministic, apply
     sampled/exponential/stitching soft-mask transfer functions and normalize
     page boxes with Poppler's missing-`MediaBox` fallback.
+19. Resolve external encoding and `ToUnicode` CMaps with bounded inheritance;
+    add initial CFF2 execution, targeted vertical/ligature GSUB and ranked
+    Narrow/Condensed font-file fallback.
+20. Decode shading types 4–7, paint uncolored tiling patterns, evaluate bounded
+    calculator functions, preserve isolated/non-isolated/knockout group
+    behavior and preview process-CMYK overprint mode 1.
 
 ## Upstream-to-managed map
 
@@ -71,32 +81,34 @@ it is not a claim that all of Poppler has already been translated.
 | `PDFDoc`, `Catalog`, `Page` | `Document`, `Page` | Read-only core implemented |
 | `PageLabelInfo` | `PageLabelTree` | Implemented |
 | `FileSpec` | `EmbeddedFile` | Implemented |
-| `CMap`, `CharCodeToUnicode` | `PdfCMap` | Embedded/Identity code, CID and Unicode maps |
-| `GfxFont`, FoFi inspection | `PdfFontDecoder`, `PdfOpenTypeCmap`, `PdfTrueTypeFont`, `PdfCffFont`, `PdfType1Font` | Text metrics, sfnt fallback and common embedded TrueType/CFF1/Type 1 outlines |
+| `CMap`, `CharCodeToUnicode` | `PdfCMap`, `PdfCMapResolver` | Embedded/Identity and bounded external code, CID and Unicode maps with inheritance |
+| `GfxFont`, FoFi inspection | `PdfFontDecoder`, `PdfOpenTypeCmap`, `PdfOpenTypeLayout`, `PdfTrueTypeFont`, `PdfCffFont`, `PdfType1Font` | Text metrics, sfnt fallback, common TrueType/CFF1/Type 1 outlines, initial CFF2 and targeted GSUB |
 | `TextOutputDev` | `PdfTextExtractor`, `PdfTextLayoutEngine` | Horizontal/vertical runs and initial reading order |
 | `Outline`, `Link` | — | Planned |
 | `Decrypt`, `SecurityHandler` | `PdfStandardSecurityHandler`, `PdfCryptography` | R2–R6 implemented |
 | `Annot`, `Form` | detection only | Planned |
-| `Gfx`, `GfxState`, `Function` | `PdfGraphicsInterpreter`, graphics model, `PdfFunction`, `PdfShadingReader` | Vector slice plus sampled/exponential/stitching functions |
+| `Gfx`, `GfxState`, `Function` | `PdfGraphicsInterpreter`, graphics model, `PdfFunction`, `PdfShadingReader`, `PdfMeshShadingReader` | Vector slice plus sampled/exponential/stitching/calculator functions and shading types 2–7 |
 | `ImageStream`, `DCTStream`, `JPXStream`, `JBIG2Stream`, `CCITTFaxStream` | `PdfImageDecoder`, `CcittFaxDecoder` | Managed Image XObject decoding |
 | `GfxColorSpace`, common ICC transforms | `PdfColorSpaceDefinition`, `PdfIccProfile` | Device, calibrated, indexed, spot and common matrix/shaper profiles |
 | `SplashOutputDev`, Splash path/composite | `PdfRasterRenderer`, `RasterGeometry`, `PdfBlend`, `RasterSurface` | Initial managed page raster, antialiasing and transparency |
 | Cairo vector output | `SvgPageRenderer` | Managed SVG preview |
-| FreeType/font rasterization and shaping | managed TrueType/CFF1/Type 1 readers plus `PdfFontSubstitutionResolver` and Base-14 metrics | Common outlines, canonical standard-font advances and file substitution; hinting/shaping remain planned |
+| FreeType/font rasterization and shaping | managed TrueType/CFF1/CFF2/Type 1 readers plus `PdfOpenTypeLayout`, `PdfFontSubstitutionResolver` and Base-14 metrics | Common outlines, CFF2 default instance, targeted GSUB, canonical advances and ranked file substitution; hinting/full shaping remain planned |
 | JPEG/JPEG2000/JBIG2/CCITT | managed package codecs plus internal CCITT decoder | Image XObjects plus common inline-image data implemented |
-| color management/overprint | managed common color conversions | No LUT ICC, proofing or overprint |
+| color management/overprint | managed common color conversions and process overprint preview | No LUT ICC, proofing or spot-color overprint |
 | signatures/NSS/GPGME | — | Planned |
 | PDF mutation and incremental save | byte-for-byte copy only | Planned |
 
 ## Next implementation slices
 
 1. Complete corpus/differential/fuzz gates for the parser foundation.
-2. Complete font engine: CFF2, rare Type 1/CFF operators, complex shaping,
-   predefined external CMaps, vertical alternates and hinting.
-3. Complete knockout/non-isolated group interaction and stroke geometry; add
-   uncolored/mesh patterns, calculator functions and remaining
+2. Complete font engine: CFF2 variation-region interpolation, rare Type 1/CFF
+   operators, contextual GSUB/GPOS and complex shaping, Type 1 `seac` and
+   hinting.
+3. Refine nested knockout/non-isolated group interaction, adaptive patch
+   tessellation and stroke geometry; add remaining
    Flate/LZW/CCITT/JBIG2/JPX inline-image boundary cases.
-4. Add LUT-based ICC profiles, proofing, rendering intents and overprint.
+4. Add LUT-based ICC profiles, proofing, rendering intents and spot-color
+   overprint.
 5. Annotations, AcroForm/XFA surface, actions, links and outlines.
 6. Digital signature validation through managed cryptography.
 7. Writer, advanced repair mode, fuzz corpus, PDF corpus differential tests
