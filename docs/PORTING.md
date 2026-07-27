@@ -9,10 +9,12 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.8.0-alpha.2` integrates text into the graphics interpreter,
+slices. Version `0.8.0-alpha.3` integrates text into the graphics interpreter,
 adds managed CFF1/Type 2 and Type 1 outline readers, executes Type 3 CharProcs,
 decodes inline images, ports the canonical Base-14 width tables and performs
-managed font-file substitution with advance fitting on top of
+managed font-file substitution with advance fitting. It also adds
+filter-aware inline-image boundaries, soft-mask transfer functions and
+Poppler-compatible damaged page-box recovery on top of
 the hardened `0.2` foundation, `0.3` security handler, `0.4` font/text layer,
 `0.5` graphics interpreter, `0.6` image/color pipeline and `0.7` raster;
 it is not a claim that all of Poppler has already been translated.
@@ -54,6 +56,9 @@ it is not a claim that all of Poppler has already been translated.
     outline execution, raw inline images and font-file substitution.
 17. Port Poppler's canonical Base-14 widths and reconcile horizontal
     replacement outlines with PDF advances.
+18. Make common filtered inline-image boundaries deterministic, apply
+    sampled/exponential/stitching soft-mask transfer functions and normalize
+    page boxes with Poppler's missing-`MediaBox` fallback.
 
 ## Upstream-to-managed map
 
@@ -88,9 +93,9 @@ it is not a claim that all of Poppler has already been translated.
 1. Complete corpus/differential/fuzz gates for the parser foundation.
 2. Complete font engine: CFF2, rare Type 1/CFF operators, complex shaping,
    predefined external CMaps, vertical alternates and hinting.
-3. Complete knockout/non-isolated group interaction, stroke geometry and
-   soft-mask transfer functions; add uncolored/mesh patterns, calculator
-   functions and filtered inline-image corner cases.
+3. Complete knockout/non-isolated group interaction and stroke geometry; add
+   uncolored/mesh patterns, calculator functions and remaining
+   Flate/LZW/CCITT/JBIG2/JPX inline-image boundary cases.
 4. Add LUT-based ICC profiles, proofing, rendering intents and overprint.
 5. Annotations, AcroForm/XFA surface, actions, links and outlines.
 6. Digital signature validation through managed cryptography.

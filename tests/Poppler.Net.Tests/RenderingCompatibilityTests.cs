@@ -237,6 +237,100 @@ public sealed class RenderingCompatibilityTests
     }
 
     [Test]
+    public void KeepsFilterDelimitedInlineImagesIntactWhenDataContainsEi()
+    {
+        using Document document = Load("rendering-alpha3.pdf");
+        Page page = document.CreatePage(0);
+        PdfImageElement[] images = page.Graphics
+            .OfType<PdfImageElement>()
+            .ToArray();
+
+        Assert.That(images, Has.Length.EqualTo(3));
+        Assert.That(images.Select(image => image.Width), Is.EqualTo(new[] { 1, 3, 1 }));
+        Assert.That(images, Has.All.Matches<PdfImageElement>(image => image.Image is not null));
+
+        PdfBitmap bitmap = page.Render(new RasterRenderOptions
+        {
+            Dpi = 72,
+            Antialiasing = 1,
+            UseFontSubstitution = false
+        });
+        AssertPixel(bitmap, 110, 50, 255, 0, 0, 255);
+        AssertPixel(bitmap, 140, 50, 32, 69, 73, 255);
+        AssertPixel(bitmap, 230, 50, 254, 0, 0, 255);
+    }
+
+    [Test]
+    public void AppliesSoftMaskTransferFunction()
+    {
+        using Document document = Load("rendering-alpha3.pdf");
+        Page page = document.CreatePage(1);
+        PdfPathElement masked = page.Graphics
+            .OfType<PdfPathElement>()
+            .Single(element => element.State.SoftMask is not null);
+
+        Assert.That(masked.State.SoftMask!.HasTransferFunction, Is.True);
+        PdfBitmap bitmap = page.Render(new RasterRenderOptions
+        {
+            Dpi = 72,
+            Antialiasing = 1,
+            UseFontSubstitution = false
+        });
+        AssertPixel(bitmap, 50, 50, 255, 191, 191, 255);
+    }
+
+    [Test]
+    public void ClipsPageBoxesToMediaBoxLikePoppler()
+    {
+        using Document document = Load("rendering-alpha3.pdf");
+        Page page = document.CreatePage(2);
+
+        Assert.That(
+            page.PageRect(PageBox.CropBox),
+            Is.EqualTo(new PdfRectangle(0, 0, 100, 80)));
+        Assert.That(
+            page.PageRect(PageBox.BleedBox),
+            Is.EqualTo(new PdfRectangle(0, 0, 100, 80)));
+        PdfBitmap bitmap = page.Render(new RasterRenderOptions
+        {
+            Dpi = 72,
+            Antialiasing = 1
+        });
+        Assert.That(bitmap.Width, Is.EqualTo(100));
+        Assert.That(bitmap.Height, Is.EqualTo(80));
+        AssertPixel(bitmap, 50, 40, 0, 0, 255, 255);
+    }
+
+    [Test]
+    public void UsesPopplerDefaultMediaBoxForDamagedPageTree()
+    {
+        using Document document = Load("rendering-alpha3.pdf");
+        Page page = document.CreatePage(3);
+
+        Assert.That(
+            page.PageRect(PageBox.MediaBox),
+            Is.EqualTo(new PdfRectangle(0, 0, 612, 792)));
+        Assert.That(page.PageRect(), Is.EqualTo(new PdfRectangle(0, 0, 612, 792)));
+    }
+
+    [Test]
+    public void Alpha3RenderingFixtureHashMatchesManifest()
+    {
+        string directory = FixtureDirectory();
+        using JsonDocument manifest = JsonDocument.Parse(
+            File.ReadAllBytes(Path.Combine(
+                directory,
+                "rendering-alpha3-fixture.json")));
+        string file = manifest.RootElement.GetProperty("file").GetString()!;
+        string expected = manifest.RootElement.GetProperty("sha256").GetString()!;
+        string actual = Convert.ToHexString(
+                SHA256.HashData(File.ReadAllBytes(Path.Combine(directory, file))))
+            .ToLowerInvariant();
+
+        Assert.That(actual, Is.EqualTo(expected));
+    }
+
+    [Test]
     public void CompatibilityFixtureHashesMatchManifest()
     {
         string directory = FixtureDirectory();

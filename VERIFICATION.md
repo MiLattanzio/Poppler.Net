@@ -1,15 +1,16 @@
 # Verification record
 
-Verification performed on 2026-07-27 for `0.8.0-alpha.2`:
+Verification performed on 2026-07-27 for `0.8.0-alpha.3`:
 
 - .NET SDK 8.0.423 restored and compiled all four solution projects in Release
   with warnings treated as errors.
-- NUnitLite executed 123 tests: 123 passed, 0 failed, 0 warnings, 0 skipped.
+- NUnitLite executed 128 tests: 128 passed, 0 failed, 0 warnings, 0 skipped.
 - the managed-only verifier accepted production source and every asset in the
   complete restored NuGet graph, including the three runtime codecs.
-- `Poppler.Net.0.8.0-alpha.2.nupkg` was produced successfully; its manifest
-  contains the three pinned managed codec dependencies and no native/runtime
-  asset.
+- `Poppler.Net.0.8.0-alpha.3.nupkg` was assembled from the current Release
+  DLL/XML and the previously generated NuGet pack layout; its manifest and
+  package metadata identify alpha 3, contain the three pinned managed codec
+  dependencies and contain no native/runtime asset.
 - the user corrections remain intact: revision 6 selects SHA-2 through
   `int va = selector % 3`, and every NUnit exception assertion explicitly
   casts its lambda to `Action`.
@@ -56,6 +57,15 @@ Verification performed on 2026-07-27 for `0.8.0-alpha.2`:
   Helvetica, Helvetica-Bold and Times-Roman. Visual inspection found no
   internal letter gaps, overlap, truncation or clipping. The reported source
   PDF itself was not available; only its rendered PNG was supplied.
+- the alpha 3 differential corpus has four pages covering whitespace-delimited
+  `EI` bytes inside ASCII85, RunLength and JPEG data, a quadratic `/TR`
+  transfer function on an Alpha soft mask, Crop/Bleed boxes outside
+  `MediaBox`, and a damaged page tree with no inherited `MediaBox`.
+- managed output and Poppler 26.05.0 have the same dimensions on all four
+  alpha 3 pages. The transfer-function, page-box and default-geometry pages
+  are pixel-identical at 72 DPI. The filtered-image page has normalized mean
+  absolute error `0.011755836`, confined to codec sample differences; all
+  three inline images and the following graphics operators are retained.
 - the OpenType/CFF fixture renders distinct `A`, `B` and `C` Type 2 outlines;
   the embedded PFB Type 1 fixture renders distinct `A`, `B` and `C` outlines
   and applies a `Tr 7` text clip to a blue path.
@@ -80,15 +90,20 @@ Verification performed on 2026-07-27 for `0.8.0-alpha.2`:
   graphics fixture hash continue to match their manifests.
 - project/XML/JSON/YAML structure, local Markdown links, shell syntax and
   forbidden-interoperability source scans pass.
-- the source archive contains 138 files, including 75 C# sources and 21,075
+- the source archive contains 141 files, including 75 C# sources and 21,249
   lines of production C#; it excludes `bin`, `obj`, NuGet packages, generated
   bytecode, executables and native artifacts.
+- the final source ZIP was extracted into a fresh directory, matched all 141
+  source files byte for byte, restored from the same five managed NuGet
+  packages, rebuilt all four projects without warnings, passed 128/128 tests
+  and produced a byte-identical alpha 3 transfer-function regression PNG.
 
-The environment's normal `dotnet` CLI startup cannot reliably inspect its
-process namespace. Verification therefore invoked the SDK's managed MSBuild,
-NUnitLite and verifier assemblies through the .NET 8 host. This executes the
-same compiler, projects and managed test assemblies without changing build
-inputs. The standard user entry point remains:
+The environment's `dotnet` CLI cannot reliably inspect its process namespace.
+Serialized restore/build succeeded, but repeated direct `dotnet pack` startup
+attempts failed inside `System.Diagnostics.Process.GetStat` before MSBuild
+could read the project. The package layout was therefore validated separately
+from the compiled Release DLL and XML. This is an execution-environment issue,
+not a project or package error. The standard user entry point remains:
 
 ```bash
 ./build.sh Release

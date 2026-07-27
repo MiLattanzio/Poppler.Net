@@ -1,6 +1,6 @@
 # Managed graphics engine
 
-Version `0.8.0-alpha.2` retains and extends the backend-neutral slice of Poppler
+Version `0.8.0-alpha.3` retains and extends the backend-neutral slice of Poppler
 26.07.0 `Gfx`, `GfxState`, `Function`, pattern and XObject behavior. It parses
 page content into immutable managed objects; it does not call Poppler, Cairo,
 FreeType or another native renderer.
@@ -58,9 +58,11 @@ Form XObjects support:
 - transparency `/Group`, `/I` and `/K`;
 - recursion detection and a configurable depth limit.
 
-Image XObjects and inline images record resource name, width, height, bits per component,
-color-space name, mask flag and CTM. Release `0.6` also attaches a decoded
-`PdfImage` and embeds it as PNG in SVG. Unsupported images remain visible as
+Image XObjects and inline images record resource name, width, height, bits per
+component, color-space name, mask flag and CTM. Release `0.6` also attaches a
+decoded `PdfImage` and embeds it as PNG in SVG. Alpha 3 uses ASCIIHex,
+ASCII85, RunLength and DCT/JPEG filter terminators to prevent encoded `EI`
+bytes from truncating inline data. Unsupported images remain visible as
 metadata elements and diagnostics rather than aborting the full display list.
 
 ## Patterns and shading

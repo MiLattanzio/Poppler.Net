@@ -37,6 +37,9 @@
     <None Include="..\fixtures\rendering-compatibility-fixtures.json"
           Link="Fixtures\rendering-compatibility-fixtures.json"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\rendering-alpha3-fixture.json"
+          Link="Fixtures\rendering-alpha3-fixture.json"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\Helvetica.ttf"
           Link="Fixtures\Helvetica.ttf"
           CopyToOutputDirectory="PreserveNewest" />

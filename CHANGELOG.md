@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.0-alpha.3 — 2026-07-27
+
+- Made inline-image boundary recovery filter-aware for ASCIIHex, ASCII85,
+  RunLength and DCT/JPEG streams. Encoded whitespace-delimited `EI` bytes no
+  longer truncate data before the actual filter terminator.
+- Applied sampled, exponential and stitching `/TR` transfer functions to
+  Alpha and Luminosity soft masks through a bounded cached lookup table.
+- Exposed `PdfSoftMask.HasTransferFunction` in the public display-list model.
+- Normalized reversed page boxes, clipped Crop/Bleed/Trim/Art boxes to the
+  `MediaBox` and adopted Poppler's 612×792-point fallback for damaged page
+  trees without an inherited `MediaBox`.
+- Added a deterministic four-page differential fixture for ambiguous inline
+  images, soft-mask transfer, oversized page boxes and missing page geometry.
+- Added five NUnit regressions, bringing the suite to 128 passing cases, and
+  visually rechecked every page of `drylab.pdf` against Poppler at 96 DPI.
+
 ## 0.8.0-alpha.2 — 2026-07-27
 
 - Replaced the synthetic constant-width fallback for Base-14 fonts without a

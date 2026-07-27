@@ -1369,7 +1369,29 @@ internal sealed class PdfGraphicsInterpreter
                     ? PdfSoftMaskMode.Luminosity
                     : PdfSoftMaskMode.Alpha;
             PdfColor backdrop = ReadBackdrop(dictionary.GetValueOrNull("BC"));
-            return new PdfSoftMask(mode, elements, backdrop);
+            PdfObject? transferObject = dictionary.GetValueOrNull("TR");
+            string? transferName = transferObject.AsName(_document);
+            PdfFunction? transferFunction =
+                transferObject is null || transferName == "Identity"
+                    ? null
+                    : PdfFunction.Create(
+                        transferObject,
+                        _document,
+                        expectedInputCount: 1,
+                        expectedOutputCount: 1);
+            if (transferObject is not null &&
+                transferName != "Identity" &&
+                transferFunction is null)
+            {
+                ReportOnce(
+                    "graphics.soft-mask.transfer.unsupported",
+                    "An unsupported soft-mask transfer function was ignored.");
+            }
+            return new PdfSoftMask(
+                mode,
+                elements,
+                backdrop,
+                transferFunction);
         }
         finally
         {

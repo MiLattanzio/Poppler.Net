@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using Poppler.Graphics;
 
 namespace Poppler;
 
@@ -275,16 +276,28 @@ public sealed record PdfSoftMask
         PdfSoftMaskMode mode,
         IEnumerable<PdfGraphicsElement> elements,
         PdfColor backdrop)
+        : this(mode, elements, backdrop, transferFunction: null)
+    {
+    }
+
+    internal PdfSoftMask(
+        PdfSoftMaskMode mode,
+        IEnumerable<PdfGraphicsElement> elements,
+        PdfColor backdrop,
+        PdfFunction? transferFunction)
     {
         ArgumentNullException.ThrowIfNull(elements);
         Mode = mode;
         Elements = new ReadOnlyCollection<PdfGraphicsElement>(elements.ToArray());
         Backdrop = backdrop;
+        TransferFunction = transferFunction;
     }
 
     public PdfSoftMaskMode Mode { get; }
     public IReadOnlyList<PdfGraphicsElement> Elements { get; }
     public PdfColor Backdrop { get; }
+    public bool HasTransferFunction => TransferFunction is not null;
+    internal PdfFunction? TransferFunction { get; }
 }
 
 public abstract record PdfGraphicsElement(

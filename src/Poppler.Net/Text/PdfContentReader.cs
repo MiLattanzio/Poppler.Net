@@ -109,23 +109,24 @@ internal static class PdfContentReader
             start <= content.Length - rawLength)
         {
             int exactEnd = start + rawLength;
-            int marker = exactEnd;
-            while (marker < content.Length && IsWhiteSpace(content[marker]))
-                marker++;
-            if (marker + 1 < content.Length &&
-                content[marker] == (byte)'E' &&
-                content[marker + 1] == (byte)'I' &&
-                (marker + 2 == content.Length ||
-                 IsDelimiterOrWhiteSpace(content[marker + 2])))
-            {
+            if (HasEndImageOperator(content, exactEnd))
                 return exactEnd;
-            }
         }
 
         long cappedBytes = Math.Clamp(maximumBytes, 0, int.MaxValue);
         int maximumEnd = (int)Math.Min(
             content.Length,
             (long)start + cappedBytes);
+        if (TryFilterTerminatedLength(
+                content,
+                start,
+                maximumEnd,
+                dictionary,
+                out int filteredEnd))
+        {
+            return filteredEnd;
+        }
+
         for (int index = start + 1; index + 1 < maximumEnd; index++)
         {
             if (content[index] == (byte)'E' &&
@@ -142,6 +143,105 @@ internal static class PdfContentReader
         }
 
         return -1;
+    }
+
+    private static bool TryFilterTerminatedLength(
+        byte[] content,
+        int start,
+        int maximumEnd,
+        IReadOnlyDictionary<string, PdfObject> dictionary,
+        out int end)
+    {
+        end = -1;
+        string? filter = FirstFilterName(dictionary);
+        return filter switch
+        {
+            "AHx" or "ASCIIHexDecode" =>
+                TryDelimitedEnd(content, start, maximumEnd, ">"u8, out end),
+            "A85" or "ASCII85Decode" =>
+                TryDelimitedEnd(content, start, maximumEnd, "~>"u8, out end),
+            "RL" or "RunLengthDecode" =>
+                TryRunLengthEnd(content, start, maximumEnd, out end),
+            "DCT" or "DCTDecode" =>
+                TryDelimitedEnd(content, start, maximumEnd, [0xff, 0xd9], out end),
+            _ => false
+        };
+    }
+
+    private static bool TryDelimitedEnd(
+        byte[] content,
+        int start,
+        int maximumEnd,
+        ReadOnlySpan<byte> delimiter,
+        out int end)
+    {
+        end = -1;
+        if (delimiter.IsEmpty)
+            return false;
+        int last = maximumEnd - delimiter.Length;
+        for (int index = start; index <= last; index++)
+        {
+            if (!content.AsSpan(index, delimiter.Length).SequenceEqual(delimiter))
+                continue;
+            int candidate = index + delimiter.Length;
+            if (HasEndImageOperator(content, candidate))
+            {
+                end = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryRunLengthEnd(
+        byte[] content,
+        int start,
+        int maximumEnd,
+        out int end)
+    {
+        end = -1;
+        int position = start;
+        while (position < maximumEnd)
+        {
+            int control = content[position++];
+            if (control == 128)
+            {
+                if (!HasEndImageOperator(content, position))
+                    return false;
+                end = position;
+                return true;
+            }
+
+            int encodedBytes = control <= 127 ? control + 1 : 1;
+            if (position > maximumEnd - encodedBytes)
+                return false;
+            position += encodedBytes;
+        }
+
+        return false;
+    }
+
+    private static string? FirstFilterName(
+        IReadOnlyDictionary<string, PdfObject> dictionary)
+    {
+        PdfObject? value = dictionary.GetValueOrDefault("F") ??
+                           dictionary.GetValueOrDefault("Filter");
+        if (value is PdfArray { Count: > 0 } array)
+            value = array[0];
+        return (value as PdfName)?.Value;
+    }
+
+    private static bool HasEndImageOperator(byte[] content, int dataEnd)
+    {
+        int marker = dataEnd;
+        while (marker < content.Length && IsWhiteSpace(content[marker]))
+            marker++;
+        return marker + 1 < content.Length &&
+               content[marker] == (byte)'E' &&
+               content[marker + 1] == (byte)'I' &&
+               (marker + 2 == content.Length ||
+                IsDelimiterOrWhiteSpace(content[marker + 2]));
     }
 
     private static bool TryRawImageLength(

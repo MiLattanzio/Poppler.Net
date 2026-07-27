@@ -9,6 +9,7 @@ internal sealed class PdfRasterRenderer
     private readonly PdfMatrix _deviceTransform;
     private readonly Dictionary<PdfClipPath, RasterPath> _clipCache = new();
     private readonly Dictionary<PdfSoftMask, RasterSurface> _softMaskCache = new();
+    private readonly Dictionary<PdfSoftMask, double[]> _softMaskTransferCache = new();
     private readonly PdfFontSubstitutionResolver _fontSubstitution;
     private readonly int _samples;
 
@@ -619,14 +620,46 @@ internal sealed class PdfRasterRenderer
         }
 
         RasterColor pixel = surface.GetPixel(x, y);
+        double value;
         if (mask.Mode == PdfSoftMaskMode.Alpha)
-            return pixel.Alpha;
-        (double backdropRed, double backdropGreen, double backdropBlue) =
-            mask.Backdrop.ToRgb();
-        double red = pixel.Red * pixel.Alpha + backdropRed * (1 - pixel.Alpha);
-        double green = pixel.Green * pixel.Alpha + backdropGreen * (1 - pixel.Alpha);
-        double blue = pixel.Blue * pixel.Alpha + backdropBlue * (1 - pixel.Alpha);
-        return RasterColor.Clamp(0.3 * red + 0.59 * green + 0.11 * blue);
+        {
+            value = pixel.Alpha;
+        }
+        else
+        {
+            (double backdropRed, double backdropGreen, double backdropBlue) =
+                mask.Backdrop.ToRgb();
+            double red = pixel.Red * pixel.Alpha + backdropRed * (1 - pixel.Alpha);
+            double green = pixel.Green * pixel.Alpha + backdropGreen * (1 - pixel.Alpha);
+            double blue = pixel.Blue * pixel.Alpha + backdropBlue * (1 - pixel.Alpha);
+            value = RasterColor.Clamp(0.3 * red + 0.59 * green + 0.11 * blue);
+        }
+
+        return ApplySoftMaskTransfer(mask, value);
+    }
+
+    private double ApplySoftMaskTransfer(PdfSoftMask mask, double value)
+    {
+        if (mask.TransferFunction is null)
+            return value;
+        if (!_softMaskTransferCache.TryGetValue(mask, out double[]? table))
+        {
+            const int sampleCount = 4097;
+            table = new double[sampleCount];
+            var input = new double[1];
+            for (int index = 0; index < table.Length; index++)
+            {
+                input[0] = (double)index / (sampleCount - 1);
+                double[] result = mask.TransferFunction.Evaluate(input, 1);
+                table[index] = RasterColor.Clamp(result[0]);
+            }
+            _softMaskTransferCache[mask] = table;
+        }
+
+        double position = RasterColor.Clamp(value) * (table.Length - 1);
+        int before = Math.Min(table.Length - 1, (int)Math.Floor(position));
+        int after = Math.Min(table.Length - 1, before + 1);
+        return RasterColor.Clamp(Lerp(table[before], table[after], position - before));
     }
 
     private static RasterColor SampleImage(PdfImage image, double u, double v)

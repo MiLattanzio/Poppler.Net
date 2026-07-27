@@ -1,6 +1,6 @@
 # Managed raster rendering in 0.8
 
-Release `0.8.0-alpha.2` extends the pure-C# counterpart of Poppler's
+Release `0.8.0-alpha.3` extends the pure-C# counterpart of Poppler's
 `SplashOutputDev`, path scanner, compositing and font-outline responsibilities.
 It consumes the backend-neutral `Page.Graphics` display list and never loads
 Splash, Cairo, Skia, FreeType, a platform drawing API or another native
@@ -57,7 +57,8 @@ pixels at alpha zero.
 5. Decoded Image XObjects use nearest-neighbor or bilinear sampling according
    to `/Interpolate`; existing image/mask alpha remains straight.
 6. Source samples are composited with the active constant alpha, blend mode,
-   clip and optional graphics-state soft mask.
+   clip and optional graphics-state soft mask. Sampled, exponential and
+   stitching `/TR` functions transform the resulting mask value.
 7. Transparency Form XObjects render to intermediate RGBA surfaces before
    their result is composited into the parent.
 8. Text-showing operations are consumed at their exact display-list position,
@@ -68,8 +69,10 @@ pixels at alpha zero.
 10. All `Tr` fill/stroke/invisible/clip modes retain the active fill/stroke
     brushes, alpha, blend mode, soft mask and clip. Text clips accumulate at
     `ET` as required by PDF delayed text-clipping semantics.
-11. Raw inline images are decoded into ordinary `PdfImageElement` entries at
-    their content-stream position.
+11. Raw and commonly filtered inline images are decoded into ordinary
+    `PdfImageElement` entries at their content-stream position. ASCIIHex,
+    ASCII85, RunLength and DCT boundaries use their filter terminators instead
+    of the first whitespace-delimited `EI` byte sequence.
 
 The blend implementation covers Normal, Multiply, Screen, Overlay, Darken,
 Lighten, ColorDodge, ColorBurn, HardLight, SoftLight, Difference, Exclusion,
@@ -86,7 +89,9 @@ an intermediate transparent surface.
 
 Extended graphics-state `/SMask` dictionaries become `PdfSoftMask` values.
 Both `/S /Alpha` and `/S /Luminosity` are rendered, including `/BC` backdrop
-color for luminosity masks. `/SMask /None` clears the current mask.
+color for luminosity masks. Function types 0, 2 and 3 in `/TR` are applied
+through a bounded cached lookup table and exposed through
+`HasTransferFunction`. `/SMask /None` clears the current mask.
 
 ## Managed font outlines
 
@@ -160,10 +165,20 @@ raster assertion ensures Helvetica's narrow `i` advances by 222 units rather
 than the former synthetic 500-unit cell. A separate multi-style report page
 was rendered and visually inspected for letter gaps, overlap and clipping.
 
+Alpha 3 adds a deterministic four-page corpus. It places false
+whitespace-delimited `EI` tokens inside ASCII85, RunLength and JPEG data,
+applies a quadratic transfer function to an Alpha soft mask, clips oversized
+Crop/Bleed boxes and omits `MediaBox` from a damaged page tree. Poppler and
+managed output have identical dimensions on all pages; transfer, page-box and
+fallback pages are pixel-identical at 72 DPI. The filtered-image page has
+normalized mean absolute error `0.011755836`, confined to managed codec sample
+differences. `drylab.pdf` was rechecked visually on all three pages at 96 DPI.
+
 This remains an alpha rasterizer:
 
 - knockout and non-isolated group backdrop interaction is not yet complete;
-- transfer functions on soft masks are not applied;
+- calculator and unsupported transfer functions on soft masks are ignored
+  with a diagnostic;
 - line caps, joins, miter clipping and dash continuity across subpaths are
   approximated by the first managed stroke scanner;
 - CFF2, uncommon Type 1/CFF operators, Type 1 `seac`, advanced Type 3
@@ -171,8 +186,9 @@ This remains an alpha rasterizer:
   unsupported;
 - file-based substitution is deliberately simpler than Fontconfig/FreeType
   fallback and depends on local fonts unless explicit directories are used;
-- inline images with ambiguous `EI` data boundaries, unusual filters or
-  unsupported color spaces may not decode;
+- inline images whose first filter has no deterministic boundary handled by
+  this alpha, unusual filter chains or unsupported color spaces may not
+  decode;
 - uncolored tiling patterns, mesh shadings, overprint and full ICC
   LUT/device-link behavior remain unsupported.
 

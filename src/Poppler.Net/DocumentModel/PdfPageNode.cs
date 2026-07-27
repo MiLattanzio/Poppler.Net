@@ -14,6 +14,8 @@ internal sealed record PdfPageNode(
 
 internal static class PdfPageTreeReader
 {
+    private static readonly PdfRectangle DefaultMediaBox = new(0, 0, 612, 792);
+
     public static IReadOnlyList<PdfPageNode> Read(PdfDocumentCore document, PdfDictionary catalog)
     {
         PdfObject pagesRoot = catalog.GetValueOrNull("Pages") ??
@@ -99,16 +101,20 @@ internal static class PdfPageTreeReader
                 return;
             }
 
-            if (media is null)
-                throw new PdfFormatException("Page has no inherited /MediaBox.");
-            PdfRectangle effectiveCrop = crop ?? media.Value;
+            PdfRectangle effectiveMedia = NormalizeBox(media, DefaultMediaBox);
+            PdfRectangle effectiveCrop = ClipTo(
+                NormalizeBox(crop, effectiveMedia),
+                effectiveMedia);
+            PdfRectangle? effectiveBleed = NormalizeAndClipOptional(bleed, effectiveMedia);
+            PdfRectangle? effectiveTrim = NormalizeAndClipOptional(trim, effectiveMedia);
+            PdfRectangle? effectiveArt = NormalizeAndClipOptional(art, effectiveMedia);
             pages.Add(new PdfPageNode(
                 node,
-                media.Value,
+                effectiveMedia,
                 effectiveCrop,
-                bleed,
-                trim,
-                art,
+                effectiveBleed,
+                effectiveTrim,
+                effectiveArt,
                 resources,
                 rotation));
         }
@@ -118,4 +124,41 @@ internal static class PdfPageTreeReader
                 activeReferences.Remove(nodeReference);
         }
     }
+
+    private static PdfRectangle NormalizeBox(
+        PdfRectangle? value,
+        PdfRectangle fallback)
+    {
+        if (value is not { } box ||
+            !double.IsFinite(box.Left) ||
+            !double.IsFinite(box.Bottom) ||
+            !double.IsFinite(box.Right) ||
+            !double.IsFinite(box.Top) ||
+            box == default)
+        {
+            return fallback;
+        }
+
+        return new PdfRectangle(
+            Math.Min(box.Left, box.Right),
+            Math.Min(box.Bottom, box.Top),
+            Math.Max(box.Left, box.Right),
+            Math.Max(box.Bottom, box.Top));
+    }
+
+    private static PdfRectangle? NormalizeAndClipOptional(
+        PdfRectangle? value,
+        PdfRectangle mediaBox)
+    {
+        if (value is null || value.Value == default)
+            return null;
+        return ClipTo(NormalizeBox(value, mediaBox), mediaBox);
+    }
+
+    private static PdfRectangle ClipTo(PdfRectangle value, PdfRectangle boundary) =>
+        new(
+            Math.Clamp(value.Left, boundary.Left, boundary.Right),
+            Math.Clamp(value.Bottom, boundary.Bottom, boundary.Top),
+            Math.Clamp(value.Right, boundary.Left, boundary.Right),
+            Math.Clamp(value.Top, boundary.Bottom, boundary.Top));
 }

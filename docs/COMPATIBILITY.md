@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.8.0-alpha.2
+## Works in 0.8.0-alpha.3
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -9,7 +9,9 @@
 - Header-relative offsets when up to 1,023 leading bytes precede `%PDF-`.
 - Conservative damaged-xref reconstruction, including xref streams and
   compressed object streams.
-- Catalog and page-tree traversal with inherited boxes, resources and rotation.
+- Catalog and page-tree traversal with inherited boxes, resources and rotation;
+  reversed boxes are normalized, page boxes are clipped to `MediaBox`, and a
+  damaged tree without `MediaBox` uses Poppler's 612×792-point fallback.
 - Flate, LZW, ASCIIHex, ASCII85 and RunLength filters.
 - TIFF predictor 2 and PNG predictors 10–15.
 - Document information, XMP metadata bytes, viewer mode/layout and PDF IDs.
@@ -72,7 +74,8 @@
   with explicit search roots and no native font API or rasterizer.
 - Canonical Poppler widths for all fourteen standard fonts when `/Widths` is
   omitted; horizontally substituted outlines are fitted to the PDF advance.
-- Raw inline images, standard abbreviated dictionary keys/names and
+- Raw and commonly filtered inline images, standard abbreviated dictionary
+  keys/names, filter-aware ASCIIHex/ASCII85/RunLength/DCT boundaries and
   content-stream interleaving.
 - Managed SVG vector output for paths, clipping, Form content, tiling patterns,
   axial/radial gradients, decoded Image XObjects and extracted text.
@@ -84,7 +87,8 @@
 - Straight-alpha compositing for the 16 standard separable/nonseparable PDF
   blend modes.
 - Preserved Form transparency groups, isolated intermediate surfaces,
-  graphics-state Alpha/Luminosity soft masks and luminosity backdrop color.
+  graphics-state Alpha/Luminosity soft masks, luminosity backdrop color and
+  sampled/exponential/stitching soft-mask transfer functions.
 - Embedded TrueType `glyf` simple/composite outlines, common component
   transforms, quadratic contour conversion and managed antialiased glyph
   painting.
@@ -114,9 +118,11 @@
 - Encryption is read-only: saving preserves the original encrypted bytes and
   cannot change passwords, permissions or crypt filters.
 - Digital signatures are neither created nor validated.
-- Inline images with ambiguous `EI` byte sequences, unusual filter chains or
-  unsupported color spaces may still require more complete boundary recovery.
-- Knockout and non-isolated group backdrop interaction, soft-mask transfer
+- Inline images whose first filter has no deterministic boundary handled by
+  this alpha (including ambiguous Flate/LZW/CCITT/JBIG2/JPX cases), unusual
+  filter chains or unsupported color spaces may still require more complete
+  recovery.
+- Knockout and non-isolated group backdrop interaction, calculator transfer
   functions and overprint are incomplete. SVG remains a preview backend.
 - Uncolored tiling patterns, shading types 1 and 4–7, calculator functions and
   mesh shadings are not painted.
