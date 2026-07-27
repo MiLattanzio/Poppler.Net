@@ -61,9 +61,13 @@ Ubuntu, Windows and macOS for pushes to `master` and pull requests. It also
 stores the generated `.nupkg` as a workflow artifact.
 
 Publishing a GitHub Release runs the same gates and then publishes the package
-to NuGet.org. Configure a `NUGET_API_KEY` secret in the protected
-`nuget.org` GitHub environment before publishing the first release. Ordinary
-pushes, pull requests and manual workflow runs never execute the deploy job.
+to NuGet.org through OIDC Trusted Publishing. Configure a nuget.org trusted
+publishing policy for repository owner `MiLattanzio`, repository `Poppler.Net`,
+workflow `ci.yml` and environment `nuget.org`. Add a `NUGET_USER` secret
+containing the nuget.org profile username (not the email address) to the
+protected `nuget.org` GitHub environment. No long-lived NuGet API key is
+required. Ordinary pushes, pull requests and manual workflow runs never
+execute the deploy job.
 
 Package author and project metadata identify **Mi Lattanzio** and
 <https://github.com/MiLattanzio/Poppler.Net>.
