@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.8.0
+## Works in 0.9.0-alpha.1
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -109,6 +109,17 @@
   DeviceGray, DeviceRGB and DeviceCMYK text fill colors.
 - Public `PdfBitmap`, `Page.Render`, `RenderToPng`, `SavePng`,
   `RasterRenderOptions` and CLI `render`.
+- Immutable `Page.Annotations` metadata for Link, Text, FreeText, text markup,
+  Square, Circle, Line, Polygon, PolyLine, Ink and Stamp annotations.
+- Direct, catalog-dictionary and name-tree destinations with XYZ, Fit, FitH,
+  FitV, FitR, FitB, FitBH and FitBV coordinates.
+- Inspection-only URI, GoTo and Named annotation actions plus CLI
+  `annotations`.
+- `/AP/N` stream and state-dictionary selection through `/AS`, BBox/Matrix
+  mapping, local resources, nested Forms, page-order painting and visibility
+  flags.
+- Deterministic managed annotation fallbacks when no usable normal appearance
+  exists.
 - Missing `%%EOF` and leading-prefix diagnostics.
 - Standard Security Handler `V=1/R=2`, `V=2/R=3`, `V=4/R=4` and
   `V=5/R=5–6`.
@@ -163,8 +174,9 @@
   approximation and are not yet pixel-equivalent to Splash in every case.
 - JPEG 2000 Part 2, unusual JPEG color transforms and malformed/extension
   streams outside the managed codec coverage remain unsupported.
-- Annotations, forms, optional content, actions, movie/sound and JavaScript are
-  not executed. Presence detection is metadata only.
+- Annotation actions are never executed. AcroForm field/widget semantics,
+  XFA, optional content, popup/reply relationships, rich text, movie/sound,
+  screen/3D and advanced annotation behavior remain outside this alpha.
 - Saving produces a byte-for-byte copy; object mutation is not implemented.
 - Damaged-xref repair remains conservative. It does not yet reproduce all of
   Poppler's stream-end heuristics or repair every malformed incremental chain.
@@ -178,6 +190,7 @@ indirect objects, 1,000,000 direct collection items, 250,000 CMap mappings,
 segments, 100,000,000 decoded pixels per image, 32 image components, 16 MiB
 per ICC profile, 1,000,000 sampled-function samples, graphics stack depth 256,
 XObject depth 32, transparency-group depth 32, 100,000,000 rendered pixels,
-33 shading stops, 65,536 mesh triangles, 10,000 pages, tree depth 128 and
-object recursion 64. Use
+33 shading stops, 65,536 mesh triangles, 100,000 annotations per page,
+250,000 annotation geometry points, annotation-appearance depth 16,
+10,000 pages, tree depth 128 and object recursion 64. Use
 `PdfReadOptions` to lower limits for server workloads.

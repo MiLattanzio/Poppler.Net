@@ -1,13 +1,14 @@
 using System.Collections.ObjectModel;
 using Poppler.Core;
 using Poppler.DocumentModel;
+using Poppler.Annotations;
 
 namespace Poppler;
 
 /// <summary>Read-only managed representation of a PDF document.</summary>
 public sealed class Document : IDisposable
 {
-    public const string PortVersion = "0.8.0";
+    public const string PortVersion = "0.9.0-alpha.1";
     public const string UpstreamVersion = "26.07.0";
 
     private readonly byte[] _data;
@@ -20,6 +21,8 @@ public sealed class Document : IDisposable
         new(EmptyInformation);
     private Lazy<IReadOnlyList<EmbeddedFile>> _embeddedFiles =
         new(() => Array.Empty<EmbeddedFile>());
+    private Lazy<PdfDestinationResolver> _destinations =
+        new(() => throw new InvalidOperationException());
     private readonly object _lifecycleSync = new();
     private bool _disposed;
 
@@ -52,6 +55,8 @@ public sealed class Document : IDisposable
         _information = new Lazy<IReadOnlyDictionary<string, string>>(ReadInformation);
         _embeddedFiles = new Lazy<IReadOnlyList<EmbeddedFile>>(
             () => EmbeddedFileReader.Read(_core, _catalog));
+        _destinations = new Lazy<PdfDestinationResolver>(
+            () => new PdfDestinationResolver(_core, _catalog, _pageNodes));
     }
 
     public string PdfVersion => _core.PdfVersion;
@@ -82,6 +87,14 @@ public sealed class Document : IDisposable
         }
     }
     public bool HasEmbeddedFiles => EmbeddedFiles.Count > 0;
+    public IReadOnlyDictionary<string, PdfDestination> NamedDestinations
+    {
+        get
+        {
+            EnsureUnlocked();
+            return _destinations.Value.NamedDestinations;
+        }
+    }
 
     public string Title => GetInfo("Title");
     public string Author => GetInfo("Author");
@@ -252,7 +265,21 @@ public sealed class Document : IDisposable
         EnsureUnlocked();
         if ((uint)index >= (uint)_pageNodes.Count)
             throw new ArgumentOutOfRangeException(nameof(index));
-        return new Page(this, _core, _pageNodes[index], index, _pageLabels!.GetLabel(index));
+        return new Page(
+            this,
+            _core,
+            _pageNodes[index],
+            _destinations.Value,
+            index,
+            _pageLabels!.GetLabel(index));
+    }
+
+    public PdfDestination? ResolveDestination(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        EnsureNotDisposed();
+        EnsureUnlocked();
+        return _destinations.Value.ResolveNamed(name);
     }
 
     public Page CreatePage(string label)

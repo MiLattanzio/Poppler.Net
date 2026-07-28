@@ -1,4 +1,5 @@
 using Poppler.Core;
+using Poppler.Annotations;
 using Poppler.DocumentModel;
 using Poppler.Graphics;
 using Poppler.Rendering;
@@ -11,6 +12,7 @@ public sealed class Page
     private readonly Document _owner;
     private readonly PdfDocumentCore _document;
     private readonly PdfPageNode _node;
+    private readonly PdfDestinationResolver _destinations;
     private readonly Lazy<IReadOnlyList<TextBox>> _physicalText;
     private readonly Lazy<IReadOnlyList<TextBox>> _rawText;
     private readonly Lazy<IReadOnlyList<TextBox>> _readingOrderText;
@@ -18,17 +20,21 @@ public sealed class Page
     private readonly Lazy<IReadOnlyList<FontInfo>> _fonts;
     private readonly Lazy<IReadOnlyList<PdfGraphicsElement>> _graphics;
     private readonly Lazy<IReadOnlyList<PdfImage>> _images;
+    private readonly Lazy<IReadOnlyList<PdfAnnotationData>> _annotationData;
+    private readonly Lazy<IReadOnlyList<PdfAnnotation>> _annotations;
 
     internal Page(
         Document owner,
         PdfDocumentCore document,
         PdfPageNode node,
+        PdfDestinationResolver destinations,
         int index,
         string label)
     {
         _owner = owner;
         _document = document;
         _node = node;
+        _destinations = destinations;
         Index = index;
         Label = label;
         _physicalText = new Lazy<IReadOnlyList<TextBox>>(
@@ -47,6 +53,12 @@ public sealed class Page
                 .ToArray());
         _graphics = new Lazy<IReadOnlyList<PdfGraphicsElement>>(
             ExtractGraphics);
+        _annotationData = new Lazy<IReadOnlyList<PdfAnnotationData>>(
+            () => PdfAnnotationReader.Read(_document, _node, _destinations));
+        _annotations = new Lazy<IReadOnlyList<PdfAnnotation>>(
+            () => _annotationData.Value
+                .Select(data => data.Annotation)
+                .ToArray());
         _images = new Lazy<IReadOnlyList<PdfImage>>(
             () => Graphics
                 .OfType<PdfImageElement>()
@@ -63,6 +75,7 @@ public sealed class Page
     public IReadOnlyList<FontInfo> Fonts => _fonts.Value;
     public IReadOnlyList<PdfGraphicsElement> Graphics => _graphics.Value;
     public IReadOnlyList<PdfImage> Images => _images.Value;
+    public IReadOnlyList<PdfAnnotation> Annotations => _annotations.Value;
 
     public PageOrientation Orientation => Rotation switch
     {
@@ -157,7 +170,8 @@ public sealed class Page
     {
         if (_owner.Locked)
             throw new PdfEncryptedException();
-        return new PdfGraphicsInterpreter(_document, _node).Interpret();
+        return new PdfGraphicsInterpreter(_document, _node)
+            .Interpret(_annotationData.Value);
     }
 
     private static bool Intersects(PdfRectangle left, PdfRectangle right) =>

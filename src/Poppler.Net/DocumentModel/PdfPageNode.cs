@@ -3,6 +3,7 @@ using Poppler.Core;
 namespace Poppler.DocumentModel;
 
 internal sealed record PdfPageNode(
+    PdfReference? SourceReference,
     PdfDictionary Dictionary,
     PdfRectangle MediaBox,
     PdfRectangle CropBox,
@@ -109,6 +110,7 @@ internal static class PdfPageTreeReader
             PdfRectangle? effectiveTrim = NormalizeAndClipOptional(trim, effectiveMedia);
             PdfRectangle? effectiveArt = NormalizeAndClipOptional(art, effectiveMedia);
             pages.Add(new PdfPageNode(
+                nodeReference,
                 node,
                 effectiveMedia,
                 effectiveCrop,

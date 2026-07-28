@@ -1,6 +1,6 @@
 # Managed graphics engine
 
-Version `0.8.0` retains and extends the backend-neutral slice of Poppler
+Version `0.9.0-alpha.1` retains and extends the backend-neutral slice of Poppler
 26.07.0 `Gfx`, `GfxState`, `Function`, pattern and XObject behavior. It parses
 page content into immutable managed objects; it does not call Poppler, Cairo,
 FreeType or another native renderer.
@@ -26,6 +26,20 @@ groups remain nested for intermediate-surface compositing.
 
 The managed SVG and raster backends consume the same list. Text, paths, Forms,
 images and shadings therefore preserve their exact content-stream ordering.
+Visible annotation normal appearances or managed fallbacks are appended after
+page content in `/Annots` order. Annotation elements identify their origin
+through `SourceResource`.
+
+## Annotation appearances
+
+`/AP/N` streams reuse the Form interpreter, local resources and recursion
+guards. `/AS` selects a named normal state. The appearance `/BBox` and
+`/Matrix` are mapped into `/Rect` and clipped before its elements are appended.
+Malformed appearances are interpreted transactionally: partial elements are
+discarded before a managed fallback is generated.
+
+Invisible, Hidden and NoView annotations are retained in `Page.Annotations`
+but omitted from screen output. See [ANNOTATIONS.md](ANNOTATIONS.md).
 
 ## Operators
 
@@ -105,6 +119,9 @@ is currently raster-only; the SVG preview skips mesh elements.
 | `MaximumTransparencyGroupDepth` | 32 |
 | `MaximumShadingStops` | 33 |
 | `MaximumMeshTriangles` | 65,536 |
+| `MaximumAnnotationsPerPage` | 100,000 |
+| `MaximumAnnotationPoints` | 250,000 |
+| `MaximumAnnotationAppearanceDepth` | 16 |
 
 Limit failures throw `PdfLimitException` and are covered by NUnit tests.
 

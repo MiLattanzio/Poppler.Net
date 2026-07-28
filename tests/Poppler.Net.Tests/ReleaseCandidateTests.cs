@@ -11,7 +11,7 @@ namespace Poppler.Net.Tests;
 public sealed class ReleaseCandidateTests
 {
     private const string FrozenPublicApiSha256 =
-        "085ed34a3fe24c3b698f3556ae868a76d4997d595b3fcd2ff031e552fdf7fc5b";
+        "a4bd8b15a968793f80398fc495c93f00e5a911fb7233500a6f1d9a5e70130048";
 
     [Test]
     public async Task ConcurrentReadsFromOneDocumentAreDeterministic()
@@ -122,7 +122,7 @@ public sealed class ReleaseCandidateTests
     }
 
     [Test]
-    public void PublicApiMatchesStableFreeze()
+    public void PublicApiMatchesReleaseSurface()
     {
         string surface = PublicApiSurface();
         string actual = Convert.ToHexString(

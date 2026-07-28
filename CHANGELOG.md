@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.9.0-alpha.1 — 2026-07-28
+
+- Added immutable `Page.Annotations` metadata for links, notes, FreeText, text
+  markup, squares, circles, lines, polygons, polylines, ink and stamps.
+- Added direct and named destination resolution from `/Dest`, `/GoTo`, catalog
+  `/Dests` dictionaries and bounded `/Names/Dests` name trees, including all
+  XYZ/Fit destination forms.
+- Added inspection-only URI, GoTo and Named actions, public
+  `Document.NamedDestinations`/`ResolveDestination` and the CLI
+  `annotations` command. No action is executed.
+- Reused the shared graphics interpreter for `/AP/N` streams, `/AS` state
+  selection, BBox/Matrix-to-Rect mapping, local resources and nested Forms.
+  Visible appearances are painted after page content in `/Annots` order.
+- Added deterministic managed fallbacks for annotations without usable normal
+  appearances. FreeText fallback uses a built-in vector cell font and does not
+  depend on native or installed font engines.
+- Added annotation visibility handling, transactional malformed-appearance
+  recovery, recursion detection and limits for annotations, geometry points
+  and appearance depth.
+- Added a deterministic four-page annotation corpus and ten structural,
+  raster, concurrency, resource-limit and corpus-integrity regressions.
+
 ## 0.8.0 — 2026-07-28
 
 - Promoted the `0.8.0-rc.1` renderer to the first stable `0.8` release without

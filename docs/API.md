@@ -43,6 +43,9 @@ var options = new PdfReadOptions
     MaximumXObjectDepth = 16,
     MaximumTransparencyGroupDepth = 16,
     MaximumMeshTriangles = 16_384,
+    MaximumAnnotationsPerPage = 10_000,
+    MaximumAnnotationPoints = 50_000,
+    MaximumAnnotationAppearanceDepth = 8,
     MaximumRenderPixels = 25_000_000,
     MaximumPages = 2_000,
     AttemptXrefRepair = false
@@ -103,6 +106,30 @@ the byte length is the retained encoded payload.
 
 Each `TextBox` also reports `WritingMode` and `IsRightToLeft`.
 
+## Annotations, links and destinations
+
+```csharp
+foreach (PdfAnnotation annotation in page.Annotations)
+{
+    Console.WriteLine(
+        $"{annotation.Type} {annotation.Rectangle} " +
+        $"appearance={annotation.HasAppearance}");
+    if (annotation.Action.Uri is { } uri)
+        Console.WriteLine(uri);
+    if (annotation.Action.Destination is { } destination)
+        Console.WriteLine($"page {destination.PageNumber}: {destination.Type}");
+}
+
+foreach ((string name, PdfDestination destination) in document.NamedDestinations)
+    Console.WriteLine($"{name} -> page {destination.PageNumber}");
+```
+
+`Page.Annotations` preserves `/Annots` order and exposes immutable metadata,
+geometry, border/color state, flags and resolved actions. URI and viewer
+actions are inspection data only and are never executed. Direct destinations,
+catalog `/Dests` and `/Names/Dests` name trees resolve to zero-based page
+indices. See [ANNOTATIONS.md](ANNOTATIONS.md).
+
 ## Graphics display list
 
 ```csharp
@@ -131,7 +158,9 @@ display list. `PdfGraphicsState.SoftMask` exposes Alpha/Luminosity group masks;
 the graphics state also reports fill/stroke overprint and overprint mode.
 
 The display list is immutable from the caller's perspective and is evaluated
-lazily once per `Page`.
+lazily once per `Page`. Page content comes first; visible annotation
+appearances or managed fallbacks follow in `/Annots` order. Their
+`SourceResource` starts with `Annotation[N]/Subtype`.
 
 ## Concurrency and lifetime
 

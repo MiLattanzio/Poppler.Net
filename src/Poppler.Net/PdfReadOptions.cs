@@ -23,6 +23,9 @@ public sealed record PdfReadOptions
     public int MaximumTransparencyGroupDepth { get; init; } = 32;
     public int MaximumShadingStops { get; init; } = 33;
     public int MaximumMeshTriangles { get; init; } = 65_536;
+    public int MaximumAnnotationsPerPage { get; init; } = 100_000;
+    public int MaximumAnnotationPoints { get; init; } = 250_000;
+    public int MaximumAnnotationAppearanceDepth { get; init; } = 16;
     public long MaximumImagePixels { get; init; } = 100_000_000;
     public long MaximumRenderPixels { get; init; } = 100_000_000;
     public int MaximumImageComponents { get; init; } = 32;
@@ -79,6 +82,15 @@ public sealed record PdfReadOptions
             throw new ArgumentOutOfRangeException(nameof(MaximumShadingStops));
         if (MaximumMeshTriangles < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumMeshTriangles));
+        if (MaximumAnnotationsPerPage < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumAnnotationsPerPage));
+        if (MaximumAnnotationPoints < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumAnnotationPoints));
+        if (MaximumAnnotationAppearanceDepth < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(MaximumAnnotationAppearanceDepth));
+        }
         if (MaximumImagePixels < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumImagePixels));
         if (MaximumRenderPixels < 1)

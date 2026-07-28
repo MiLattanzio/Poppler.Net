@@ -1,3 +1,4 @@
+using Poppler.Annotations;
 using Poppler.Core;
 using Poppler.Color;
 using Poppler.DocumentModel;
@@ -25,6 +26,8 @@ internal sealed class PdfGraphicsInterpreter
     private int _operationCount;
     private int _elementCount;
     private int _inlineImageCount;
+    private static readonly IReadOnlyDictionary<char, byte[]> AnnotationGlyphs =
+        CreateAnnotationGlyphs();
 
     public PdfGraphicsInterpreter(PdfDocumentCore document, PdfPageNode page)
     {
@@ -32,7 +35,11 @@ internal sealed class PdfGraphicsInterpreter
         _page = page;
     }
 
-    public IReadOnlyList<PdfGraphicsElement> Interpret()
+    public IReadOnlyList<PdfGraphicsElement> Interpret() =>
+        Interpret(Array.Empty<PdfAnnotationData>());
+
+    public IReadOnlyList<PdfGraphicsElement> Interpret(
+        IReadOnlyList<PdfAnnotationData> annotations)
     {
         var output = new List<PdfGraphicsElement>();
         byte[] content = ReadContent(_page.Dictionary.GetValueOrNull("Contents"));
@@ -43,6 +50,8 @@ internal sealed class PdfGraphicsInterpreter
             output,
             depth: 0,
             sourceResource: null);
+        foreach (PdfAnnotationData annotation in annotations)
+            PaintAnnotation(annotation, output);
         return output;
     }
 
@@ -54,7 +63,13 @@ internal sealed class PdfGraphicsInterpreter
         int depth,
         string? sourceResource)
     {
-        if (depth > _document.Options.MaximumXObjectDepth)
+        int maximumDepth =
+            sourceResource?.StartsWith("Annotation[", StringComparison.Ordinal) == true
+                ? Math.Min(
+                    _document.Options.MaximumXObjectDepth,
+                    _document.Options.MaximumAnnotationAppearanceDepth)
+                : _document.Options.MaximumXObjectDepth;
+        if (depth > maximumDepth)
             throw new PdfLimitException("Form or pattern nesting exceeds the configured limit.");
 
         PdfDictionary? resources = resourcesObject.AsDictionary(_document);
@@ -1063,6 +1078,760 @@ internal sealed class PdfGraphicsInterpreter
             if (reference is not null)
                 _activeForms.Remove(reference);
         }
+    }
+
+    private void PaintAnnotation(
+        PdfAnnotationData data,
+        List<PdfGraphicsElement> output)
+    {
+        PdfAnnotation annotation = data.Annotation;
+        if ((annotation.Flags &
+             (PdfAnnotationFlags.Invisible |
+              PdfAnnotationFlags.Hidden |
+              PdfAnnotationFlags.NoView)) != 0 ||
+            annotation.Rectangle.IsEmpty)
+        {
+            return;
+        }
+
+        string source = $"Annotation[{data.Index + 1}]/{annotation.Subtype}";
+        if (data.NormalAppearance is { } appearance &&
+            PaintAnnotationAppearance(
+                annotation,
+                appearance,
+                source,
+                output))
+        {
+            return;
+        }
+
+        PaintAnnotationFallback(annotation, source, output);
+    }
+
+    private bool PaintAnnotationAppearance(
+        PdfAnnotation annotation,
+        PdfStream appearance,
+        string source,
+        List<PdfGraphicsElement> output)
+    {
+        if (appearance.Dictionary.GetValueOrNull("BBox").AsRectangle(_document)
+                is not { } rawBox)
+        {
+            ReportOnce(
+                "annotation.appearance.bbox.missing",
+                "An annotation appearance without a usable /BBox used the managed fallback.");
+            return false;
+        }
+
+        PdfRectangle box = NormalizeRectangle(rawBox);
+        if (box.IsEmpty)
+            return false;
+        PdfMatrix appearanceMatrix = PdfShadingReader.ReadMatrix(
+            appearance.Dictionary.GetValueOrNull("Matrix"),
+            _document,
+            PdfMatrix.Identity);
+        if (!appearanceMatrix.IsFinite ||
+            !TryMapAppearance(
+                box,
+                annotation.Rectangle,
+                appearanceMatrix,
+                out PdfMatrix transform))
+        {
+            ReportOnce(
+                "annotation.appearance.matrix.invalid",
+                "An annotation appearance with an invalid matrix used the managed fallback.");
+            return false;
+        }
+
+        PdfReference? reference = appearance.SourceReference;
+        if (reference is not null && !_activeForms.Add(reference))
+        {
+            ReportOnce(
+                "annotation.appearance.recursive",
+                "A recursive annotation appearance was skipped.");
+            return false;
+        }
+
+        try
+        {
+            var context = GraphicsContext.Create();
+            context.Graphics = context.Graphics with
+            {
+                Transform = transform
+            };
+            context.Clips.Add(new PdfClipPath(
+                RectanglePath(box),
+                transform,
+                PdfFillRule.NonZero));
+            context.Clips.Add(new PdfClipPath(
+                RectanglePath(annotation.Rectangle),
+                PdfMatrix.Identity,
+                PdfFillRule.NonZero));
+            PdfObject? resources =
+                appearance.Dictionary.GetValueOrNull("Resources") ??
+                _page.Resources;
+            var elements = new List<PdfGraphicsElement>();
+            Execute(
+                _document.Decode(appearance),
+                resources,
+                context,
+                elements,
+                depth: 0,
+                source);
+            output.AddRange(elements);
+            return true;
+        }
+        catch (PdfUnsupportedFeatureException exception)
+        {
+            ReportOnce(
+                "annotation.appearance.unsupported",
+                $"An annotation appearance used the managed fallback: {exception.Message}");
+            return false;
+        }
+        catch (PdfFormatException exception)
+        {
+            ReportOnce(
+                "annotation.appearance.invalid",
+                $"An invalid annotation appearance used the managed fallback: {exception.Message}");
+            return false;
+        }
+        finally
+        {
+            if (reference is not null)
+                _activeForms.Remove(reference);
+        }
+    }
+
+    private void PaintAnnotationFallback(
+        PdfAnnotation annotation,
+        string source,
+        List<PdfGraphicsElement> output)
+    {
+        PdfColor color = annotation.Color ?? annotation.Type switch
+        {
+            PdfAnnotationType.Link => PdfColor.Rgb(0, 0, 1),
+            PdfAnnotationType.Text or PdfAnnotationType.Highlight =>
+                PdfColor.Rgb(1, 0.82, 0),
+            _ => PdfColor.Black
+        };
+        double width = Math.Max(0, annotation.Border.Width);
+        PdfDashPattern dash =
+            annotation.Border.Style == PdfAnnotationBorderStyleKind.Dashed &&
+            annotation.Border.DashPattern.Count > 0
+                ? new PdfDashPattern(annotation.Border.DashPattern, 0)
+                : PdfDashPattern.Solid;
+        var state = new PdfGraphicsState
+        {
+            Fill = new PdfSolidBrush(annotation.InteriorColor ?? color),
+            Stroke = new PdfSolidBrush(color),
+            LineWidth = width,
+            Dash = dash,
+            FillAlpha = annotation.Opacity,
+            StrokeAlpha = annotation.Opacity
+        };
+
+        switch (annotation.Type)
+        {
+            case PdfAnnotationType.Link when width > 0:
+                EmitPath(
+                    output,
+                    RectanglePath(annotation.Rectangle),
+                    PdfPaintMode.Stroke,
+                    state,
+                    source);
+                break;
+            case PdfAnnotationType.Text:
+                PaintTextIcon(annotation.Rectangle, state, source, output);
+                break;
+            case PdfAnnotationType.FreeText:
+                if (width > 0)
+                {
+                    EmitPath(
+                        output,
+                        RectanglePath(annotation.Rectangle),
+                        PdfPaintMode.Stroke,
+                        state,
+                        source);
+                }
+                PaintFallbackText(annotation, source, output);
+                break;
+            case PdfAnnotationType.Highlight:
+                PaintTextMarkup(
+                    annotation,
+                    PdfPaintMode.Fill,
+                    state with
+                    {
+                        FillAlpha = Math.Min(annotation.Opacity, 0.45),
+                        BlendMode = "Multiply"
+                    },
+                    source,
+                    output);
+                break;
+            case PdfAnnotationType.Underline:
+            case PdfAnnotationType.Squiggly:
+            case PdfAnnotationType.StrikeOut:
+                PaintTextMarkup(
+                    annotation,
+                    PdfPaintMode.Stroke,
+                    state with
+                    {
+                        LineWidth = Math.Max(0.8, width)
+                    },
+                    source,
+                    output);
+                break;
+            case PdfAnnotationType.Square:
+                if (width > 0 || annotation.InteriorColor is not null)
+                {
+                    EmitPath(
+                        output,
+                        InsetRectangle(annotation.Rectangle, width / 2),
+                        (width > 0 ? PdfPaintMode.Stroke : PdfPaintMode.None) |
+                        (annotation.InteriorColor is not null
+                            ? PdfPaintMode.Fill
+                            : PdfPaintMode.None),
+                        state,
+                        source);
+                }
+                break;
+            case PdfAnnotationType.Circle:
+                if (width > 0 || annotation.InteriorColor is not null)
+                {
+                    EmitPath(
+                        output,
+                        EllipsePath(annotation.Rectangle, width / 2),
+                        (width > 0 ? PdfPaintMode.Stroke : PdfPaintMode.None) |
+                        (annotation.InteriorColor is not null
+                            ? PdfPaintMode.Fill
+                            : PdfPaintMode.None),
+                        state,
+                        source);
+                }
+                break;
+            case PdfAnnotationType.Line:
+                if (width > 0 && annotation.LinePoints.Count >= 2)
+                {
+                    EmitPath(
+                        output,
+                        PolylinePath(annotation.LinePoints.Take(2), close: false),
+                        PdfPaintMode.Stroke,
+                        state,
+                        source);
+                }
+                break;
+            case PdfAnnotationType.Polygon:
+                if ((width > 0 || annotation.InteriorColor is not null) &&
+                    annotation.Vertices.Count >= 2)
+                {
+                    EmitPath(
+                        output,
+                        PolylinePath(annotation.Vertices, close: true),
+                        (width > 0
+                            ? PdfPaintMode.Stroke
+                            : PdfPaintMode.None) |
+                        (annotation.InteriorColor is not null
+                            ? PdfPaintMode.Fill
+                            : PdfPaintMode.None),
+                        state,
+                        source);
+                }
+                break;
+            case PdfAnnotationType.PolyLine:
+                if (width > 0 && annotation.Vertices.Count >= 2)
+                {
+                    EmitPath(
+                        output,
+                        PolylinePath(annotation.Vertices, close: false),
+                        PdfPaintMode.Stroke,
+                        state,
+                        source);
+                }
+                break;
+            case PdfAnnotationType.Ink:
+                if (width <= 0)
+                    break;
+                foreach (IReadOnlyList<PdfPoint> path in annotation.InkPaths)
+                {
+                    if (path.Count >= 2)
+                    {
+                        EmitPath(
+                            output,
+                            PolylinePath(path, close: false),
+                            PdfPaintMode.Stroke,
+                            state,
+                            source);
+                    }
+                }
+                break;
+            case PdfAnnotationType.Stamp:
+                EmitPath(
+                    output,
+                    InsetRectangle(annotation.Rectangle, Math.Max(1, width)),
+                    PdfPaintMode.Stroke,
+                    state with
+                    {
+                        LineWidth = Math.Max(2, width)
+                    },
+                    source);
+                PaintFallbackText(annotation, source, output);
+                break;
+        }
+    }
+
+    private void PaintTextIcon(
+        PdfRectangle rectangle,
+        PdfGraphicsState state,
+        string source,
+        List<PdfGraphicsElement> output)
+    {
+        double side = Math.Min(18, Math.Min(rectangle.Width, rectangle.Height));
+        var icon = new PdfRectangle(
+            rectangle.Left,
+            rectangle.Top - side,
+            rectangle.Left + side,
+            rectangle.Top);
+        EmitPath(
+            output,
+            RectanglePath(icon),
+            PdfPaintMode.Fill | PdfPaintMode.Stroke,
+            state with
+            {
+                Stroke = new PdfSolidBrush(PdfColor.Black),
+                LineWidth = Math.Max(0.8, state.LineWidth)
+            },
+            source);
+        var fold = new PdfPathBuilder();
+        fold.MoveTo(icon.Right - side * 0.35, icon.Top);
+        fold.LineTo(icon.Right - side * 0.35, icon.Top - side * 0.35);
+        fold.LineTo(icon.Right, icon.Top - side * 0.35);
+        EmitPath(
+            output,
+            fold.Snapshot(),
+            PdfPaintMode.Stroke,
+            state with
+            {
+                Stroke = new PdfSolidBrush(PdfColor.Black),
+                LineWidth = Math.Max(0.8, state.LineWidth)
+            },
+            source);
+    }
+
+    private void PaintTextMarkup(
+        PdfAnnotation annotation,
+        PdfPaintMode mode,
+        PdfGraphicsState state,
+        string source,
+        List<PdfGraphicsElement> output)
+    {
+        if (annotation.QuadPoints.Count < 4)
+        {
+            if (annotation.Type == PdfAnnotationType.Highlight)
+            {
+                EmitPath(
+                    output,
+                    RectanglePath(annotation.Rectangle),
+                    mode,
+                    state,
+                    source);
+            }
+            return;
+        }
+
+        for (int index = 0; index + 3 < annotation.QuadPoints.Count; index += 4)
+        {
+            PdfPoint[] quad = annotation.QuadPoints
+                .Skip(index)
+                .Take(4)
+                .ToArray();
+            double left = quad.Min(point => point.X);
+            double right = quad.Max(point => point.X);
+            double bottom = quad.Min(point => point.Y);
+            double top = quad.Max(point => point.Y);
+            var rectangle = new PdfRectangle(left, bottom, right, top);
+            if (annotation.Type == PdfAnnotationType.Highlight)
+            {
+                EmitPath(
+                    output,
+                    RoundedRectanglePath(
+                        rectangle,
+                        Math.Min(rectangle.Width, rectangle.Height) / 2),
+                    mode,
+                    state,
+                    source);
+                continue;
+            }
+
+            double y = annotation.Type == PdfAnnotationType.StrikeOut
+                ? (bottom + top) / 2
+                : bottom + Math.Max(0.5, (top - bottom) * 0.08);
+            PdfGraphicsPath line = annotation.Type == PdfAnnotationType.Squiggly
+                ? SquigglyPath(left, right, y, Math.Max(1, (top - bottom) * 0.08))
+                : LinePath(new PdfPoint(left, y), new PdfPoint(right, y));
+            EmitPath(output, line, mode, state, source);
+        }
+    }
+
+    private void PaintFallbackText(
+        PdfAnnotation annotation,
+        string source,
+        List<PdfGraphicsElement> output)
+    {
+        if (string.IsNullOrWhiteSpace(annotation.Contents))
+            return;
+        PdfRectangle rectangle = annotation.Rectangle;
+        double fontSize = Math.Clamp(rectangle.Height * 0.2, 7, 12);
+        int maximumCharacters = Math.Clamp(
+            (int)(rectangle.Width / Math.Max(1, fontSize * 0.7)),
+            1,
+            160);
+        string[] lines = annotation.Contents
+            .Replace("\r", "", StringComparison.Ordinal)
+            .Split('\n')
+            .SelectMany(line => WrapAnnotationText(line, maximumCharacters))
+            .Take(Math.Max(1, (int)(rectangle.Height / (fontSize * 1.25))))
+            .ToArray();
+        if (lines.Length == 0)
+            return;
+
+        double cell = fontSize / 7;
+        double advance = cell * 6;
+        var path = new PdfPathBuilder();
+        for (int lineIndex = 0; lineIndex < lines.Length; lineIndex++)
+        {
+            double top = rectangle.Top - 2 - lineIndex * fontSize * 1.25;
+            double x = rectangle.Left + 2;
+            foreach (char sourceCharacter in lines[lineIndex])
+            {
+                char character = char.ToUpperInvariant(sourceCharacter);
+                if (!AnnotationGlyphs.TryGetValue(character, out byte[]? rows))
+                    rows = AnnotationGlyphs['?'];
+                for (int row = 0; row < rows.Length; row++)
+                {
+                    for (int column = 0; column < 5; column++)
+                    {
+                        if ((rows[row] & (1 << (4 - column))) == 0)
+                            continue;
+                        path.Rectangle(
+                            x + column * cell,
+                            top - (row + 1) * cell,
+                            cell * 0.92,
+                            cell * 0.92);
+                    }
+                }
+                x += advance;
+            }
+        }
+        Emit(
+            output,
+            new PdfPathElement(
+                path.Snapshot(),
+                PdfPaintMode.Fill,
+                PdfFillRule.NonZero,
+                new PdfGraphicsState
+                {
+                    Fill = new PdfSolidBrush(PdfColor.Black),
+                    FillAlpha = annotation.Opacity
+                },
+                new[]
+                {
+                    new PdfClipPath(
+                        RectanglePath(rectangle),
+                        PdfMatrix.Identity,
+                        PdfFillRule.NonZero)
+                },
+                source));
+    }
+
+    private void EmitPath(
+        List<PdfGraphicsElement> output,
+        PdfGraphicsPath path,
+        PdfPaintMode mode,
+        PdfGraphicsState state,
+        string source)
+    {
+        if (path.IsEmpty)
+            return;
+        Emit(
+            output,
+            new PdfPathElement(
+                path,
+                mode,
+                PdfFillRule.NonZero,
+                state,
+                Array.Empty<PdfClipPath>(),
+                source));
+    }
+
+    private static bool TryMapAppearance(
+        PdfRectangle box,
+        PdfRectangle target,
+        PdfMatrix appearanceMatrix,
+        out PdfMatrix transform)
+    {
+        PdfPoint[] corners =
+        {
+            appearanceMatrix.Transform(box.Left, box.Bottom),
+            appearanceMatrix.Transform(box.Right, box.Bottom),
+            appearanceMatrix.Transform(box.Right, box.Top),
+            appearanceMatrix.Transform(box.Left, box.Top)
+        };
+        if (corners.Any(point =>
+                !double.IsFinite(point.X) || !double.IsFinite(point.Y)))
+        {
+            transform = default;
+            return false;
+        }
+
+        double left = corners.Min(point => point.X);
+        double right = corners.Max(point => point.X);
+        double bottom = corners.Min(point => point.Y);
+        double top = corners.Max(point => point.Y);
+        if (right <= left || top <= bottom)
+        {
+            transform = default;
+            return false;
+        }
+
+        double scaleX = target.Width / (right - left);
+        double scaleY = target.Height / (top - bottom);
+        var mapping = new PdfMatrix(
+            scaleX,
+            0,
+            0,
+            scaleY,
+            target.Left - left * scaleX,
+            target.Bottom - bottom * scaleY);
+        transform = appearanceMatrix.Multiply(mapping);
+        return transform.IsFinite;
+    }
+
+    private static PdfRectangle NormalizeRectangle(PdfRectangle rectangle) =>
+        new(
+            Math.Min(rectangle.Left, rectangle.Right),
+            Math.Min(rectangle.Bottom, rectangle.Top),
+            Math.Max(rectangle.Left, rectangle.Right),
+            Math.Max(rectangle.Bottom, rectangle.Top));
+
+    private static PdfGraphicsPath InsetRectangle(
+        PdfRectangle rectangle,
+        double inset)
+    {
+        double maximum = Math.Min(rectangle.Width, rectangle.Height) / 2;
+        inset = Math.Clamp(inset, 0, maximum);
+        return RectanglePath(new PdfRectangle(
+            rectangle.Left + inset,
+            rectangle.Bottom + inset,
+            rectangle.Right - inset,
+            rectangle.Top - inset));
+    }
+
+    private static PdfGraphicsPath EllipsePath(
+        PdfRectangle rectangle,
+        double inset)
+    {
+        double maximum = Math.Min(rectangle.Width, rectangle.Height) / 2;
+        inset = Math.Clamp(inset, 0, maximum);
+        double left = rectangle.Left + inset;
+        double right = rectangle.Right - inset;
+        double bottom = rectangle.Bottom + inset;
+        double top = rectangle.Top - inset;
+        double centerX = (left + right) / 2;
+        double centerY = (bottom + top) / 2;
+        double radiusX = (right - left) / 2;
+        double radiusY = (top - bottom) / 2;
+        const double kappa = 0.5522847498307936;
+        var builder = new PdfPathBuilder();
+        builder.MoveTo(centerX + radiusX, centerY);
+        builder.CurveTo(
+            centerX + radiusX,
+            centerY + radiusY * kappa,
+            centerX + radiusX * kappa,
+            centerY + radiusY,
+            centerX,
+            centerY + radiusY);
+        builder.CurveTo(
+            centerX - radiusX * kappa,
+            centerY + radiusY,
+            centerX - radiusX,
+            centerY + radiusY * kappa,
+            centerX - radiusX,
+            centerY);
+        builder.CurveTo(
+            centerX - radiusX,
+            centerY - radiusY * kappa,
+            centerX - radiusX * kappa,
+            centerY - radiusY,
+            centerX,
+            centerY - radiusY);
+        builder.CurveTo(
+            centerX + radiusX * kappa,
+            centerY - radiusY,
+            centerX + radiusX,
+            centerY - radiusY * kappa,
+            centerX + radiusX,
+            centerY);
+        builder.Close();
+        return builder.Snapshot();
+    }
+
+    private static PdfGraphicsPath RoundedRectanglePath(
+        PdfRectangle rectangle,
+        double radius)
+    {
+        radius = Math.Clamp(
+            radius,
+            0,
+            Math.Min(rectangle.Width, rectangle.Height) / 2);
+        if (radius <= 0)
+            return RectanglePath(rectangle);
+        const double kappa = 0.5522847498307936;
+        double offset = radius * kappa;
+        var builder = new PdfPathBuilder();
+        builder.MoveTo(rectangle.Left + radius, rectangle.Bottom);
+        builder.LineTo(rectangle.Right - radius, rectangle.Bottom);
+        builder.CurveTo(
+            rectangle.Right - radius + offset,
+            rectangle.Bottom,
+            rectangle.Right,
+            rectangle.Bottom + radius - offset,
+            rectangle.Right,
+            rectangle.Bottom + radius);
+        builder.LineTo(rectangle.Right, rectangle.Top - radius);
+        builder.CurveTo(
+            rectangle.Right,
+            rectangle.Top - radius + offset,
+            rectangle.Right - radius + offset,
+            rectangle.Top,
+            rectangle.Right - radius,
+            rectangle.Top);
+        builder.LineTo(rectangle.Left + radius, rectangle.Top);
+        builder.CurveTo(
+            rectangle.Left + radius - offset,
+            rectangle.Top,
+            rectangle.Left,
+            rectangle.Top - radius + offset,
+            rectangle.Left,
+            rectangle.Top - radius);
+        builder.LineTo(rectangle.Left, rectangle.Bottom + radius);
+        builder.CurveTo(
+            rectangle.Left,
+            rectangle.Bottom + radius - offset,
+            rectangle.Left + radius - offset,
+            rectangle.Bottom,
+            rectangle.Left + radius,
+            rectangle.Bottom);
+        builder.Close();
+        return builder.Snapshot();
+    }
+
+    private static PdfGraphicsPath PolylinePath(
+        IEnumerable<PdfPoint> points,
+        bool close)
+    {
+        PdfPoint[] source = points.ToArray();
+        var builder = new PdfPathBuilder();
+        if (source.Length == 0)
+            return builder.Snapshot();
+        builder.MoveTo(source[0].X, source[0].Y);
+        foreach (PdfPoint point in source.Skip(1))
+            builder.LineTo(point.X, point.Y);
+        if (close)
+            builder.Close();
+        return builder.Snapshot();
+    }
+
+    private static PdfGraphicsPath LinePath(PdfPoint start, PdfPoint end) =>
+        PolylinePath(new[] { start, end }, close: false);
+
+    private static PdfGraphicsPath SquigglyPath(
+        double left,
+        double right,
+        double y,
+        double amplitude)
+    {
+        var builder = new PdfPathBuilder();
+        builder.MoveTo(left, y);
+        double step = Math.Max(2, amplitude * 2);
+        bool high = true;
+        for (double x = left + step / 2; x < right; x += step / 2)
+        {
+            builder.LineTo(x, y + (high ? amplitude : -amplitude));
+            high = !high;
+        }
+        builder.LineTo(right, y);
+        return builder.Snapshot();
+    }
+
+    private static IEnumerable<string> WrapAnnotationText(
+        string text,
+        int maximumCharacters)
+    {
+        string remaining = text.Trim();
+        while (remaining.Length > maximumCharacters)
+        {
+            int split = remaining.LastIndexOf(' ', maximumCharacters);
+            if (split <= 0)
+                split = maximumCharacters;
+            yield return remaining[..split];
+            remaining = remaining[split..].TrimStart();
+        }
+        if (remaining.Length > 0)
+            yield return remaining;
+    }
+
+    private static IReadOnlyDictionary<char, byte[]> CreateAnnotationGlyphs()
+    {
+        return new Dictionary<char, byte[]>
+        {
+            [' '] = new byte[] { 0, 0, 0, 0, 0, 0, 0 },
+            ['A'] = new byte[] { 14, 17, 17, 31, 17, 17, 17 },
+            ['B'] = new byte[] { 30, 17, 17, 30, 17, 17, 30 },
+            ['C'] = new byte[] { 14, 17, 16, 16, 16, 17, 14 },
+            ['D'] = new byte[] { 30, 17, 17, 17, 17, 17, 30 },
+            ['E'] = new byte[] { 31, 16, 16, 30, 16, 16, 31 },
+            ['F'] = new byte[] { 31, 16, 16, 30, 16, 16, 16 },
+            ['G'] = new byte[] { 14, 17, 16, 23, 17, 17, 14 },
+            ['H'] = new byte[] { 17, 17, 17, 31, 17, 17, 17 },
+            ['I'] = new byte[] { 14, 4, 4, 4, 4, 4, 14 },
+            ['J'] = new byte[] { 7, 2, 2, 2, 18, 18, 12 },
+            ['K'] = new byte[] { 17, 18, 20, 24, 20, 18, 17 },
+            ['L'] = new byte[] { 16, 16, 16, 16, 16, 16, 31 },
+            ['M'] = new byte[] { 17, 27, 21, 21, 17, 17, 17 },
+            ['N'] = new byte[] { 17, 25, 21, 19, 17, 17, 17 },
+            ['O'] = new byte[] { 14, 17, 17, 17, 17, 17, 14 },
+            ['P'] = new byte[] { 30, 17, 17, 30, 16, 16, 16 },
+            ['Q'] = new byte[] { 14, 17, 17, 17, 21, 18, 13 },
+            ['R'] = new byte[] { 30, 17, 17, 30, 20, 18, 17 },
+            ['S'] = new byte[] { 15, 16, 16, 14, 1, 1, 30 },
+            ['T'] = new byte[] { 31, 4, 4, 4, 4, 4, 4 },
+            ['U'] = new byte[] { 17, 17, 17, 17, 17, 17, 14 },
+            ['V'] = new byte[] { 17, 17, 17, 17, 17, 10, 4 },
+            ['W'] = new byte[] { 17, 17, 17, 21, 21, 21, 10 },
+            ['X'] = new byte[] { 17, 17, 10, 4, 10, 17, 17 },
+            ['Y'] = new byte[] { 17, 17, 10, 4, 4, 4, 4 },
+            ['Z'] = new byte[] { 31, 1, 2, 4, 8, 16, 31 },
+            ['0'] = new byte[] { 14, 17, 19, 21, 25, 17, 14 },
+            ['1'] = new byte[] { 4, 12, 4, 4, 4, 4, 14 },
+            ['2'] = new byte[] { 14, 17, 1, 2, 4, 8, 31 },
+            ['3'] = new byte[] { 30, 1, 1, 14, 1, 1, 30 },
+            ['4'] = new byte[] { 2, 6, 10, 18, 31, 2, 2 },
+            ['5'] = new byte[] { 31, 16, 16, 30, 1, 1, 30 },
+            ['6'] = new byte[] { 14, 16, 16, 30, 17, 17, 14 },
+            ['7'] = new byte[] { 31, 1, 2, 4, 8, 8, 8 },
+            ['8'] = new byte[] { 14, 17, 17, 14, 17, 17, 14 },
+            ['9'] = new byte[] { 14, 17, 17, 15, 1, 1, 14 },
+            ['.'] = new byte[] { 0, 0, 0, 0, 0, 12, 12 },
+            [','] = new byte[] { 0, 0, 0, 0, 0, 12, 8 },
+            [':'] = new byte[] { 0, 12, 12, 0, 12, 12, 0 },
+            [';'] = new byte[] { 0, 12, 12, 0, 12, 8, 0 },
+            ['-'] = new byte[] { 0, 0, 0, 31, 0, 0, 0 },
+            ['_'] = new byte[] { 0, 0, 0, 0, 0, 0, 31 },
+            ['/'] = new byte[] { 1, 2, 2, 4, 8, 8, 16 },
+            ['('] = new byte[] { 2, 4, 8, 8, 8, 4, 2 },
+            [')'] = new byte[] { 8, 4, 2, 2, 2, 4, 8 },
+            ['!'] = new byte[] { 4, 4, 4, 4, 4, 0, 4 },
+            ['?'] = new byte[] { 14, 17, 1, 2, 4, 0, 4 }
+        };
     }
 
     private void PaintShading(

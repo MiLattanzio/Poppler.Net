@@ -9,7 +9,8 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.8.0` integrates text into the graphics interpreter,
+slices. Version `0.9.0-alpha.1` builds on the stable `0.8.0` text and graphics
+interpreter,
 adds managed CFF1/Type 2 and Type 1 outline readers, executes Type 3 CharProcs,
 decodes inline images, ports the canonical Base-14 width tables and performs
 managed font-file substitution with advance fitting. It also adds
@@ -72,6 +73,9 @@ it is not a claim that all of Poppler has already been translated.
 21. Freeze the `0.8` public API, synchronize shared document/CMap caches,
     snapshot caller-owned option collections and make font/CMap discovery
     deterministic across repeated runs.
+22. Read immutable page annotations, resolve direct and named destinations,
+    inspect URI/GoTo/Named actions and map bounded normal appearance streams
+    into the shared graphics display list with managed fallbacks.
 
 ## Upstream-to-managed map
 
@@ -87,9 +91,9 @@ it is not a claim that all of Poppler has already been translated.
 | `CMap`, `CharCodeToUnicode` | `PdfCMap`, `PdfCMapResolver` | Embedded/Identity and bounded external code, CID and Unicode maps with inheritance |
 | `GfxFont`, FoFi inspection | `PdfFontDecoder`, `PdfOpenTypeCmap`, `PdfOpenTypeLayout`, `PdfTrueTypeFont`, `PdfCffFont`, `PdfType1Font` | Text metrics, sfnt fallback, common TrueType/CFF1/Type 1 outlines, initial CFF2 and targeted GSUB |
 | `TextOutputDev` | `PdfTextExtractor`, `PdfTextLayoutEngine` | Horizontal/vertical runs and initial reading order |
-| `Outline`, `Link` | — | Planned |
+| `Outline`, `Link` | `PdfAnnotation`, `PdfAnnotationAction`, `PdfDestination` | Link/destination slice implemented; outlines planned |
 | `Decrypt`, `SecurityHandler` | `PdfStandardSecurityHandler`, `PdfCryptography` | R2–R6 implemented |
-| `Annot`, `Form` | detection only | Planned |
+| `Annot`, `Form` | `PdfAnnotationReader`, appearance reuse of `PdfGraphicsInterpreter` | Initial read-only annotation and normal-appearance slice |
 | `Gfx`, `GfxState`, `Function` | `PdfGraphicsInterpreter`, graphics model, `PdfFunction`, `PdfShadingReader`, `PdfMeshShadingReader` | Vector slice plus sampled/exponential/stitching/calculator functions and shading types 2–7 |
 | `ImageStream`, `DCTStream`, `JPXStream`, `JBIG2Stream`, `CCITTFaxStream` | `PdfImageDecoder`, `CcittFaxDecoder` | Managed Image XObject decoding |
 | `GfxColorSpace`, common ICC transforms | `PdfColorSpaceDefinition`, `PdfIccProfile` | Device, calibrated, indexed, spot and common matrix/shaper profiles |
@@ -112,7 +116,8 @@ it is not a claim that all of Poppler has already been translated.
    Flate/LZW/CCITT/JBIG2/JPX inline-image boundary cases.
 4. Add LUT-based ICC profiles, proofing, rendering intents and spot-color
    overprint.
-5. Annotations, AcroForm/XFA surface, actions, links and outlines.
+5. Complete advanced annotations, AcroForm/XFA field/widget behavior, optional
+   content, outlines and additional inspection-only actions.
 6. Digital signature validation through managed cryptography.
 7. Writer, advanced repair mode, fuzz corpus, PDF corpus differential tests
    and API parity.

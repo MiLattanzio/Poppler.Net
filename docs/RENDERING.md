@@ -1,6 +1,6 @@
-# Managed raster rendering in 0.8
+# Managed raster rendering in 0.9
 
-Release `0.8.0` extends the pure-C# counterpart of Poppler's
+Release `0.9.0-alpha.1` extends the pure-C# counterpart of Poppler's
 `SplashOutputDev`, path scanner, compositing and font-outline responsibilities.
 It consumes the backend-neutral `Page.Graphics` display list and never loads
 Splash, Cairo, Skia, FreeType, a platform drawing API or another native
@@ -73,6 +73,8 @@ pixels at alpha zero.
     `PdfImageElement` entries at their content-stream position. ASCIIHex,
     ASCII85, RunLength and DCT boundaries use their filter terminators instead
     of the first whitespace-delimited `EI` byte sequence.
+12. Visible annotation `/AP/N` streams or deterministic managed fallbacks are
+    painted after page content in `/Annots` order.
 
 The blend implementation covers Normal, Multiply, Screen, Overlay, Darken,
 Lighten, ColorDodge, ColorBurn, HardLight, SoftLight, Difference, Exclusion,
@@ -150,6 +152,11 @@ defaults to 32 and bounds both intermediate groups and soft masks.
 data. Existing
 graphics-operation, path-segment, XObject, image and decoded-stream limits
 remain active.
+
+Annotation rendering is additionally bounded by
+`MaximumAnnotationsPerPage`, `MaximumAnnotationPoints` and
+`MaximumAnnotationAppearanceDepth`. Existing XObject, stream and display-list
+limits continue to apply inside an appearance.
 
 `RasterRenderOptions.Dpi` is restricted to 1–2400. The antialiasing grid must
 be 1, 2, 4 or 8.

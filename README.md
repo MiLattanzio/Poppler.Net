@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.8.0` compatibility release is not a complete replacement for
+> This `0.9.0-alpha.1` compatibility release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -31,7 +31,10 @@ process invocation, or native NuGet dependency.
 > advanced transparency-group surfaces and process-CMYK overprint preview.
 > The stable release preserves the RC 1 public API freeze, makes
 > shared-document read paths concurrency safe, snapshots caller-owned option
-> collections and makes external font/CMap discovery deterministic. See
+> collections and makes external font/CMap discovery deterministic.
+> Alpha 1 of the `0.9` line adds immutable page annotations, internal/URI/named
+> link targets, normal appearance streams and deterministic managed fallbacks.
+> See [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md) for its scope and limits. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
@@ -78,6 +81,7 @@ Package author and project metadata identify **Mi Lattanzio** and
 dotnet run --project src/Poppler.Net.Cli -- info input.pdf
 dotnet run --project src/Poppler.Net.Cli -- text input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- fonts input.pdf
+dotnet run --project src/Poppler.Net.Cli -- annotations input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- graphics input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- images input.pdf output-images
 dotnet run --project src/Poppler.Net.Cli -- render input.pdf page.png --page 1 --dpi 144
@@ -108,6 +112,8 @@ foreach (FontInfo font in page.Fonts)
     Console.WriteLine($"{font.Name}: {font.Type}, {font.EmbeddedFormat}");
 foreach (PdfGraphicsElement element in page.Graphics)
     Console.WriteLine($"{element.GetType().Name}: {element.State.Transform}");
+foreach (PdfAnnotation annotation in page.Annotations)
+    Console.WriteLine($"{annotation.Type}: {annotation.Action.Type}");
 foreach (PdfImage image in page.Images)
 {
     Console.WriteLine($"{image.ResourceName}: {image.Width}x{image.Height}, stride {image.BytesPerRow}");
@@ -144,6 +150,9 @@ matching Poppler's C++ API, returns the document's new locking status
   `XRef`, `Stream` and filter layers.
 - `DocumentModel/` corresponds to `PDFDoc`, `Catalog`, `Page`, `Outline`,
   `FileSpec` and page labels.
+- `Annotations/` reads annotations, link actions and direct/named
+  destinations, then maps normal appearance streams into the page display
+  list.
 - `Text/` corresponds to the first managed slice of `TextOutputDev`, font
   encodings, `GfxFont`, CID metrics and `ToUnicode`/encoding CMaps.
 - `Graphics/` is the first managed slice of `Gfx`, `GfxState`, `Function`,
@@ -212,6 +221,13 @@ public API freeze and hardens concurrent read-only use, option ownership and
 deterministic resource discovery. Full variable-font interpolation,
 complex shaping, ICC proofing and spot-color overprint remain outside this
 release.
+
+The `0.9` alpha 1 slice adds immutable annotation metadata, direct and named
+destination resolution, URI/GoTo/Named action inspection, `/AP/N` and `/AS`
+selection, appearance-to-rectangle mapping, annotation visibility flags and
+deterministic managed fallback drawing. AcroForm field semantics, optional
+content and advanced annotation behavior remain planned for later `0.9`
+prereleases.
 
 ## License and provenance
 

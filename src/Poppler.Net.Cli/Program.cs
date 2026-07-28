@@ -21,6 +21,7 @@ internal static class Cli
                 "info" => Info(args),
                 "text" => Text(args),
                 "fonts" => Fonts(args),
+                "annotations" => Annotations(args),
                 "graphics" => Graphics(args),
                 "images" => Images(args),
                 "render" => Render(args),
@@ -154,6 +155,40 @@ internal static class Cli
         return 0;
     }
 
+    private static int Annotations(string[] args)
+    {
+        RequireCount(args, 2, "annotations requires an input PDF.");
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
+        int? pageNumber = GetPageOption(args);
+        IEnumerable<Page> pages = pageNumber is null
+            ? Enumerable.Range(0, document.Pages).Select(document.CreatePage)
+            : new[] { document.CreatePage(ToIndex(pageNumber.Value, document)) };
+        int total = 0;
+        foreach (Page page in pages)
+        {
+            for (int index = 0; index < page.Annotations.Count; index++)
+            {
+                PdfAnnotation annotation = page.Annotations[index];
+                Console.WriteLine(
+                    $"page {page.Number} annotation {index + 1}: " +
+                    $"{annotation.Type} ({annotation.Subtype}) " +
+                    $"rect={annotation.Rectangle} flags={annotation.Flags} " +
+                    $"appearance={YesNo(annotation.HasAppearance)}");
+                if (!string.IsNullOrWhiteSpace(annotation.Contents))
+                {
+                    Console.WriteLine(
+                        $"  contents: {SingleLine(annotation.Contents)}");
+                }
+                WriteAnnotationAction(annotation.Action);
+                total++;
+            }
+        }
+
+        Console.WriteLine($"{total} annotation(s).");
+        return 0;
+    }
+
     private static int Graphics(string[] args)
     {
         RequireCount(args, 2, "graphics requires an input PDF.");
@@ -252,6 +287,33 @@ internal static class Cli
         Console.WriteLine(
             $"poppler-net {Document.PortVersion} (source port target: Poppler {Document.UpstreamVersion})");
         return 0;
+    }
+
+    private static void WriteAnnotationAction(PdfAnnotationAction action)
+    {
+        switch (action.Type)
+        {
+            case PdfAnnotationActionType.Uri:
+                Console.WriteLine($"  action: URI {action.Uri}");
+                break;
+            case PdfAnnotationActionType.GoTo when action.Destination is { } destination:
+                Console.WriteLine(
+                    $"  action: GoTo page {destination.PageNumber} " +
+                    $"{destination.Type}" +
+                    (destination.NamedDestination is null
+                        ? ""
+                        : $" ({destination.NamedDestination})"));
+                break;
+            case PdfAnnotationActionType.GoTo:
+                Console.WriteLine($"  action: GoTo {action.NamedTarget ?? "unresolved"}");
+                break;
+            case PdfAnnotationActionType.Named:
+                Console.WriteLine($"  action: Named {action.NamedTarget}");
+                break;
+            case PdfAnnotationActionType.Unsupported:
+                Console.WriteLine($"  action: Unsupported {action.NamedTarget}");
+                break;
+        }
     }
 
     private static int? GetPageOption(string[] args)
@@ -389,6 +451,11 @@ internal static class Cli
     private static string Truncate(string value, int length) =>
         value.Length <= length ? value : value[..(length - 1)] + "…";
 
+    private static string SingleLine(string value) =>
+        value
+            .Replace("\r", " ", StringComparison.Ordinal)
+            .Replace("\n", " ", StringComparison.Ordinal);
+
     private static void RequireCount(string[] args, int count, string message)
     {
         if (args.Length < count)
@@ -412,6 +479,7 @@ internal static class Cli
               poppler-net info <input.pdf> [password options]
               poppler-net text <input.pdf> [--page N] [--raw|--reading-order] [password options]
               poppler-net fonts <input.pdf> [--page N] [password options]
+              poppler-net annotations <input.pdf> [--page N] [password options]
               poppler-net graphics <input.pdf> [--page N] [password options]
               poppler-net images <input.pdf> <output-dir> [--page N] [password options]
               poppler-net render <input.pdf> <output.png> [--page N] [--dpi N] [--antialias 1|2|4|8] [--transparent] [--font-dir PATH] [--no-font-substitution] [common options]
