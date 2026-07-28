@@ -14,3 +14,4 @@ tests/fixtures/cmaps/* text eol=lf
 
 # This generated ASCII-heavy PDF is hashed byte-for-byte by the test suite.
 tests/fixtures/rendering-transparency.pdf text eol=lf
+tests/fixtures/annotations-alpha1.pdf text eol=lf
