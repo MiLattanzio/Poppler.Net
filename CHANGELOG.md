@@ -16,7 +16,7 @@
   `https://github.com/MiLattanzio/Poppler.Net`.
 - Added GitHub Actions build/test/managed-only/package gates on Ubuntu,
   Windows and macOS. Publishing a GitHub Release deploys the verified package
-  to NuGet.org through the protected `NUGET_API_KEY` secret.
+  to NuGet.org through OIDC Trusted Publishing, without a long-lived API key.
 
 ## 0.8.0-beta.2 — 2026-07-27
 

@@ -125,6 +125,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: nuget.org
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Set up .NET
@@ -138,11 +141,15 @@ jobs:
           name: nuget-package
           path: artifacts
 
+      - name: Log in to NuGet.org
+        id: nuget-login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Publish to NuGet.org
-        env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: >-
           dotnet nuget push "artifacts/*.nupkg"
-          --api-key "$NUGET_API_KEY"
+          --api-key "${{ steps.nuget-login.outputs.NUGET_API_KEY }}"
           --source https://api.nuget.org/v3/index.json
           --skip-duplicate

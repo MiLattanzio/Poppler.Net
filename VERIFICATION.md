@@ -79,14 +79,15 @@ regressions remain part of the 147-test suite.
 - Release builds, tests, managed-only verification and packaging on Ubuntu,
   Windows and macOS for pushes and pull requests;
 - an uploaded `.nupkg` artifact after the platform matrix succeeds;
-- NuGet.org publication only for a published GitHub Release, through the
-  protected `nuget.org` environment and its `NUGET_API_KEY` secret;
+- NuGet.org publication only for a published GitHub Release, using an OIDC
+  token restricted to the protected `nuget.org` environment and exchanged by
+  `NuGet/login` for a short-lived publishing credential;
 - `--skip-duplicate`, read-only repository permissions and concurrency
   cancellation for superseded non-release runs.
 
 The workflow was parsed as YAML and the shell entry point passed `bash -n`.
 The remote workflow remains the authoritative platform and publishing gate;
-an API key is deliberately not present in the source archive.
+no long-lived NuGet API key is stored in GitHub or the source archive.
 
 ## Distribution
 
