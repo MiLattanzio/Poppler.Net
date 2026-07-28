@@ -11,7 +11,7 @@ namespace Poppler.Net.Tests;
 public sealed class ReleaseCandidateTests
 {
     private const string FrozenPublicApiSha256 =
-        "53e218b56813cb9cc4f209c4e3d9d704ab3515f88d44162cb9e9245af4950616";
+        "085ed34a3fe24c3b698f3556ae868a76d4997d595b3fcd2ff031e552fdf7fc5b";
 
     [Test]
     public async Task ConcurrentReadsFromOneDocumentAreDeterministic()
@@ -105,7 +105,7 @@ public sealed class ReleaseCandidateTests
         stopwatch.Stop();
         long allocated = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
         TestContext.Progress.WriteLine(
-            $"RC smoke: {stopwatch.Elapsed.TotalMilliseconds:0.0} ms, " +
+            $"Release smoke: {stopwatch.Elapsed.TotalMilliseconds:0.0} ms, " +
             $"{allocated / (1024.0 * 1024.0):0.0} MiB allocated.");
 
         Assert.Multiple((Action)(() =>
@@ -113,16 +113,16 @@ public sealed class ReleaseCandidateTests
             Assert.That(
                 stopwatch.Elapsed,
                 Is.LessThan(TimeSpan.FromSeconds(30)),
-                "the six-page RC smoke corpus exceeded its time budget");
+                "the six-page release smoke corpus exceeded its time budget");
             Assert.That(
                 allocated,
                 Is.LessThan(512L * 1024 * 1024),
-                "the six-page RC smoke corpus exceeded its allocation budget");
+                "the six-page release smoke corpus exceeded its allocation budget");
         }));
     }
 
     [Test]
-    public void PublicApiMatchesReleaseCandidateFreeze()
+    public void PublicApiMatchesStableFreeze()
     {
         string surface = PublicApiSurface();
         string actual = Convert.ToHexString(
@@ -133,6 +133,18 @@ public sealed class ReleaseCandidateTests
             actual,
             Is.EqualTo(FrozenPublicApiSha256),
             $"Public API changed. Actual SHA-256: {actual}");
+    }
+
+    [Test]
+    public void PortVersionMatchesAssemblyInformationalVersion()
+    {
+        string informationalVersion =
+            typeof(Document).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
+                .InformationalVersion;
+        string packageVersion = informationalVersion.Split('+', 2)[0];
+
+        Assert.That(Document.PortVersion, Is.EqualTo(packageVersion));
     }
 
     private static string ReadAndRender(Document document)

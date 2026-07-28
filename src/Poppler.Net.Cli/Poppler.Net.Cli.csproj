@@ -5,7 +5,7 @@
     <RootNamespace>Poppler.Cli</RootNamespace>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>poppler-net</ToolCommandName>
-    <Version>0.8.0-rc.1</Version>
+    <Version>0.8.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Poppler.Net\Poppler.Net.csproj" />

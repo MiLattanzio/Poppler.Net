@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.8.0-rc.1` compatibility release is not a complete replacement for
+> This `0.8.0` compatibility release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -29,9 +29,9 @@ process invocation, or native NuGet dependency.
 > Narrow/Condensed font matching. Beta 2 adds all four triangle/patch mesh
 > shading families, uncolored tiling patterns, calculator transfer functions,
 > advanced transparency-group surfaces and process-CMYK overprint preview.
-> RC 1 freezes the public API, makes shared-document read paths concurrency
-> safe, snapshots caller-owned option collections and makes external font/CMap
-> discovery deterministic. See
+> The stable release preserves the RC 1 public API freeze, makes
+> shared-document read paths concurrency safe, snapshots caller-owned option
+> collections and makes external font/CMap discovery deterministic. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
@@ -207,9 +207,9 @@ managed CFF2 default-instance path, non-contextual `vert`/`vrt2` and
 `liga`/`rlig` GSUB substitution, and improved Narrow/Condensed font-file
 matching. Beta 2 adds shading types 4–7, `PaintType 2` patterns, bounded
 calculator functions, isolated/non-isolated/knockout group surfaces and
-process-CMYK overprint-mode-1 preview. RC 1 freezes the public API and hardens
-concurrent read-only use, option ownership and deterministic resource
-discovery. Full variable-font interpolation,
+process-CMYK overprint-mode-1 preview. The stable release preserves the RC 1
+public API freeze and hardens concurrent read-only use, option ownership and
+deterministic resource discovery. Full variable-font interpolation,
 complex shaping, ICC proofing and spot-color overprint remain outside this
 release.
 

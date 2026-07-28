@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.0 — 2026-07-28
+
+- Promoted the `0.8.0-rc.1` renderer to the first stable `0.8` release without
+  changing its callable public API or verified raster output.
+- Kept the RC concurrency, deterministic resource discovery, bounded
+  performance gates and managed-only dependency policy as release invariants.
+- Added a regression that requires the public `Document.PortVersion` value to
+  match the assembly and NuGet informational version.
+- Finalized stable CLI, compatibility and porting documentation while
+  preserving the explicit limits around shaping, color proofing, malformed
+  inline images and advanced transparency.
+- Retained the GitHub Actions Linux/Windows/macOS matrix and NuGet.org OIDC
+  Trusted Publishing flow introduced on `master` after RC 1.
+
 ## 0.8.0-rc.1 — 2026-07-28
 
 - Froze the public `0.8` API behind a deterministic reflection signature and

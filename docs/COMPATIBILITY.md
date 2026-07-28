@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.8.0-rc.1
+## Works in 0.8.0
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -130,8 +130,8 @@
 - Encryption is read-only: saving preserves the original encrypted bytes and
   cannot change passwords, permissions or crypt filters.
 - Digital signatures are neither created nor validated.
-- Inline images whose first filter has no deterministic boundary handled by
-  this alpha (including ambiguous Flate/LZW/CCITT/JBIG2/JPX cases), unusual
+- Inline images whose first filter has no deterministic boundary in this
+  release (including ambiguous Flate/LZW/CCITT/JBIG2/JPX cases), unusual
   filter chains or unsupported color spaces may still require more complete
   recovery.
 - Non-isolated groups with non-Normal boundary blend modes and nested knockout

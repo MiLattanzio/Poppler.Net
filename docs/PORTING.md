@@ -9,7 +9,7 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.8.0-rc.1` integrates text into the graphics interpreter,
+slices. Version `0.8.0` integrates text into the graphics interpreter,
 adds managed CFF1/Type 2 and Type 1 outline readers, executes Type 3 CharProcs,
 decodes inline images, ports the canonical Base-14 width tables and performs
 managed font-file substitution with advance fitting. It also adds

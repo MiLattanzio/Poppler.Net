@@ -1,6 +1,6 @@
 # Managed raster rendering in 0.8
 
-Release `0.8.0-rc.1` extends the pure-C# counterpart of Poppler's
+Release `0.8.0` extends the pure-C# counterpart of Poppler's
 `SplashOutputDev`, path scanner, compositing and font-outline responsibilities.
 It consumes the backend-neutral `Page.Graphics` display list and never loads
 Splash, Cairo, Skia, FreeType, a platform drawing API or another native
@@ -201,12 +201,13 @@ Beta 2 adds a deterministic six-page graphics corpus for free-form/lattice
 Gouraud meshes, Coons/tensor patch meshes, per-use uncolored patterns,
 calculator soft-mask transfer, isolated/non-isolated/knockout groups and
 process overprint. Raster pages were inspected side by side with Poppler at
-72 DPI; the patch tessellation is visually continuous. Poppler comparison for
-overprint uses its explicit `-overprint` preview mode. RGB values differ
-because Poppler applies its CMYK color-management path while this beta uses
+72 DPI and 2x antialiasing; the patch tessellation is visually continuous.
+Poppler comparison for overprint uses its explicit `-overprint` preview mode.
+RGB values differ
+because Poppler applies its CMYK color-management path while this renderer uses
 the documented managed sRGB conversion.
 
-This remains a beta rasterizer:
+This remains a compatibility-focused rasterizer with explicit limits:
 
 - nested knockout shape/opacity and non-isolated groups with non-Normal
   boundary blend modes remain approximations;
@@ -220,8 +221,8 @@ This remains a beta rasterizer:
   contextual GSUB, GPOS and complex-script shaping remain unsupported;
 - file-based substitution is deliberately simpler than Fontconfig/FreeType
   fallback and depends on local fonts unless explicit directories are used;
-- inline images whose first filter has no deterministic boundary handled by
-  this alpha, unusual filter chains or unsupported color spaces may not
+- inline images whose first filter has no deterministic boundary in this
+  release, unusual filter chains or unsupported color spaces may not
   decode;
 - function-based shading type 1, adaptive patch subdivision, spot-color
   overprint and full ICC LUT/device-link behavior remain unsupported.
