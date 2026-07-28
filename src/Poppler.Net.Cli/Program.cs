@@ -22,6 +22,7 @@ internal static class Cli
                 "text" => Text(args),
                 "fonts" => Fonts(args),
                 "annotations" => Annotations(args),
+                "forms" => Forms(args),
                 "graphics" => Graphics(args),
                 "images" => Images(args),
                 "render" => Render(args),
@@ -64,6 +65,8 @@ internal static class Cli
         Console.WriteLine($"Page mode:          {document.PageMode}");
         Console.WriteLine($"Page layout:        {document.PageLayout}");
         Console.WriteLine($"Form type:          {document.FormType}");
+        Console.WriteLine($"Form fields:        {document.FormFields.Count}");
+        Console.WriteLine($"Needs appearances:  {YesNo(document.FormNeedsAppearances)}");
         Console.WriteLine($"JavaScript present: {YesNo(document.HasJavaScript)}");
         Console.WriteLine($"Embedded files:     {document.EmbeddedFiles.Count}");
         foreach ((string key, string value) in document.Information.OrderBy(pair => pair.Key))
@@ -186,6 +189,54 @@ internal static class Cli
         }
 
         Console.WriteLine($"{total} annotation(s).");
+        return 0;
+    }
+
+    private static int Forms(string[] args)
+    {
+        RequireCount(args, 2, "forms requires an input PDF.");
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
+        int? pageNumber = GetPageOption(args);
+        int? pageIndex = pageNumber is null
+            ? null
+            : ToIndex(pageNumber.Value, document);
+        IEnumerable<PdfFormField> fields = pageIndex is null
+            ? document.FormFields
+            : document.FormFields.Where(field =>
+                field.Widgets.Any(widget => widget.PageIndex == pageIndex));
+
+        Console.WriteLine(
+            $"AcroForm fields: {document.FormFields.Count}; " +
+            $"NeedAppearances={YesNo(document.FormNeedsAppearances)}");
+        int total = 0;
+        foreach (PdfFormField field in fields)
+        {
+            string name = string.IsNullOrEmpty(field.FullyQualifiedName)
+                ? "(unnamed)"
+                : field.FullyQualifiedName;
+            string value = field.IsSigned
+                ? "(signed)"
+                : string.Join(", ", field.Values.Select(SingleLine));
+            Console.WriteLine(
+                $"{name}: {field.Type}" +
+                (field.ButtonType == PdfButtonType.None
+                    ? ""
+                    : $"/{field.ButtonType}") +
+                $" flags={field.Flags} value={value}");
+            foreach (PdfFormWidget widget in field.Widgets)
+            {
+                if (pageIndex is not null && widget.PageIndex != pageIndex)
+                    continue;
+                Console.WriteLine(
+                    $"  widget page={widget.PageNumber?.ToString() ?? "unmapped"} " +
+                    $"rect={widget.Rectangle} state={widget.AppearanceState} " +
+                    $"appearance={YesNo(widget.HasAppearance)}");
+            }
+            total++;
+        }
+
+        Console.WriteLine($"{total} field(s).");
         return 0;
     }
 
@@ -480,6 +531,7 @@ internal static class Cli
               poppler-net text <input.pdf> [--page N] [--raw|--reading-order] [password options]
               poppler-net fonts <input.pdf> [--page N] [password options]
               poppler-net annotations <input.pdf> [--page N] [password options]
+              poppler-net forms <input.pdf> [--page N] [password options]
               poppler-net graphics <input.pdf> [--page N] [password options]
               poppler-net images <input.pdf> <output-dir> [--page N] [password options]
               poppler-net render <input.pdf> <output.png> [--page N] [--dpi N] [--antialias 1|2|4|8] [--transparent] [--font-dir PATH] [--no-font-substitution] [common options]

@@ -26,6 +26,11 @@ public sealed record PdfReadOptions
     public int MaximumAnnotationsPerPage { get; init; } = 100_000;
     public int MaximumAnnotationPoints { get; init; } = 250_000;
     public int MaximumAnnotationAppearanceDepth { get; init; } = 16;
+    public int MaximumFormFields { get; init; } = 100_000;
+    public int MaximumFormWidgets { get; init; } = 100_000;
+    public int MaximumFormOptions { get; init; } = 250_000;
+    public int MaximumFormFieldDepth { get; init; } = 128;
+    public int MaximumFormDefaultAppearanceBytes { get; init; } = 65_536;
     public long MaximumImagePixels { get; init; } = 100_000_000;
     public long MaximumRenderPixels { get; init; } = 100_000_000;
     public int MaximumImageComponents { get; init; } = 32;
@@ -90,6 +95,19 @@ public sealed record PdfReadOptions
         {
             throw new ArgumentOutOfRangeException(
                 nameof(MaximumAnnotationAppearanceDepth));
+        }
+        if (MaximumFormFields < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumFormFields));
+        if (MaximumFormWidgets < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumFormWidgets));
+        if (MaximumFormOptions < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumFormOptions));
+        if (MaximumFormFieldDepth < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumFormFieldDepth));
+        if (MaximumFormDefaultAppearanceBytes < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(MaximumFormDefaultAppearanceBytes));
         }
         if (MaximumImagePixels < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumImagePixels));

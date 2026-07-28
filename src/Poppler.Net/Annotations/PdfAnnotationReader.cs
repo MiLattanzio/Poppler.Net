@@ -1,20 +1,23 @@
 using System.Collections.ObjectModel;
 using Poppler.Core;
 using Poppler.DocumentModel;
+using Poppler.Forms;
 
 namespace Poppler.Annotations;
 
 internal sealed record PdfAnnotationData(
     int Index,
     PdfAnnotation Annotation,
-    PdfStream? NormalAppearance);
+    PdfStream? NormalAppearance,
+    PdfFormWidgetData? FormWidget);
 
 internal static class PdfAnnotationReader
 {
     public static IReadOnlyList<PdfAnnotationData> Read(
         PdfDocumentCore document,
         PdfPageNode page,
-        PdfDestinationResolver destinations)
+        PdfDestinationResolver destinations,
+        PdfFormModel forms)
     {
         PdfArray? source = page.Dictionary.GetValueOrNull("Annots").AsArray(document);
         if (source is null)
@@ -28,7 +31,8 @@ internal static class PdfAnnotationReader
         var result = new List<PdfAnnotationData>(source.Count);
         for (int index = 0; index < source.Count; index++)
         {
-            PdfDictionary? dictionary = source[index].AsDictionary(document);
+            PdfObject sourceObject = source[index];
+            PdfDictionary? dictionary = sourceObject.AsDictionary(document);
             if (dictionary is null)
             {
                 document.AddDiagnostic(
@@ -71,7 +75,11 @@ internal static class PdfAnnotationReader
                     "Annotation point count exceeds the configured limit.");
             }
 
-            PdfStream? appearance = ReadNormalAppearance(dictionary, document);
+            PdfFormWidgetData? formWidget =
+                forms.FindWidget(sourceObject, dictionary);
+            PdfStream? appearance = formWidget is null
+                ? ReadNormalAppearance(dictionary, document)
+                : formWidget.NormalAppearance;
             PdfAnnotationAction action = ReadAction(dictionary, destinations, document);
             var annotation = new PdfAnnotation(
                 type,
@@ -94,7 +102,11 @@ internal static class PdfAnnotationReader
                 inkPaths,
                 action,
                 appearance is not null);
-            result.Add(new PdfAnnotationData(index, annotation, appearance));
+            result.Add(new PdfAnnotationData(
+                index,
+                annotation,
+                appearance,
+                formWidget));
         }
 
         return new ReadOnlyCollection<PdfAnnotationData>(result);
@@ -347,6 +359,7 @@ internal static class PdfAnnotationReader
         "PolyLine" => PdfAnnotationType.PolyLine,
         "Ink" => PdfAnnotationType.Ink,
         "Stamp" => PdfAnnotationType.Stamp,
+        "Widget" => PdfAnnotationType.Widget,
         _ => PdfAnnotationType.Unknown
     };
 

@@ -1,14 +1,14 @@
 # Verification record
 
-Verification performed on 2026-07-28 for `0.9.0-alpha.1`, based on GitHub
-`master` commit `a9ea7fc1e9c5f1309b50aa9df0aef873850fac47`:
+Verification performed on 2026-07-29 for `0.9.0-alpha.2`, based on GitHub
+`master` commit `c2b958bf40a73d4d9351e713b3cff1df8bb6217b`:
 
 - .NET SDK 8.0.423 compiled all four solution projects in Release with
   warnings treated as errors.
-- NUnitLite executed 158 tests: 158 passed, 0 failed, 0 warnings, 0 skipped.
+- NUnitLite executed 171 tests: 171 passed, 0 failed, 0 warnings, 0 skipped.
 - The managed-only verifier accepted production source and every asset in the
   complete restored NuGet graph, including the three managed runtime codecs.
-- `Poppler.Net.0.9.0-alpha.1.nupkg` contains the Release net8.0 DLL/XML, README,
+- `Poppler.Net.0.9.0-alpha.2.nupkg` contains the Release net8.0 DLL/XML, README,
   license and notice. Its NuGet metadata names `Mi Lattanzio` as author and
   `https://github.com/MiLattanzio/Poppler.Net` as project and git repository.
 - The package names only the pinned CoreJ2K, JBig2Decoder.NETStandard and
@@ -19,26 +19,33 @@ Verification performed on 2026-07-28 for `0.9.0-alpha.1`, based on GitHub
 
 ## Release-surface and concurrency gates
 
-Six tests freeze and stress the public release surface:
+The release gates freeze and stress the public surface:
 
 - A deterministic reflection fingerprint covers every public type, member and
   signature. The frozen SHA-256 is
-  `a4bd8b15a968793f80398fc495c93f00e5a911fb7233500a6f1d9a5e70130048`.
+  `43919e817e6ea6e62aaf9937cf3739874a037bbfc2c8dd691228ae47e1d5b8d2`.
 - `Document.PortVersion` must match the assembly/NuGet informational version.
 - Twenty-four workers concurrently read pages, text, fonts, graphics and
   raster output from one `Document`.
 - Thirty-two workers concurrently materialize one lazy embedded file.
 - Sixteen workers concurrently resolve annotations, destinations and
   annotation raster output from one document.
+- Sixteen workers concurrently enumerate AcroForm fields and widgets and
+  reproduce the same page raster from one document.
 - Caller-owned font and CMap directory collections are snapshotted at operation
   boundaries.
-- The Release smoke workload completed in 119.5 ms and allocated 14.9 MiB,
+- The Release smoke workload completed in 96.1 ms and allocated 14.9 MiB,
   within the explicit 30-second and 512-MiB regression budgets.
 
 Object resolution, external-CMap parsing, diagnostics, document lifetime and
 lazy attachment data are synchronized for concurrent read-only use. External
 CMap and substitute-font discovery are ordered deterministically, with
 case-insensitive path comparison on Windows.
+
+The AcroForm reader is lazily initialized once per document. Its public field,
+option and widget collections are immutable, and inherited dictionaries,
+annotation-to-page indices and appearance selection are stable across
+concurrent readers.
 
 ## Rendering compatibility
 
@@ -81,6 +88,26 @@ fallbacks: the malformed FreeText without `/DA` is rendered as deterministic
 vector text instead of Poppler's black rectangle, while note/shape defaults
 remain conservative rather than producer-specific.
 
+The new four-page AcroForm fixture has SHA-256
+`81ecda8fca58d8a8e0179a82ea2e98a106d2f6f76334462ec78afa19d8cb06d9`.
+It covers hierarchical and inherited fields, text/password/comb flags, button
+state selection, choice options and `/I`, signature presence, explicit and
+generated widget appearances, orphan widgets and a circular field-tree
+reference. Managed output at 72 DPI with 2x antialiasing was inspected at
+original resolution and compared with Poppler:
+
+| Page | Purpose | Managed PNG SHA-256 |
+| --- | --- | --- |
+| 1 | Hierarchical text, multiline, password and comb widgets | `b8459dc201c595b58ae81e1a53d3d6bf2dc24428b1289e00368cfe146a2380b8` |
+| 2 | Checkbox, radio and push-button appearance selection/fallback | `3cfeda9506df006f2d7f857e7504989eb71afdc2b8dda6ed201c7985d862df2d` |
+| 3 | Combo/list choices and signature presence | `4f4c95dd0eaff7237945909a6dccf98b784f0da60379bf979e1bf2be05004d01` |
+| 4 | Inherited field, circular tree and orphan widget | `80bcdbb957481fc5409b56aaf67af6d93b61750ce25f65b020059afbee6c1017` |
+
+Explicit widget appearances match Poppler's state and geometry. Generated
+fallback styling is intentionally deterministic and viewer-independent, so
+visual differences from producer/viewer-specific synthesized appearances are
+classified rather than treated as raster regressions.
+
 The three pages of the Prince `drylab.pdf` sample, SHA-256
 `2c1a1a89a63bbaa842306f6bfb57f5712de7e48710b317ca5776585a2a7dd995`,
 were rerendered at 96 DPI with 2x antialiasing and inspected together. Title
@@ -97,7 +124,7 @@ also remain byte-identical to the beta 2 baseline:
 The beta 1 font corpus, alpha 3 filtered-inline-image and page-box corpus,
 TrueType format 0, CFF1/CFF2, Type 1, Type 3, Base-14 metrics, text/graphics
 interleaving, transparency, image/color, encryption and damaged-xref
-regressions remain part of the 158-test suite.
+regressions remain part of the 171-test suite.
 
 ## CI and NuGet publishing
 
@@ -118,14 +145,14 @@ no long-lived NuGet API key is stored in GitHub or the source archive.
 
 ## Distribution
 
-The source archive contains 168 files, including 85 C# files and 26,082 lines
+The source archive contains 175 files, including 88 C# files and 27,430 lines
 of production-library C#. It excludes `bin`, `obj`, NuGet packages, test
 results, QA renders, generated bytecode, executables and native artifacts.
 The final ZIP was extracted into a fresh directory, matched all selected
 source files byte for byte, restored from the five-package managed offline
-feed, rebuilt all four projects without warnings, passed 158/158 tests,
-passed the managed-only verifier, reproduced annotation page 1 and beta page 1
-byte for byte and produced a valid `Poppler.Net.0.9.0-alpha.1.nupkg`.
+feed, rebuilt all four projects without warnings, passed 171/171 tests,
+passed the managed-only verifier, reproduced AcroForm page 1 and beta page 1
+byte for byte and produced a valid `Poppler.Net.0.9.0-alpha.2.nupkg`.
 
 The environment's `dotnet` CLI intermittently cannot inspect its process
 namespace. Running MSBuild single-node with server/node reuse disabled and the

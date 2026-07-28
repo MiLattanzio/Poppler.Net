@@ -2,6 +2,7 @@ using Poppler.Annotations;
 using Poppler.Core;
 using Poppler.Color;
 using Poppler.DocumentModel;
+using Poppler.Forms;
 using Poppler.Images;
 using Poppler.Text;
 using PdfContentOperation = Poppler.Text.PdfContentOperation;
@@ -1105,6 +1106,12 @@ internal sealed class PdfGraphicsInterpreter
             return;
         }
 
+        if (data.FormWidget is { } formWidget)
+        {
+            PaintFormWidgetFallback(formWidget, annotation, source, output);
+            return;
+        }
+
         PaintAnnotationFallback(annotation, source, output);
     }
 
@@ -1376,6 +1383,303 @@ internal sealed class PdfGraphicsInterpreter
                 PaintFallbackText(annotation, source, output);
                 break;
         }
+    }
+
+    private void PaintFormWidgetFallback(
+        PdfFormWidgetData data,
+        PdfAnnotation annotation,
+        string source,
+        List<PdfGraphicsElement> output)
+    {
+        PdfFormField field = data.Field;
+        PdfFormWidget widget = data.Widget;
+        PdfRectangle rectangle = widget.Rectangle;
+        if (rectangle.IsEmpty)
+            return;
+
+        double width = Math.Max(0, annotation.Border.Width);
+        PdfColor borderColor =
+            widget.BorderColor ?? annotation.Color ?? PdfColor.Black;
+        var state = new PdfGraphicsState
+        {
+            Fill = new PdfSolidBrush(widget.BackgroundColor ?? PdfColor.Gray(1)),
+            Stroke = new PdfSolidBrush(borderColor),
+            LineWidth = width,
+            Dash =
+                annotation.Border.Style == PdfAnnotationBorderStyleKind.Dashed &&
+                annotation.Border.DashPattern.Count > 0
+                    ? new PdfDashPattern(annotation.Border.DashPattern, 0)
+                    : PdfDashPattern.Solid,
+            FillAlpha = annotation.Opacity,
+            StrokeAlpha = annotation.Opacity
+        };
+
+        PdfGraphicsPath boundary = field.ButtonType == PdfButtonType.RadioButton
+            ? EllipsePath(rectangle, width / 2)
+            : InsetRectangle(rectangle, width / 2);
+        PdfPaintMode boundaryMode =
+            (widget.BackgroundColor is not null
+                ? PdfPaintMode.Fill
+                : PdfPaintMode.None) |
+            (width > 0 ? PdfPaintMode.Stroke : PdfPaintMode.None);
+        if (boundaryMode != PdfPaintMode.None)
+            EmitPath(output, boundary, boundaryMode, state, source);
+
+        switch (field.Type)
+        {
+            case PdfFormFieldType.Button:
+                PaintButtonWidget(data, state, source, output);
+                break;
+            case PdfFormFieldType.Text:
+            {
+                string text = field.Value;
+                if ((field.Flags & PdfFormFieldFlags.Password) != 0)
+                    text = new string('*', Math.Min(text.Length, 160));
+                PaintWidgetText(
+                    text,
+                    data,
+                    multiline:
+                        (field.Flags & PdfFormFieldFlags.Multiline) != 0,
+                    source,
+                    output);
+                break;
+            }
+            case PdfFormFieldType.Choice:
+            {
+                string[] selected = field.Options
+                    .Where(option => option.IsSelected)
+                    .Select(option => option.DisplayValue)
+                    .Where(value => !string.IsNullOrEmpty(value))
+                    .ToArray();
+                string text = selected.Length > 0
+                    ? string.Join(
+                        (field.Flags & PdfFormFieldFlags.Combo) != 0
+                            ? ""
+                            : "\n",
+                        selected)
+                    : field.Value;
+                PaintWidgetText(
+                    text,
+                    data,
+                    multiline:
+                        (field.Flags & PdfFormFieldFlags.Combo) == 0,
+                    source,
+                    output);
+                break;
+            }
+            case PdfFormFieldType.Signature when field.IsSigned:
+                PaintWidgetText(
+                    string.IsNullOrWhiteSpace(widget.Caption)
+                        ? "SIGNED"
+                        : widget.Caption,
+                    data,
+                    multiline: false,
+                    source,
+                    output);
+                break;
+        }
+    }
+
+    private void PaintButtonWidget(
+        PdfFormWidgetData data,
+        PdfGraphicsState state,
+        string source,
+        List<PdfGraphicsElement> output)
+    {
+        PdfFormField field = data.Field;
+        PdfFormWidget widget = data.Widget;
+        PdfRectangle rectangle = widget.Rectangle;
+        if (field.ButtonType == PdfButtonType.PushButton)
+        {
+            string caption = !string.IsNullOrWhiteSpace(widget.Caption)
+                ? widget.Caption
+                : !string.IsNullOrWhiteSpace(field.AlternateName)
+                    ? field.AlternateName
+                    : field.PartialName;
+            PaintWidgetText(caption, data, multiline: false, source, output);
+            return;
+        }
+
+        bool selected =
+            !string.IsNullOrEmpty(widget.OnState) &&
+            (string.Equals(
+                 field.Value,
+                 widget.OnState,
+                 StringComparison.Ordinal) ||
+             string.Equals(
+                 widget.AppearanceState,
+                 widget.OnState,
+                 StringComparison.Ordinal));
+        if (!selected)
+            return;
+
+        PdfColor markColor = data.TextColor;
+        if (field.ButtonType == PdfButtonType.RadioButton)
+        {
+            EmitPath(
+                output,
+                EllipsePath(
+                    rectangle,
+                    Math.Min(rectangle.Width, rectangle.Height) * 0.3),
+                PdfPaintMode.Fill,
+                state with
+                {
+                    Fill = new PdfSolidBrush(markColor)
+                },
+                source);
+            return;
+        }
+
+        double left = rectangle.Left + rectangle.Width * 0.2;
+        double bottom = rectangle.Bottom + rectangle.Height * 0.5;
+        double middleX = rectangle.Left + rectangle.Width * 0.43;
+        double middleY = rectangle.Bottom + rectangle.Height * 0.25;
+        double right = rectangle.Right - rectangle.Width * 0.15;
+        double top = rectangle.Top - rectangle.Height * 0.2;
+        var check = new PdfPathBuilder();
+        check.MoveTo(left, bottom);
+        check.LineTo(middleX, middleY);
+        check.LineTo(right, top);
+        EmitPath(
+            output,
+            check.Snapshot(),
+            PdfPaintMode.Stroke,
+            state with
+            {
+                Stroke = new PdfSolidBrush(markColor),
+                LineWidth = Math.Max(1.5, Math.Min(
+                    rectangle.Width,
+                    rectangle.Height) * 0.12),
+                LineCap = PdfLineCap.Round,
+                LineJoin = PdfLineJoin.Round
+            },
+            source);
+    }
+
+    private void PaintWidgetText(
+        string text,
+        PdfFormWidgetData data,
+        bool multiline,
+        string source,
+        List<PdfGraphicsElement> output)
+    {
+        PdfRectangle rectangle = data.Widget.Rectangle;
+        double inset = Math.Min(2, Math.Min(
+            rectangle.Width,
+            rectangle.Height) * 0.1);
+        var textRectangle = new PdfRectangle(
+            rectangle.Left + inset,
+            rectangle.Bottom + inset,
+            rectangle.Right - inset,
+            rectangle.Top - inset);
+        PaintCellText(
+            text,
+            textRectangle,
+            data.TextColor,
+            data.FontSize,
+            data.Field.Alignment,
+            multiline,
+            source,
+            output);
+    }
+
+    private void PaintCellText(
+        string text,
+        PdfRectangle rectangle,
+        PdfColor color,
+        double requestedFontSize,
+        PdfTextAlignment alignment,
+        bool multiline,
+        string source,
+        List<PdfGraphicsElement> output)
+    {
+        if (string.IsNullOrWhiteSpace(text) || rectangle.IsEmpty)
+            return;
+        double fontSize = requestedFontSize > 0
+            ? requestedFontSize
+            : multiline
+                ? Math.Clamp(rectangle.Height * 0.22, 6, 12)
+                : Math.Clamp(rectangle.Height * 0.58, 6, 14);
+        fontSize = Math.Clamp(fontSize, 4, Math.Max(4, rectangle.Height));
+        double cell = fontSize / 7;
+        double advance = cell * 6;
+        int maximumCharacters = Math.Clamp(
+            (int)Math.Floor(rectangle.Width / Math.Max(1, advance)),
+            1,
+            256);
+        string[] lines = text
+            .Replace("\r", "", StringComparison.Ordinal)
+            .Split('\n')
+            .SelectMany(line => multiline
+                ? WrapAnnotationText(line, maximumCharacters)
+                : new[] { line })
+            .Select(line => line.Length > maximumCharacters
+                ? line[..maximumCharacters]
+                : line)
+            .Take(multiline
+                ? Math.Max(1, (int)(rectangle.Height / (fontSize * 1.25)))
+                : 1)
+            .ToArray();
+        if (lines.Length == 0)
+            return;
+
+        var path = new PdfPathBuilder();
+        for (int lineIndex = 0; lineIndex < lines.Length; lineIndex++)
+        {
+            string line = lines[lineIndex];
+            double lineWidth = line.Length * advance;
+            double x = alignment switch
+            {
+                PdfTextAlignment.Center =>
+                    rectangle.Left + Math.Max(0, (rectangle.Width - lineWidth) / 2),
+                PdfTextAlignment.Right =>
+                    rectangle.Right - Math.Min(rectangle.Width, lineWidth),
+                _ => rectangle.Left
+            };
+            double top = multiline
+                ? rectangle.Top - lineIndex * fontSize * 1.25
+                : rectangle.Bottom + (rectangle.Height + fontSize) / 2;
+            foreach (char sourceCharacter in line)
+            {
+                char character = char.ToUpperInvariant(sourceCharacter);
+                if (!AnnotationGlyphs.TryGetValue(character, out byte[]? rows))
+                    rows = AnnotationGlyphs['?'];
+                for (int row = 0; row < rows.Length; row++)
+                {
+                    for (int column = 0; column < 5; column++)
+                    {
+                        if ((rows[row] & (1 << (4 - column))) == 0)
+                            continue;
+                        path.Rectangle(
+                            x + column * cell,
+                            top - (row + 1) * cell,
+                            cell * 0.92,
+                            cell * 0.92);
+                    }
+                }
+                x += advance;
+            }
+        }
+        if (path.IsEmpty)
+            return;
+        Emit(
+            output,
+            new PdfPathElement(
+                path.Snapshot(),
+                PdfPaintMode.Fill,
+                PdfFillRule.NonZero,
+                new PdfGraphicsState
+                {
+                    Fill = new PdfSolidBrush(color)
+                },
+                new[]
+                {
+                    new PdfClipPath(
+                        RectanglePath(rectangle),
+                        PdfMatrix.Identity,
+                        PdfFillRule.NonZero)
+                },
+                source));
     }
 
     private void PaintTextIcon(
@@ -1830,6 +2134,7 @@ internal sealed class PdfGraphicsInterpreter
             ['('] = new byte[] { 2, 4, 8, 8, 8, 4, 2 },
             [')'] = new byte[] { 8, 4, 2, 2, 2, 4, 8 },
             ['!'] = new byte[] { 4, 4, 4, 4, 4, 0, 4 },
+            ['*'] = new byte[] { 0, 21, 14, 31, 14, 21, 0 },
             ['?'] = new byte[] { 14, 17, 1, 2, 4, 0, 4 }
         };
     }

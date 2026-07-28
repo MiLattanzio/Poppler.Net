@@ -2,13 +2,14 @@ using System.Collections.ObjectModel;
 using Poppler.Core;
 using Poppler.DocumentModel;
 using Poppler.Annotations;
+using Poppler.Forms;
 
 namespace Poppler;
 
 /// <summary>Read-only managed representation of a PDF document.</summary>
 public sealed class Document : IDisposable
 {
-    public const string PortVersion = "0.9.0-alpha.1";
+    public const string PortVersion = "0.9.0-alpha.2";
     public const string UpstreamVersion = "26.07.0";
 
     private readonly byte[] _data;
@@ -23,6 +24,8 @@ public sealed class Document : IDisposable
         new(() => Array.Empty<EmbeddedFile>());
     private Lazy<PdfDestinationResolver> _destinations =
         new(() => throw new InvalidOperationException());
+    private Lazy<PdfFormModel> _formModel =
+        new(() => PdfFormModel.Empty(0));
     private readonly object _lifecycleSync = new();
     private bool _disposed;
 
@@ -57,6 +60,8 @@ public sealed class Document : IDisposable
             () => EmbeddedFileReader.Read(_core, _catalog));
         _destinations = new Lazy<PdfDestinationResolver>(
             () => new PdfDestinationResolver(_core, _catalog, _pageNodes));
+        _formModel = new Lazy<PdfFormModel>(
+            () => PdfFormReader.Read(_core, _catalog, _pageNodes));
     }
 
     public string PdfVersion => _core.PdfVersion;
@@ -93,6 +98,23 @@ public sealed class Document : IDisposable
         {
             EnsureUnlocked();
             return _destinations.Value.NamedDestinations;
+        }
+    }
+    public IReadOnlyList<PdfFormField> FormFields
+    {
+        get
+        {
+            EnsureUnlocked();
+            return _formModel.Value.Fields;
+        }
+    }
+    public bool HasFormFields => FormFields.Count > 0;
+    public bool FormNeedsAppearances
+    {
+        get
+        {
+            EnsureUnlocked();
+            return _formModel.Value.NeedAppearances;
         }
     }
 
@@ -351,6 +373,10 @@ public sealed class Document : IDisposable
             _information = new Lazy<IReadOnlyDictionary<string, string>>(ReadInformation);
             _embeddedFiles = new Lazy<IReadOnlyList<EmbeddedFile>>(
                 () => EmbeddedFileReader.Read(_core, _catalog));
+            _destinations = new Lazy<PdfDestinationResolver>(
+                () => new PdfDestinationResolver(_core, _catalog, _pageNodes));
+            _formModel = new Lazy<PdfFormModel>(
+                () => PdfFormReader.Read(_core, _catalog, _pageNodes));
             return false;
         }
     }
@@ -376,6 +402,14 @@ public sealed class Document : IDisposable
     }
 
     internal bool Locked => IsLocked;
+    internal PdfFormModel FormModel
+    {
+        get
+        {
+            EnsureUnlocked();
+            return _formModel.Value;
+        }
+    }
 
     private IReadOnlyDictionary<string, string> ReadInformation()
     {

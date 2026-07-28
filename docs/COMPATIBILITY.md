@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.9.0-alpha.1
+## Works in 0.9.0-alpha.2
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -120,6 +120,16 @@
   flags.
 - Deterministic managed annotation fallbacks when no usable normal appearance
   exists.
+- Immutable `Document.FormFields` and per-page `Page.FormWidgets` metadata for
+  text, button, choice and signature fields.
+- Bounded AcroForm field-tree traversal with fully qualified names and
+  inheritance of `/FT`, `/Ff`, `/V`, `/DV`, `/DA`, `/Q`, `/MaxLen`, `/Opt`,
+  `/I` and `/TI`.
+- Read-only field values, default values, choice options/selections, button
+  subtypes and signature-presence inspection plus CLI `forms`.
+- Widget normal-appearance selection from the canonical field value, followed
+  by deterministic managed fallbacks for text/password/comb fields, list and
+  combo choices, check boxes, radio buttons, push buttons and signatures.
 - Missing `%%EOF` and leading-prefix diagnostics.
 - Standard Security Handler `V=1/R=2`, `V=2/R=3`, `V=4/R=4` and
   `V=5/R=5–6`.
@@ -174,9 +184,11 @@
   approximation and are not yet pixel-equivalent to Splash in every case.
 - JPEG 2000 Part 2, unusual JPEG color transforms and malformed/extension
   streams outside the managed codec coverage remain unsupported.
-- Annotation actions are never executed. AcroForm field/widget semantics,
-  XFA, optional content, popup/reply relationships, rich text, movie/sound,
-  screen/3D and advanced annotation behavior remain outside this alpha.
+- Annotation actions are never executed. AcroForm support is read-only:
+  mutation, persisted appearance regeneration, XFA, JavaScript calculation and
+  validation are not implemented. Optional content, popup/reply relationships,
+  rich text, movie/sound, screen/3D and advanced annotation behavior also
+  remain outside this alpha.
 - Saving produces a byte-for-byte copy; object mutation is not implemented.
 - Damaged-xref repair remains conservative. It does not yet reproduce all of
   Poppler's stream-end heuristics or repair every malformed incremental chain.
@@ -192,5 +204,7 @@ per ICC profile, 1,000,000 sampled-function samples, graphics stack depth 256,
 XObject depth 32, transparency-group depth 32, 100,000,000 rendered pixels,
 33 shading stops, 65,536 mesh triangles, 100,000 annotations per page,
 250,000 annotation geometry points, annotation-appearance depth 16,
-10,000 pages, tree depth 128 and object recursion 64. Use
+100,000 form fields, 100,000 form widgets, 250,000 form options, form-field
+depth 128, 64 KiB per default-appearance string, 10,000 pages, tree depth 128
+and object recursion 64. Use
 `PdfReadOptions` to lower limits for server workloads.

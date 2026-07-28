@@ -49,6 +49,9 @@
     <None Include="..\fixtures\annotations-alpha1-fixture.json"
           Link="Fixtures\annotations-alpha1-fixture.json"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\acroform-alpha2-fixture.json"
+          Link="Fixtures\acroform-alpha2-fixture.json"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\beta-fonts\*"
           Link="Fixtures\beta-fonts\%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />

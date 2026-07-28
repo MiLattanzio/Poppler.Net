@@ -18,7 +18,8 @@ public enum PdfAnnotationType
     Polygon,
     PolyLine,
     Ink,
-    Stamp
+    Stamp,
+    Widget
 }
 
 [Flags]

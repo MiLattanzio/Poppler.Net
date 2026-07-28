@@ -46,6 +46,11 @@ var options = new PdfReadOptions
     MaximumAnnotationsPerPage = 10_000,
     MaximumAnnotationPoints = 50_000,
     MaximumAnnotationAppearanceDepth = 8,
+    MaximumFormFields = 10_000,
+    MaximumFormWidgets = 10_000,
+    MaximumFormOptions = 25_000,
+    MaximumFormFieldDepth = 64,
+    MaximumFormDefaultAppearanceBytes = 16_384,
     MaximumRenderPixels = 25_000_000,
     MaximumPages = 2_000,
     AttemptXrefRepair = false
@@ -129,6 +134,28 @@ geometry, border/color state, flags and resolved actions. URI and viewer
 actions are inspection data only and are never executed. Direct destinations,
 catalog `/Dests` and `/Names/Dests` name trees resolve to zero-based page
 indices. See [ANNOTATIONS.md](ANNOTATIONS.md).
+
+## AcroForm fields and widgets
+
+```csharp
+foreach (PdfFormField field in document.FormFields)
+{
+    Console.WriteLine(
+        $"{field.FullyQualifiedName}: {field.Type} = {field.Value}");
+    foreach (PdfFormWidget widget in field.Widgets)
+        Console.WriteLine($"page {widget.PageNumber}: {widget.Rectangle}");
+}
+
+foreach (PdfFormWidget widget in page.FormWidgets)
+    Console.WriteLine($"{widget.FieldName}: {widget.AppearanceState}");
+```
+
+The field model is read-only and follows inherited AcroForm field values,
+flags, choice options, names and widget relationships. `FormNeedsAppearances`
+reports the catalog flag. Existing widget `/AP` streams use the common
+annotation renderer; missing streams receive deterministic managed
+text/button/choice/signature fallbacks. Signature presence is reported but is
+not cryptographically validated. See [FORMS.md](FORMS.md).
 
 ## Graphics display list
 

@@ -11,7 +11,7 @@ namespace Poppler.Net.Tests;
 public sealed class ReleaseCandidateTests
 {
     private const string FrozenPublicApiSha256 =
-        "a4bd8b15a968793f80398fc495c93f00e5a911fb7233500a6f1d9a5e70130048";
+        "43919e817e6ea6e62aaf9937cf3739874a037bbfc2c8dd691228ae47e1d5b8d2";
 
     [Test]
     public async Task ConcurrentReadsFromOneDocumentAreDeterministic()

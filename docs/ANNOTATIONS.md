@@ -1,8 +1,12 @@
-# Annotations and destinations in 0.9 alpha 1
+# Annotations, destinations and widget integration in 0.9
 
 Version `0.9.0-alpha.1` adds a read-only managed annotation slice modeled
 after Poppler's `Annot`, `Link` and destination handling. It never executes an
 action, opens a URI or changes a document.
+
+Version `0.9.0-alpha.2` recognizes `/Widget` as a typed annotation and links
+canonical AcroForm widgets to the field model described in
+[FORMS.md](FORMS.md).
 
 ## Public model
 
@@ -18,9 +22,9 @@ original `/Annots` order. Each `PdfAnnotation` exposes:
 - a resolved `PdfAnnotationAction`.
 
 The initial typed annotation set covers Link, Text, FreeText, Highlight,
-Underline, Squiggly, StrikeOut, Square, Circle, Line, Polygon, PolyLine, Ink
-and Stamp. Unknown subtypes remain visible as `PdfAnnotationType.Unknown`
-instead of being discarded.
+Underline, Squiggly, StrikeOut, Square, Circle, Line, Polygon, PolyLine, Ink,
+Stamp and Widget. Unknown subtypes remain visible as
+`PdfAnnotationType.Unknown` instead of being discarded.
 
 ## Links and destinations
 
@@ -47,7 +51,9 @@ actions are never executed.
 
 The selected `/AP/N` stream is interpreted by the same managed graphics engine
 used for page content. An `/AS` name selects the matching normal-appearance
-state; otherwise the first state is chosen deterministically.
+state; otherwise the first state is chosen deterministically. For canonical
+checkbox and radio widgets, alpha 2 uses the field `/V` state before a stale
+widget `/AS`, then falls back to `/Off`.
 
 The appearance `/BBox` and optional `/Matrix` are mapped to the annotation
 `/Rect`, clipped to both bounds and painted after the page content in `/Annots`
@@ -81,8 +87,8 @@ path-segment, tree and XObject limits continue to apply.
 
 ## Current limits
 
-- AcroForm field-tree values, widget regeneration and XFA are planned for the
-  next alpha. A pre-existing widget appearance is not a complete form model.
+- AcroForm fields and deterministic widget fallbacks are implemented in alpha
+  2, but mutation, saved regeneration and XFA remain outside the release.
 - Popup relationships, replies, rich text, sound, movie, screen, 3D,
   redaction and file-attachment behavior are not yet modeled.
 - NoZoom and NoRotate flags are exposed but are not compensated in device

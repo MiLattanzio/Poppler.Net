@@ -2,7 +2,7 @@
   <PropertyGroup>
     <AssemblyName>Poppler.Net</AssemblyName>
     <RootNamespace>Poppler</RootNamespace>
-    <Version>0.9.0-alpha.1</Version>
+    <Version>0.9.0-alpha.2</Version>
     <AssemblyVersion>26.7.0.0</AssemblyVersion>
     <FileVersion>26.7.0.0</FileVersion>
     <Description>Managed-only port of the Poppler 26.07.0 PDF engine.</Description>

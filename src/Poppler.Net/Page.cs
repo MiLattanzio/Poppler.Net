@@ -54,7 +54,11 @@ public sealed class Page
         _graphics = new Lazy<IReadOnlyList<PdfGraphicsElement>>(
             ExtractGraphics);
         _annotationData = new Lazy<IReadOnlyList<PdfAnnotationData>>(
-            () => PdfAnnotationReader.Read(_document, _node, _destinations));
+            () => PdfAnnotationReader.Read(
+                _document,
+                _node,
+                _destinations,
+                _owner.FormModel));
         _annotations = new Lazy<IReadOnlyList<PdfAnnotation>>(
             () => _annotationData.Value
                 .Select(data => data.Annotation)
@@ -76,6 +80,8 @@ public sealed class Page
     public IReadOnlyList<PdfGraphicsElement> Graphics => _graphics.Value;
     public IReadOnlyList<PdfImage> Images => _images.Value;
     public IReadOnlyList<PdfAnnotation> Annotations => _annotations.Value;
+    public IReadOnlyList<PdfFormWidget> FormWidgets =>
+        _owner.FormModel.WidgetsByPage[Index];
 
     public PageOrientation Orientation => Rotation switch
     {

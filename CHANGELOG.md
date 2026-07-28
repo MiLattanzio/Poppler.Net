@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.9.0-alpha.2 — 2026-07-29
+
+- Added immutable `Document.FormFields` and `Page.FormWidgets` models for
+  terminal AcroForm fields and their page placements.
+- Added bounded traversal of composed widgets, pure-widget `/Kids`,
+  non-terminal name containers and inherited `/FT`, `/Ff`, `/V`, `/DV`,
+  `/DA`, `/Q`, `/MaxLen`, `/Opt`, `/I` and `/TI` entries.
+- Added typed text, checkbox, radio, push-button, choice and signature field
+  metadata, including fully qualified names, export/display options and
+  signature-presence inspection without cryptographic validation.
+- Made checkbox and radio appearance selection follow the canonical field
+  `/V` before stale widget `/AS` state, with `/Off` handling for unselected
+  widgets.
+- Added deterministic managed widget fallbacks for text, password, choice,
+  checkbox, radio, push-button and signature fields, including common `/MK`,
+  `/BS`, `/DA` and `/Q` styling.
+- Added the CLI `forms` command, `Document.FormNeedsAppearances`, typed Widget
+  annotations and five AcroForm-specific resource limits.
+- Added a deterministic four-page AcroForm corpus and thirteen structural,
+  raster, concurrency, malformed-tree, resource-limit and corpus-integrity
+  regressions, bringing the suite to 171 tests.
+
 ## 0.9.0-alpha.1 — 2026-07-28
 
 - Added immutable `Page.Annotations` metadata for links, notes, FreeText, text
