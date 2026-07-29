@@ -26,6 +26,9 @@ public sealed record PdfReadOptions
     public int MaximumAnnotationsPerPage { get; init; } = 100_000;
     public int MaximumAnnotationPoints { get; init; } = 250_000;
     public int MaximumAnnotationAppearanceDepth { get; init; } = 16;
+    public int MaximumActions { get; init; } = 10_000;
+    public int MaximumActionDepth { get; init; } = 32;
+    public int MaximumActionScriptBytes { get; init; } = 1024 * 1024;
     public int MaximumFormFields { get; init; } = 100_000;
     public int MaximumFormWidgets { get; init; } = 100_000;
     public int MaximumFormOptions { get; init; } = 250_000;
@@ -99,6 +102,12 @@ public sealed record PdfReadOptions
             throw new ArgumentOutOfRangeException(
                 nameof(MaximumAnnotationAppearanceDepth));
         }
+        if (MaximumActions < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumActions));
+        if (MaximumActionDepth < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumActionDepth));
+        if (MaximumActionScriptBytes < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumActionScriptBytes));
         if (MaximumFormFields < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumFormFields));
         if (MaximumFormWidgets < 1)

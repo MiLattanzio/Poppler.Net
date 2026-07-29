@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.9.0-beta.1 — 2026-07-29
+
+- Added typed Caret, Popup, FileAttachment, Sound, Movie, Screen, PrinterMark,
+  TrapNet, Watermark, 3D and Redact annotations while preserving unknown
+  subtypes.
+- Added immutable popup, parent/reply, review-state, intent, rich-text,
+  callout, line-ending and rectangle-difference metadata.
+- Exposed file-attachment annotation data through the existing lazy managed
+  `EmbeddedFile` model.
+- Added inspection-only GoToR, Launch, JavaScript, SubmitForm, ResetForm,
+  ImportData, Hide, SetOCGState, Rendition, Trans and GoTo3DView actions,
+  including bounded `/Next` chains and circular-chain diagnostics. Actions
+  are decoded but never executed.
+- Added deterministic managed fallbacks for Caret, Popup, FileAttachment,
+  Redact, Watermark and common multimedia annotations.
+- Added action count, depth and script-size limits for hostile input.
+- Extended the CLI `annotations` command with relationships, attachments,
+  advanced action payloads and nested actions.
+- Added a deterministic three-page advanced annotation/action corpus and nine
+  metadata, attachment, action, raster, concurrency, limit and integrity
+  regressions, bringing the suite to 192 tests.
+
 ## 0.9.0-alpha.3 — 2026-07-29
 
 - Added immutable `Document.OptionalContentGroups` and

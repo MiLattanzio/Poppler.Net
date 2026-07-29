@@ -12,6 +12,10 @@ Version `0.9.0-alpha.3` evaluates annotation `/OC` entries together with the
 standard visibility flags. See
 [OPTIONAL_CONTENT.md](OPTIONAL_CONTENT.md).
 
+Version `0.9.0-beta.1` adds advanced annotation subtypes, review threads,
+file-attachment annotations and bounded inspection of advanced action chains.
+It remains strictly read-only and never executes an action.
+
 ## Public model
 
 `Page.Annotations` is an immutable, lazily initialized list in the page's
@@ -22,13 +26,19 @@ original `/Annots` order. Each `PdfAnnotation` exposes:
 - standard annotation flags;
 - border style, dash pattern, opacity, exterior and interior colors;
 - quad points, vertices, line points and ink paths;
+- stable indirect-object IDs, popup/parent/reply relationships and review
+  state;
+- intent, rich text, default style, callout geometry, line endings and
+  rectangle differences;
+- lazy attachment data for FileAttachment annotations;
 - the selected normal-appearance state and whether it exists;
 - default screen visibility after annotation flags and optional-content state;
 - a resolved `PdfAnnotationAction`.
 
-The initial typed annotation set covers Link, Text, FreeText, Highlight,
+The typed annotation set covers Link, Text, FreeText, Highlight,
 Underline, Squiggly, StrikeOut, Square, Circle, Line, Polygon, PolyLine, Ink,
-Stamp and Widget. Unknown subtypes remain visible as
+Stamp, Widget, Caret, Popup, FileAttachment, Sound, Movie, Screen,
+PrinterMark, TrapNet, Watermark, 3D and Redact. Unknown subtypes remain visible as
 `PdfAnnotationType.Unknown` instead of being discarded.
 
 ## Links and destinations
@@ -48,9 +58,12 @@ applicable XYZ/Fit coordinates. `Document.NamedDestinations` exposes every
 resolvable named destination in ordinal order, and
 `Document.ResolveDestination(name)` resolves one name.
 
-Unsupported actions are reported as `PdfAnnotationActionType.Unsupported`.
-JavaScript, Launch, remote GoTo, submit/reset form, media and other side-effect
-actions are never executed.
+Beta 1 also decodes GoToR, Launch, JavaScript, SubmitForm, ResetForm,
+ImportData, Hide, SetOCGState, Rendition, Trans and GoTo3DView payloads plus
+bounded `/Next` chains. Circular chains are truncated with a diagnostic.
+Unsupported actions remain visible as `PdfAnnotationActionType.Unsupported`.
+Decoded scripts, files, form targets and multimedia actions are inspection
+data only and are never executed.
 
 ## Appearance rendering
 
@@ -75,7 +88,8 @@ mutating its immutable metadata.
 
 When no usable normal appearance exists, deterministic managed fallbacks cover
 links, note icons, FreeText, text markup, squares, circles, lines, polygons,
-polylines, ink and stamps. FreeText fallback uses a built-in vector cell font
+polylines, ink, stamps, Caret, Popup, FileAttachment, Redact, Watermark and
+common multimedia frames. FreeText fallback uses a built-in vector cell font
 so output does not depend on installed system fonts. These fallbacks are
 deliberately conservative and do not claim pixel identity with a producer's
 missing appearance.
@@ -89,6 +103,9 @@ missing appearance.
 | `MaximumAnnotationsPerPage` | 100,000 |
 | `MaximumAnnotationPoints` | 250,000 |
 | `MaximumAnnotationAppearanceDepth` | 16 |
+| `MaximumActions` | 10,000 |
+| `MaximumActionDepth` | 32 |
+| `MaximumActionScriptBytes` | 1 MiB |
 
 Existing collection, decoded-stream, graphics-operation, display-list,
 path-segment, tree and XObject limits continue to apply.
@@ -97,11 +114,13 @@ path-segment, tree and XObject limits continue to apply.
 
 - AcroForm fields and deterministic widget fallbacks are implemented in alpha
   2, but mutation, saved regeneration and XFA remain outside the release.
-- Popup relationships, replies, rich text, sound, movie, screen, 3D,
-  redaction and file-attachment behavior are not yet modeled.
+- Rich text and default styles are exposed but only the plain `/Contents`
+  value is used by managed text fallbacks.
+- Sound, movie, screen and 3D metadata is recognized, but media playback and
+  activation are outside the library.
 - NoZoom and NoRotate flags are exposed but are not compensated in device
   space.
-- Border effects, cloudy shapes, line endings, FreeText callouts and rich
-  default-appearance styling remain partial.
+- Border effects, cloudy shapes, line-ending painting, FreeText callouts and
+  rich default-appearance styling remain partial.
 - Actions are inspection data only; the library does not provide an action
   dispatcher.

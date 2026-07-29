@@ -55,6 +55,9 @@
     <None Include="..\fixtures\optional-content-alpha3-fixture.json"
           Link="Fixtures\optional-content-alpha3-fixture.json"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\annotations-beta1-fixture.json"
+          Link="Fixtures\annotations-beta1-fixture.json"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\beta-fonts\*"
           Link="Fixtures\beta-fonts\%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />

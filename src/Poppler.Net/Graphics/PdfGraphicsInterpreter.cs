@@ -1264,6 +1264,8 @@ internal sealed class PdfGraphicsInterpreter
             PdfAnnotationType.Link => PdfColor.Rgb(0, 0, 1),
             PdfAnnotationType.Text or PdfAnnotationType.Highlight =>
                 PdfColor.Rgb(1, 0.82, 0),
+            PdfAnnotationType.Redact => PdfColor.Black,
+            PdfAnnotationType.FileAttachment => PdfColor.Rgb(0.15, 0.35, 0.8),
             _ => PdfColor.Black
         };
         double width = Math.Max(0, annotation.Border.Width);
@@ -1424,6 +1426,97 @@ internal sealed class PdfGraphicsInterpreter
                     {
                         LineWidth = Math.Max(2, width)
                     },
+                    source);
+                PaintFallbackText(annotation, source, output);
+                break;
+            case PdfAnnotationType.Caret:
+            {
+                PdfRectangle rectangle = annotation.Rectangle;
+                EmitPath(
+                    output,
+                    PolylinePath(
+                        new[]
+                        {
+                            new PdfPoint(rectangle.Left, rectangle.Bottom),
+                            new PdfPoint(
+                                (rectangle.Left + rectangle.Right) / 2,
+                                rectangle.Top),
+                            new PdfPoint(rectangle.Right, rectangle.Bottom)
+                        },
+                        close: false),
+                    PdfPaintMode.Stroke,
+                    state with { LineWidth = Math.Max(1.5, width) },
+                    source);
+                break;
+            }
+            case PdfAnnotationType.Popup:
+                EmitPath(
+                    output,
+                    RectanglePath(annotation.Rectangle),
+                    PdfPaintMode.Fill |
+                    (width > 0 ? PdfPaintMode.Stroke : PdfPaintMode.None),
+                    state with
+                    {
+                        Fill = new PdfSolidBrush(
+                            annotation.InteriorColor ?? PdfColor.Rgb(1, 1, 0.82))
+                    },
+                    source);
+                PaintFallbackText(annotation, source, output);
+                break;
+            case PdfAnnotationType.FileAttachment:
+            {
+                PdfRectangle rectangle = annotation.Rectangle;
+                EmitPath(
+                    output,
+                    RoundedRectanglePath(
+                        rectangle,
+                        Math.Min(rectangle.Width, rectangle.Height) * 0.16),
+                    PdfPaintMode.Fill | PdfPaintMode.Stroke,
+                    state with
+                    {
+                        Fill = new PdfSolidBrush(PdfColor.Rgb(0.88, 0.93, 1)),
+                        LineWidth = Math.Max(1, width)
+                    },
+                    source);
+                EmitPath(
+                    output,
+                    LinePath(
+                        new PdfPoint(rectangle.Left + rectangle.Width * 0.25,
+                            rectangle.Top - rectangle.Height * 0.25),
+                        new PdfPoint(rectangle.Right - rectangle.Width * 0.2,
+                            rectangle.Bottom + rectangle.Height * 0.25)),
+                    PdfPaintMode.Stroke,
+                    state with { LineWidth = Math.Max(2, width) },
+                    source);
+                break;
+            }
+            case PdfAnnotationType.Redact:
+                EmitPath(
+                    output,
+                    InsetRectangle(annotation.Rectangle, width / 2),
+                    annotation.InteriorColor is null
+                        ? PdfPaintMode.Stroke
+                        : PdfPaintMode.Fill | PdfPaintMode.Stroke,
+                    state with { LineWidth = Math.Max(1, width) },
+                    source);
+                PaintFallbackText(annotation, source, output);
+                break;
+            case PdfAnnotationType.Watermark:
+                PaintFallbackText(annotation, source, output);
+                break;
+            case PdfAnnotationType.Sound:
+            case PdfAnnotationType.Movie:
+            case PdfAnnotationType.Screen:
+            case PdfAnnotationType.ThreeD:
+                EmitPath(
+                    output,
+                    RoundedRectanglePath(
+                        annotation.Rectangle,
+                        Math.Min(
+                            annotation.Rectangle.Width,
+                            annotation.Rectangle.Height) * 0.12),
+                    PdfPaintMode.Stroke,
+                    state with { LineWidth = Math.Max(1, width) },
                     source);
                 PaintFallbackText(annotation, source, output);
                 break;

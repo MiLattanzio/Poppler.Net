@@ -51,7 +51,7 @@ internal static class EmbeddedFileReader
         }
     }
 
-    private static EmbeddedFile? Create(
+    internal static EmbeddedFile? Create(
         string treeName,
         PdfDictionary specification,
         PdfDocumentCore document)

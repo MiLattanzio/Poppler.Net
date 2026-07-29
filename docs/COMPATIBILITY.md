@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.9.0-alpha.3
+## Works in 0.9.0-beta.1
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -110,11 +110,16 @@
 - Public `PdfBitmap`, `Page.Render`, `RenderToPng`, `SavePng`,
   `RasterRenderOptions` and CLI `render`.
 - Immutable `Page.Annotations` metadata for Link, Text, FreeText, text markup,
-  Square, Circle, Line, Polygon, PolyLine, Ink and Stamp annotations.
+  Square, Circle, Line, Polygon, PolyLine, Ink, Stamp, Widget, Caret, Popup,
+  FileAttachment, Sound, Movie, Screen, PrinterMark, TrapNet, Watermark, 3D
+  and Redact annotations.
 - Direct, catalog-dictionary and name-tree destinations with XYZ, Fit, FitH,
   FitV, FitR, FitB, FitBH and FitBV coordinates.
-- Inspection-only URI, GoTo and Named annotation actions plus CLI
-  `annotations`.
+- Inspection-only URI, GoTo, Named, GoToR, Launch, JavaScript, SubmitForm,
+  ResetForm, ImportData, Hide, SetOCGState, Rendition, Trans and GoTo3DView
+  actions, including bounded `/Next` chains, plus CLI `annotations`.
+- Popup/parent/reply relationships, review state, intent, rich text, callout
+  geometry, line endings, rectangle differences and lazy FileAttachment data.
 - `/AP/N` stream and state-dictionary selection through `/AS`, BBox/Matrix
   mapping, local resources, nested Forms, page-order painting and visibility
   flags.
@@ -197,9 +202,9 @@
   streams outside the managed codec coverage remain unsupported.
 - Annotation actions are never executed. AcroForm support is read-only:
   mutation, persisted appearance regeneration, XFA, JavaScript calculation and
-  validation are not implemented. Popup/reply relationships, rich text,
-  movie/sound, screen/3D and advanced annotation behavior also remain outside
-  this alpha.
+  validation are not implemented. Rich-text layout, media playback, 3D
+  activation, action dispatch and advanced producer-specific behavior remain
+  outside this beta.
 - Optional content uses the default `/D` configuration and View event.
   Alternate `/Configs`, the presentation hierarchy in `/Order`, ListMode,
   print/export usage events, zoom/language/user usage applications and
@@ -220,6 +225,7 @@ per ICC profile, 1,000,000 sampled-function samples, graphics stack depth 256,
 XObject depth 32, transparency-group depth 32, 100,000,000 rendered pixels,
 33 shading stops, 65,536 mesh triangles, 100,000 annotations per page,
 250,000 annotation geometry points, annotation-appearance depth 16,
+10,000 actions per page, action-chain depth 32, 1 MiB per action script,
 100,000 form fields, 100,000 form widgets, 250,000 form options, form-field
 depth 128, 64 KiB per default-appearance string, 100,000 optional-content
 groups, optional-content nesting depth 128, 250,000 optional-content

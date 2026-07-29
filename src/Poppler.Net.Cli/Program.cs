@@ -181,10 +181,22 @@ internal static class Cli
                     $"rect={annotation.Rectangle} flags={annotation.Flags} " +
                     $"visible={YesNo(annotation.IsVisible)} " +
                     $"appearance={YesNo(annotation.HasAppearance)}");
+                if (!string.IsNullOrEmpty(annotation.Id))
+                    Console.WriteLine($"  id: {annotation.Id}");
+                if (!string.IsNullOrEmpty(annotation.ParentId))
+                    Console.WriteLine($"  parent/reply-to: {annotation.ParentId}");
+                if (!string.IsNullOrEmpty(annotation.PopupId))
+                    Console.WriteLine($"  popup: {annotation.PopupId}");
                 if (!string.IsNullOrWhiteSpace(annotation.Contents))
                 {
                     Console.WriteLine(
                         $"  contents: {SingleLine(annotation.Contents)}");
+                }
+                if (annotation.Attachment is { } attachment)
+                {
+                    Console.WriteLine(
+                        $"  attachment: {attachment.Name} " +
+                        $"({attachment.Size} bytes, {attachment.MimeType})");
                 }
                 WriteAnnotationAction(annotation.Action);
                 total++;
@@ -372,31 +384,79 @@ internal static class Cli
         return 0;
     }
 
-    private static void WriteAnnotationAction(PdfAnnotationAction action)
+    private static void WriteAnnotationAction(
+        PdfAnnotationAction action,
+        string indent = "  ")
     {
         switch (action.Type)
         {
             case PdfAnnotationActionType.Uri:
-                Console.WriteLine($"  action: URI {action.Uri}");
+                Console.WriteLine($"{indent}action: URI {action.Uri}");
                 break;
             case PdfAnnotationActionType.GoTo when action.Destination is { } destination:
                 Console.WriteLine(
-                    $"  action: GoTo page {destination.PageNumber} " +
+                    $"{indent}action: GoTo page {destination.PageNumber} " +
                     $"{destination.Type}" +
                     (destination.NamedDestination is null
                         ? ""
                         : $" ({destination.NamedDestination})"));
                 break;
             case PdfAnnotationActionType.GoTo:
-                Console.WriteLine($"  action: GoTo {action.NamedTarget ?? "unresolved"}");
+                Console.WriteLine(
+                    $"{indent}action: GoTo {action.NamedTarget ?? "unresolved"}");
                 break;
             case PdfAnnotationActionType.Named:
-                Console.WriteLine($"  action: Named {action.NamedTarget}");
+                Console.WriteLine($"{indent}action: Named {action.NamedTarget}");
+                break;
+            case PdfAnnotationActionType.GoToRemote:
+                Console.WriteLine(
+                    $"{indent}action: GoToRemote {action.FileName} " +
+                    $"{action.NamedTarget} new-window={action.NewWindow}");
+                break;
+            case PdfAnnotationActionType.Launch:
+                Console.WriteLine(
+                    $"{indent}action: Launch {action.FileName} " +
+                    $"new-window={action.NewWindow}");
+                break;
+            case PdfAnnotationActionType.JavaScript:
+                Console.WriteLine(
+                    $"{indent}action: JavaScript " +
+                    $"{Truncate(SingleLine(action.Script ?? ""), 120)}");
+                break;
+            case PdfAnnotationActionType.SubmitForm:
+            case PdfAnnotationActionType.ResetForm:
+                Console.WriteLine(
+                    $"{indent}action: {action.Type} {action.FileName} " +
+                    $"fields=[{string.Join(", ", action.Fields)}] " +
+                    $"flags={action.Flags}");
+                break;
+            case PdfAnnotationActionType.ImportData:
+                Console.WriteLine($"{indent}action: ImportData {action.FileName}");
+                break;
+            case PdfAnnotationActionType.Hide:
+                Console.WriteLine(
+                    $"{indent}action: Hide hidden={action.IsHidden} " +
+                    $"targets=[{string.Join(", ", action.Fields)}]");
+                break;
+            case PdfAnnotationActionType.SetOptionalContentState:
+                Console.WriteLine(
+                    $"{indent}action: SetOCGState " +
+                    $"[{string.Join(", ", action.StateChanges)}]");
+                break;
+            case PdfAnnotationActionType.Rendition:
+            case PdfAnnotationActionType.Transition:
+            case PdfAnnotationActionType.GoToThreeDView:
+                Console.WriteLine(
+                    $"{indent}action: {action.Type} {action.NamedTarget} " +
+                    $"flags={action.Flags}");
                 break;
             case PdfAnnotationActionType.Unsupported:
-                Console.WriteLine($"  action: Unsupported {action.NamedTarget}");
+                Console.WriteLine(
+                    $"{indent}action: Unsupported {action.NamedTarget}");
                 break;
         }
+        foreach (PdfAnnotationAction next in action.NextActions)
+            WriteAnnotationAction(next, indent + "  ");
     }
 
     private static int? GetPageOption(string[] args)

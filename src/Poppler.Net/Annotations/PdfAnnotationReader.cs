@@ -32,6 +32,7 @@ internal static class PdfAnnotationReader
         }
 
         var result = new List<PdfAnnotationData>(source.Count);
+        var actionReader = new PdfActionReader(document, destinations);
         PdfOptionalContentEvaluator optionalContent =
             optionalContentModel.CreateEvaluator();
         PdfDictionary? resources = page.Resources.AsDictionary(document);
@@ -54,6 +55,8 @@ internal static class PdfAnnotationReader
                 dictionary.GetValueOrNull("Rect").AsRectangle(document));
             PdfAnnotationFlags flags = (PdfAnnotationFlags)
                 Math.Max(0, dictionary.GetValueOrNull("F").AsInteger(document) ?? 0);
+            bool isOpen =
+                ReadBoolean(dictionary.GetValueOrNull("Open"), document) ?? false;
             PdfObject? optionalContentMembership =
                 dictionary.GetValueOrNull("OC");
             bool defaultVisible =
@@ -61,6 +64,7 @@ internal static class PdfAnnotationReader
                  (PdfAnnotationFlags.Invisible |
                   PdfAnnotationFlags.Hidden |
                   PdfAnnotationFlags.NoView)) == 0 &&
+                (type != PdfAnnotationType.Popup || isOpen) &&
                 optionalContent.IsVisible(
                     optionalContentMembership,
                     resources);
@@ -78,12 +82,15 @@ internal static class PdfAnnotationReader
                 ReadPoints(dictionary.GetValueOrNull("Vertices"), document);
             IReadOnlyList<PdfPoint> linePoints =
                 ReadPoints(dictionary.GetValueOrNull("L"), document);
+            IReadOnlyList<PdfPoint> calloutLine =
+                ReadPoints(dictionary.GetValueOrNull("CL"), document);
             IReadOnlyList<IReadOnlyList<PdfPoint>> inkPaths =
                 ReadInkPaths(dictionary.GetValueOrNull("InkList"), document);
             int totalPoints =
                 quadPoints.Count +
                 vertices.Count +
                 linePoints.Count +
+                calloutLine.Count +
                 inkPaths.Sum(path => path.Count);
             if (totalPoints > document.Options.MaximumAnnotationPoints)
             {
@@ -96,7 +103,7 @@ internal static class PdfAnnotationReader
             PdfStream? appearance = formWidget is null
                 ? ReadNormalAppearance(dictionary, document)
                 : formWidget.NormalAppearance;
-            PdfAnnotationAction action = ReadAction(dictionary, destinations, document);
+            PdfAnnotationAction action = actionReader.ReadAnnotationAction(dictionary);
             var annotation = new PdfAnnotation(
                 type,
                 subtype,
@@ -107,6 +114,19 @@ internal static class PdfAnnotationReader
                 ReadText(dictionary, "Subj", document),
                 dictionary.GetValueOrNull("Name").AsName(document) ?? "",
                 PdfDateParser.Parse(ReadText(dictionary, "M", document)),
+                AnnotationId(sourceObject, dictionary, document),
+                ReferenceId(
+                    dictionary.GetValueOrNull("IRT") ??
+                    dictionary.GetValueOrNull("Parent"),
+                    document),
+                ReferenceId(dictionary.GetValueOrNull("Popup"), document),
+                dictionary.GetValueOrNull("RT").AsName(document) ?? "",
+                ReadText(dictionary, "State", document),
+                ReadText(dictionary, "StateModel", document),
+                dictionary.GetValueOrNull("IT").AsName(document) ?? "",
+                isOpen,
+                ReadText(dictionary, "RC", document),
+                ReadText(dictionary, "DS", document),
                 flags,
                 color,
                 interiorColor,
@@ -115,7 +135,11 @@ internal static class PdfAnnotationReader
                 quadPoints,
                 vertices,
                 linePoints,
+                calloutLine,
                 inkPaths,
+                ReadLineEndingStyles(dictionary, document),
+                ReadNumbers(dictionary.GetValueOrNull("RD"), document),
+                ReadAttachment(dictionary, document),
                 action,
                 appearance is not null,
                 defaultVisible);
@@ -130,63 +154,6 @@ internal static class PdfAnnotationReader
         return new ReadOnlyCollection<PdfAnnotationData>(result);
     }
 
-    private static PdfAnnotationAction ReadAction(
-        PdfDictionary annotation,
-        PdfDestinationResolver destinations,
-        PdfDocumentCore document)
-    {
-        if (annotation.GetValueOrNull("A").AsDictionary(document) is { } action)
-        {
-            string kind = action.GetValueOrNull("S").AsName(document) ?? "";
-            switch (kind)
-            {
-                case "URI":
-                    return new PdfAnnotationAction(
-                        PdfAnnotationActionType.Uri,
-                        ReadText(action, "URI", document),
-                        destination: null,
-                        namedTarget: null);
-                case "GoTo":
-                {
-                    PdfObject? target = action.GetValueOrNull("D");
-                    string? name = DestinationName(target, document);
-                    return new PdfAnnotationAction(
-                        PdfAnnotationActionType.GoTo,
-                        uri: null,
-                        destinations.Resolve(target),
-                        name);
-                }
-                case "Named":
-                    return new PdfAnnotationAction(
-                        PdfAnnotationActionType.Named,
-                        uri: null,
-                        destination: null,
-                        action.GetValueOrNull("N").AsName(document));
-                default:
-                    return new PdfAnnotationAction(
-                        PdfAnnotationActionType.Unsupported,
-                        uri: null,
-                        destination: null,
-                        kind);
-            }
-        }
-
-        if (annotation.GetValueOrNull("Dest") is { } direct)
-        {
-            return new PdfAnnotationAction(
-                PdfAnnotationActionType.GoTo,
-                uri: null,
-                destinations.Resolve(direct),
-                DestinationName(direct, document));
-        }
-
-        return new PdfAnnotationAction(
-            PdfAnnotationActionType.None,
-            uri: null,
-            destination: null,
-            namedTarget: null);
-    }
-
     private static string? DestinationName(PdfObject? value, PdfDocumentCore document) =>
         value?.Resolve(document) switch
         {
@@ -194,6 +161,53 @@ internal static class PdfAnnotationReader
             PdfString text => text.Text,
             _ => null
         };
+
+    private static string AnnotationId(
+        PdfObject source,
+        PdfDictionary dictionary,
+        PdfDocumentCore document) =>
+        source is PdfReference reference
+            ? $"{reference.ObjectNumber}:{reference.Generation}"
+            : ReadText(dictionary, "NM", document);
+
+    private static string ReferenceId(PdfObject? value, PdfDocumentCore document)
+    {
+        if (value is PdfReference reference)
+            return $"{reference.ObjectNumber}:{reference.Generation}";
+        PdfDictionary? dictionary = value.AsDictionary(document);
+        return dictionary is null ? "" : ReadText(dictionary, "NM", document);
+    }
+
+    private static bool? ReadBoolean(PdfObject? value, PdfDocumentCore document) =>
+        value?.Resolve(document) is PdfBoolean boolean ? boolean.Value : null;
+
+    private static IReadOnlyList<string> ReadLineEndingStyles(
+        PdfDictionary annotation,
+        PdfDocumentCore document)
+    {
+        PdfObject? value = annotation.GetValueOrNull("LE");
+        if (value.AsName(document) is { } single)
+            return new[] { single };
+        PdfArray? array = value.AsArray(document);
+        return array is null
+            ? Array.Empty<string>()
+            : array
+                .Select(item => item.AsName(document))
+                .Where(name => name is not null)
+                .Select(name => name!)
+                .ToArray();
+    }
+
+    private static EmbeddedFile? ReadAttachment(
+        PdfDictionary annotation,
+        PdfDocumentCore document)
+    {
+        PdfDictionary? specification =
+            annotation.GetValueOrNull("FS").AsDictionary(document);
+        return specification is null
+            ? null
+            : EmbeddedFileReader.Create("", specification, document);
+    }
 
     private static PdfStream? ReadNormalAppearance(
         PdfDictionary annotation,
@@ -361,6 +375,260 @@ internal static class PdfAnnotationReader
             Math.Max(rectangle.Bottom, rectangle.Top));
     }
 
+    private sealed class PdfActionReader
+    {
+        private readonly PdfDocumentCore _document;
+        private readonly PdfDestinationResolver _destinations;
+        private readonly HashSet<PdfReference> _active = new();
+        private int _count;
+
+        public PdfActionReader(
+            PdfDocumentCore document,
+            PdfDestinationResolver destinations)
+        {
+            _document = document;
+            _destinations = destinations;
+        }
+
+        public PdfAnnotationAction ReadAnnotationAction(PdfDictionary annotation)
+        {
+            if (annotation.GetValueOrNull("A") is { } action)
+                return Read(action, 0);
+            if (annotation.GetValueOrNull("Dest") is { } direct)
+            {
+                return new PdfAnnotationAction(
+                    PdfAnnotationActionType.GoTo,
+                    uri: null,
+                    _destinations.Resolve(direct),
+                    DestinationName(direct, _document));
+            }
+
+            return Empty();
+        }
+
+        private PdfAnnotationAction Read(PdfObject source, int depth)
+        {
+            if (depth >= _document.Options.MaximumActionDepth)
+                throw new PdfLimitException("PDF action chain is too deep.");
+            if (++_count > _document.Options.MaximumActions)
+                throw new PdfLimitException("PDF action count exceeds the configured limit.");
+
+            PdfReference? reference = source as PdfReference;
+            if (reference is not null && !_active.Add(reference))
+            {
+                _document.AddDiagnostic(
+                    PdfDiagnosticSeverity.Warning,
+                    "annotation.action.circular",
+                    "A circular PDF action chain was truncated.");
+                return Empty();
+            }
+
+            try
+            {
+                PdfDictionary? action = source.AsDictionary(_document);
+                if (action is null)
+                    return Unsupported("");
+
+                IReadOnlyList<PdfAnnotationAction> next =
+                    ReadNext(action.GetValueOrNull("Next"), depth + 1);
+                string kind = action.GetValueOrNull("S").AsName(_document) ?? "";
+                string? uri = null;
+                PdfDestination? destination = null;
+                string? namedTarget = null;
+                string? fileName = null;
+                bool? newWindow = ReadBoolean(
+                    action.GetValueOrNull("NewWindow"),
+                    _document);
+                string? script = null;
+                int flags = action.GetValueOrNull("Flags").AsInteger(_document) ?? 0;
+                bool? isHidden = null;
+                IReadOnlyList<string> fields = Array.Empty<string>();
+                IReadOnlyList<string> stateChanges = Array.Empty<string>();
+                PdfAnnotationActionType type;
+
+                switch (kind)
+                {
+                    case "URI":
+                        type = PdfAnnotationActionType.Uri;
+                        uri = ReadText(action, "URI", _document);
+                        break;
+                    case "GoTo":
+                    {
+                        type = PdfAnnotationActionType.GoTo;
+                        PdfObject? target = action.GetValueOrNull("D");
+                        destination = _destinations.Resolve(target);
+                        namedTarget = DestinationName(target, _document);
+                        break;
+                    }
+                    case "Named":
+                        type = PdfAnnotationActionType.Named;
+                        namedTarget = action.GetValueOrNull("N").AsName(_document);
+                        break;
+                    case "GoToR":
+                        type = PdfAnnotationActionType.GoToRemote;
+                        fileName = ReadFileSpecification(
+                            action.GetValueOrNull("F"));
+                        namedTarget = ObjectText(action.GetValueOrNull("D"));
+                        break;
+                    case "Launch":
+                        type = PdfAnnotationActionType.Launch;
+                        fileName = ReadFileSpecification(
+                            action.GetValueOrNull("F"));
+                        break;
+                    case "JavaScript":
+                        type = PdfAnnotationActionType.JavaScript;
+                        script = ReadScript(action.GetValueOrNull("JS"));
+                        break;
+                    case "SubmitForm":
+                        type = PdfAnnotationActionType.SubmitForm;
+                        fileName = ReadFileSpecification(
+                            action.GetValueOrNull("F"));
+                        fields = ReadStrings(action.GetValueOrNull("Fields"));
+                        break;
+                    case "ResetForm":
+                        type = PdfAnnotationActionType.ResetForm;
+                        fields = ReadStrings(action.GetValueOrNull("Fields"));
+                        break;
+                    case "ImportData":
+                        type = PdfAnnotationActionType.ImportData;
+                        fileName = ReadFileSpecification(
+                            action.GetValueOrNull("F"));
+                        break;
+                    case "Hide":
+                        type = PdfAnnotationActionType.Hide;
+                        fields = ReadStrings(action.GetValueOrNull("T"));
+                        isHidden = ReadBoolean(
+                            action.GetValueOrNull("H"),
+                            _document) ?? true;
+                        break;
+                    case "SetOCGState":
+                        type = PdfAnnotationActionType.SetOptionalContentState;
+                        stateChanges = ReadStrings(action.GetValueOrNull("State"));
+                        break;
+                    case "Rendition":
+                        type = PdfAnnotationActionType.Rendition;
+                        namedTarget = ReadText(action, "N", _document);
+                        flags = action.GetValueOrNull("OP").AsInteger(_document) ?? flags;
+                        break;
+                    case "Trans":
+                        type = PdfAnnotationActionType.Transition;
+                        namedTarget = "Trans";
+                        break;
+                    case "GoTo3DView":
+                        type = PdfAnnotationActionType.GoToThreeDView;
+                        namedTarget = ObjectText(action.GetValueOrNull("V"));
+                        break;
+                    default:
+                        type = PdfAnnotationActionType.Unsupported;
+                        namedTarget = kind;
+                        break;
+                }
+
+                return new PdfAnnotationAction(
+                    type,
+                    uri,
+                    destination,
+                    namedTarget,
+                    fileName,
+                    newWindow,
+                    script,
+                    flags,
+                    isHidden,
+                    fields,
+                    stateChanges,
+                    next);
+            }
+            finally
+            {
+                if (reference is not null)
+                    _active.Remove(reference);
+            }
+        }
+
+        private IReadOnlyList<PdfAnnotationAction> ReadNext(
+            PdfObject? value,
+            int depth)
+        {
+            if (value is null)
+                return Array.Empty<PdfAnnotationAction>();
+            if (value.AsArray(_document) is { } array)
+                return array.Select(item => Read(item, depth)).ToArray();
+            return new[] { Read(value, depth) };
+        }
+
+        private IReadOnlyList<string> ReadStrings(PdfObject? value)
+        {
+            if (value is null)
+                return Array.Empty<string>();
+            if (value.AsArray(_document) is { } array)
+                return array.Select(ObjectText).Where(text => text.Length > 0).ToArray();
+            string single = ObjectText(value);
+            return single.Length == 0 ? Array.Empty<string>() : new[] { single };
+        }
+
+        private string ReadFileSpecification(PdfObject? value)
+        {
+            if (value?.Resolve(_document) is PdfString text)
+                return text.Text;
+            PdfDictionary? specification = value.AsDictionary(_document);
+            return specification is null
+                ? ""
+                : ReadText(specification, "UF", _document) is { Length: > 0 } unicode
+                    ? unicode
+                    : ReadText(specification, "F", _document);
+        }
+
+        private string ReadScript(PdfObject? value)
+        {
+            PdfObject? resolved = value?.Resolve(_document);
+            byte[] bytes = resolved switch
+            {
+                PdfString text => text.Bytes.ToArray(),
+                PdfStream stream => _document.Decode(stream),
+                _ => Array.Empty<byte>()
+            };
+            if (bytes.Length > _document.Options.MaximumActionScriptBytes)
+                throw new PdfLimitException("PDF action script exceeds the configured limit.");
+            return PdfTextEncoding.DecodePdfString(bytes);
+        }
+
+        private string ObjectText(PdfObject? value)
+        {
+            if (value is PdfReference reference)
+                return $"{reference.ObjectNumber}:{reference.Generation}";
+            PdfObject? resolved = value?.Resolve(_document);
+            return resolved switch
+            {
+                PdfString text => text.Text,
+                PdfName name => name.Value,
+                PdfNumber number => number.ToString(),
+                PdfBoolean boolean => boolean.ToString(),
+                PdfArray array => string.Join(
+                    " ",
+                    array.Select(ObjectText).Where(text => text.Length > 0)),
+                PdfDictionary dictionary =>
+                    ReadText(dictionary, "T", _document) is { Length: > 0 } target
+                        ? target
+                        : ReadText(dictionary, "NM", _document),
+                _ => ""
+            };
+        }
+
+        private static PdfAnnotationAction Empty() =>
+            new(
+                PdfAnnotationActionType.None,
+                uri: null,
+                destination: null,
+                namedTarget: null);
+
+        private static PdfAnnotationAction Unsupported(string kind) =>
+            new(
+                PdfAnnotationActionType.Unsupported,
+                uri: null,
+                destination: null,
+                kind);
+    }
+
     private static PdfAnnotationType AnnotationType(string subtype) => subtype switch
     {
         "Link" => PdfAnnotationType.Link,
@@ -378,6 +646,17 @@ internal static class PdfAnnotationReader
         "Ink" => PdfAnnotationType.Ink,
         "Stamp" => PdfAnnotationType.Stamp,
         "Widget" => PdfAnnotationType.Widget,
+        "Caret" => PdfAnnotationType.Caret,
+        "Popup" => PdfAnnotationType.Popup,
+        "FileAttachment" => PdfAnnotationType.FileAttachment,
+        "Sound" => PdfAnnotationType.Sound,
+        "Movie" => PdfAnnotationType.Movie,
+        "Screen" => PdfAnnotationType.Screen,
+        "PrinterMark" => PdfAnnotationType.PrinterMark,
+        "TrapNet" => PdfAnnotationType.TrapNet,
+        "Watermark" => PdfAnnotationType.Watermark,
+        "3D" => PdfAnnotationType.ThreeD,
+        "Redact" => PdfAnnotationType.Redact,
         _ => PdfAnnotationType.Unknown
     };
 

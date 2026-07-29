@@ -46,6 +46,9 @@ var options = new PdfReadOptions
     MaximumAnnotationsPerPage = 10_000,
     MaximumAnnotationPoints = 50_000,
     MaximumAnnotationAppearanceDepth = 8,
+    MaximumActions = 1_000,
+    MaximumActionDepth = 16,
+    MaximumActionScriptBytes = 256 * 1024,
     MaximumFormFields = 10_000,
     MaximumFormWidgets = 10_000,
     MaximumFormOptions = 25_000,
@@ -120,8 +123,12 @@ Each `TextBox` also reports `WritingMode` and `IsRightToLeft`.
 foreach (PdfAnnotation annotation in page.Annotations)
 {
     Console.WriteLine(
-        $"{annotation.Type} {annotation.Rectangle} " +
+        $"{annotation.Id} {annotation.Type} {annotation.Rectangle} " +
         $"appearance={annotation.HasAppearance}");
+    if (!string.IsNullOrEmpty(annotation.ParentId))
+        Console.WriteLine($"reply/popup parent: {annotation.ParentId}");
+    if (annotation.Attachment is { } attachment)
+        Console.WriteLine($"{attachment.Name}: {attachment.Size} bytes");
     if (annotation.Action.Uri is { } uri)
         Console.WriteLine(uri);
     if (annotation.Action.Destination is { } destination)
@@ -133,8 +140,10 @@ foreach ((string name, PdfDestination destination) in document.NamedDestinations
 ```
 
 `Page.Annotations` preserves `/Annots` order and exposes immutable metadata,
-geometry, border/color state, flags and resolved actions. URI and viewer
-actions are inspection data only and are never executed. Direct destinations,
+geometry, border/color state, flags, review/popup relationships, attachment
+data and resolved actions. URI, remote, script, form, layer and multimedia
+actions, including `/Next` chains, are inspection data only and are never
+executed. Direct destinations,
 catalog `/Dests` and `/Names/Dests` name trees resolve to zero-based page
 indices. See [ANNOTATIONS.md](ANNOTATIONS.md).
 

@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.9.0-alpha.3` compatibility release is not a complete replacement for
+> This `0.9.0-beta.1` compatibility release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -39,6 +39,9 @@ process invocation, or native NuGet dependency.
 > widget fallbacks. Alpha 3 adds Optional Content Group metadata, default
 > configuration evaluation, `OCMD` policies and visibility expressions, plus
 > layer-aware text, Forms, images, annotations, widgets, SVG and raster output.
+> Beta 1 adds advanced annotation subtypes, popup/reply relationships,
+> file-attachment annotations and bounded inspection of remote, script, form,
+> layer, rendition and 3D actions. No action is executed.
 > See [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md) for its scope and limits. See
 > [docs/FORMS.md](docs/FORMS.md) for the AcroForm model and
 > [docs/OPTIONAL_CONTENT.md](docs/OPTIONAL_CONTENT.md) for layer behavior. See
@@ -123,7 +126,12 @@ foreach (FontInfo font in page.Fonts)
 foreach (PdfGraphicsElement element in page.Graphics)
     Console.WriteLine($"{element.GetType().Name}: {element.State.Transform}");
 foreach (PdfAnnotation annotation in page.Annotations)
-    Console.WriteLine($"{annotation.Type}: {annotation.Action.Type}");
+{
+    Console.WriteLine(
+        $"{annotation.Id}: {annotation.Type}, action={annotation.Action.Type}");
+    if (annotation.Attachment is { } attachment)
+        Console.WriteLine($"{attachment.Name}: {attachment.Size} bytes");
+}
 foreach (PdfFormField field in document.FormFields)
     Console.WriteLine($"{field.FullyQualifiedName}: {field.Type} = {field.Value}");
 foreach (PdfOptionalContentGroup group in document.OptionalContentGroups)
@@ -252,9 +260,12 @@ semantics, immutable text/button/choice/signature values, page widget mapping,
 field-aware button states and generated managed widget appearances. Alpha 3
 adds Optional Content Group discovery, default view-state evaluation,
 `OCMD` membership policies and `/VE` expressions, with per-render visibility
-overrides shared by the raster and SVG backends. Field mutation/saving, XFA,
-alternate layer configurations, layer UI order and advanced annotation
-behavior remain planned for later `0.9` prereleases.
+overrides shared by the raster and SVG backends. Beta 1 adds advanced
+annotation subtypes, review/popup relationships, attachment data, callouts,
+redaction metadata and bounded inspection-only action chains for remote
+navigation, launch, JavaScript, forms, layers, multimedia and 3D. Field
+mutation/saving, XFA, alternate layer configurations, layer UI order, action
+dispatch and multimedia playback remain outside this release.
 
 ## License and provenance
 

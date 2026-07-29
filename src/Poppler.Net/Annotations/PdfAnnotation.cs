@@ -19,7 +19,18 @@ public enum PdfAnnotationType
     PolyLine,
     Ink,
     Stamp,
-    Widget
+    Widget,
+    Caret,
+    Popup,
+    FileAttachment,
+    Sound,
+    Movie,
+    Screen,
+    PrinterMark,
+    TrapNet,
+    Watermark,
+    ThreeD,
+    Redact
 }
 
 [Flags]
@@ -122,6 +133,17 @@ public enum PdfAnnotationActionType
     GoTo,
     Uri,
     Named,
+    GoToRemote,
+    Launch,
+    JavaScript,
+    SubmitForm,
+    ResetForm,
+    ImportData,
+    Hide,
+    SetOptionalContentState,
+    Rendition,
+    Transition,
+    GoToThreeDView,
     Unsupported
 }
 
@@ -131,18 +153,43 @@ public sealed class PdfAnnotationAction
         PdfAnnotationActionType type,
         string? uri,
         PdfDestination? destination,
-        string? namedTarget)
+        string? namedTarget,
+        string? fileName = null,
+        bool? newWindow = null,
+        string? script = null,
+        int flags = 0,
+        bool? isHidden = null,
+        IEnumerable<string>? fields = null,
+        IEnumerable<string>? stateChanges = null,
+        IEnumerable<PdfAnnotationAction>? nextActions = null)
     {
         Type = type;
         Uri = uri;
         Destination = destination;
         NamedTarget = namedTarget;
+        FileName = fileName;
+        NewWindow = newWindow;
+        Script = script;
+        Flags = flags;
+        IsHidden = isHidden;
+        Fields = new ReadOnlyCollection<string>((fields ?? []).ToArray());
+        StateChanges = new ReadOnlyCollection<string>((stateChanges ?? []).ToArray());
+        NextActions = new ReadOnlyCollection<PdfAnnotationAction>(
+            (nextActions ?? []).ToArray());
     }
 
     public PdfAnnotationActionType Type { get; }
     public string? Uri { get; }
     public PdfDestination? Destination { get; }
     public string? NamedTarget { get; }
+    public string? FileName { get; }
+    public bool? NewWindow { get; }
+    public string? Script { get; }
+    public int Flags { get; }
+    public bool? IsHidden { get; }
+    public IReadOnlyList<string> Fields { get; }
+    public IReadOnlyList<string> StateChanges { get; }
+    public IReadOnlyList<PdfAnnotationAction> NextActions { get; }
 }
 
 /// <summary>Immutable page annotation metadata and resolved link target.</summary>
@@ -158,6 +205,16 @@ public sealed class PdfAnnotation
         string subject,
         string iconName,
         DateTimeOffset? modificationDate,
+        string id,
+        string parentId,
+        string popupId,
+        string replyType,
+        string state,
+        string stateModel,
+        string intent,
+        bool isOpen,
+        string richText,
+        string defaultStyle,
         PdfAnnotationFlags flags,
         PdfColor? color,
         PdfColor? interiorColor,
@@ -166,7 +223,11 @@ public sealed class PdfAnnotation
         IEnumerable<PdfPoint> quadPoints,
         IEnumerable<PdfPoint> vertices,
         IEnumerable<PdfPoint> linePoints,
+        IEnumerable<PdfPoint> calloutLine,
         IEnumerable<IEnumerable<PdfPoint>> inkPaths,
+        IEnumerable<string> lineEndingStyles,
+        IEnumerable<double> rectangleDifferences,
+        EmbeddedFile? attachment,
         PdfAnnotationAction action,
         bool hasAppearance,
         bool isVisible)
@@ -180,6 +241,16 @@ public sealed class PdfAnnotation
         Subject = subject;
         IconName = iconName;
         ModificationDate = modificationDate;
+        Id = id;
+        ParentId = parentId;
+        PopupId = popupId;
+        ReplyType = replyType;
+        State = state;
+        StateModel = stateModel;
+        Intent = intent;
+        IsOpen = isOpen;
+        RichText = richText;
+        DefaultStyle = defaultStyle;
         Flags = flags;
         Color = color;
         InteriorColor = interiorColor;
@@ -188,12 +259,18 @@ public sealed class PdfAnnotation
         QuadPoints = new ReadOnlyCollection<PdfPoint>(quadPoints.ToArray());
         Vertices = new ReadOnlyCollection<PdfPoint>(vertices.ToArray());
         LinePoints = new ReadOnlyCollection<PdfPoint>(linePoints.ToArray());
+        CalloutLine = new ReadOnlyCollection<PdfPoint>(calloutLine.ToArray());
         InkPaths = new ReadOnlyCollection<IReadOnlyList<PdfPoint>>(
             inkPaths
                 .Select(path =>
                     (IReadOnlyList<PdfPoint>)new ReadOnlyCollection<PdfPoint>(
                         path.ToArray()))
                 .ToArray());
+        LineEndingStyles = new ReadOnlyCollection<string>(
+            lineEndingStyles.ToArray());
+        RectangleDifferences = new ReadOnlyCollection<double>(
+            rectangleDifferences.ToArray());
+        Attachment = attachment;
         Action = action;
         HasAppearance = hasAppearance;
         IsVisible = isVisible;
@@ -208,6 +285,16 @@ public sealed class PdfAnnotation
     public string Subject { get; }
     public string IconName { get; }
     public DateTimeOffset? ModificationDate { get; }
+    public string Id { get; }
+    public string ParentId { get; }
+    public string PopupId { get; }
+    public string ReplyType { get; }
+    public string State { get; }
+    public string StateModel { get; }
+    public string Intent { get; }
+    public bool IsOpen { get; }
+    public string RichText { get; }
+    public string DefaultStyle { get; }
     public PdfAnnotationFlags Flags { get; }
     public PdfColor? Color { get; }
     public PdfColor? InteriorColor { get; }
@@ -216,7 +303,11 @@ public sealed class PdfAnnotation
     public IReadOnlyList<PdfPoint> QuadPoints { get; }
     public IReadOnlyList<PdfPoint> Vertices { get; }
     public IReadOnlyList<PdfPoint> LinePoints { get; }
+    public IReadOnlyList<PdfPoint> CalloutLine { get; }
     public IReadOnlyList<IReadOnlyList<PdfPoint>> InkPaths { get; }
+    public IReadOnlyList<string> LineEndingStyles { get; }
+    public IReadOnlyList<double> RectangleDifferences { get; }
+    public EmbeddedFile? Attachment { get; }
     public PdfAnnotationAction Action { get; }
     public bool HasAppearance { get; }
     /// <summary>Visibility under flags and the default optional-content configuration.</summary>

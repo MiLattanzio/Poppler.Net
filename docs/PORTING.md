@@ -9,7 +9,7 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.9.0-alpha.3` builds on the stable `0.8.0` text and graphics
+slices. Version `0.9.0-beta.1` builds on the stable `0.8.0` text and graphics
 interpreter,
 adds managed CFF1/Type 2 and Type 1 outline readers, executes Type 3 CharProcs,
 decodes inline images, ports the canonical Base-14 width tables and performs
@@ -82,6 +82,9 @@ it is not a claim that all of Poppler has already been translated.
 24. Read the default Optional Content configuration, expose immutable OCG
     metadata and evaluate OCG/OCMD visibility across marked content, XObjects,
     annotations, widgets, text, raster and SVG output.
+25. Read advanced annotation subtypes, popup/reply relationships, attachment
+    file specifications and bounded inspection-only action chains without
+    dispatching external, script, form, layer, multimedia or 3D behavior.
 
 ## Upstream-to-managed map
 
@@ -99,7 +102,7 @@ it is not a claim that all of Poppler has already been translated.
 | `TextOutputDev` | `PdfTextExtractor`, `PdfTextLayoutEngine` | Horizontal/vertical runs and initial reading order |
 | `Outline`, `Link` | `PdfAnnotation`, `PdfAnnotationAction`, `PdfDestination` | Link/destination slice implemented; outlines planned |
 | `Decrypt`, `SecurityHandler` | `PdfStandardSecurityHandler`, `PdfCryptography` | R2–R6 implemented |
-| `Annot` | `PdfAnnotationReader`, appearance reuse of `PdfGraphicsInterpreter` | Read-only annotations, destinations and normal appearances |
+| `Annot` | `PdfAnnotationReader`, appearance reuse of `PdfGraphicsInterpreter` | Read-only basic/advanced annotations, relationships, attachments, actions and normal appearances |
 | `Form` | `PdfFormReader`, `PdfFormField`, `PdfFormWidget`, appearance reuse of `PdfGraphicsInterpreter` | Read-only AcroForm tree, values, options, widgets and fallbacks |
 | `OptionalContent` | `PdfOptionalContentModel`, `PdfOptionalContentGroup`, shared visibility evaluator | Default configuration, View usage, OCG/OCMD policies and bounded `/VE` expressions |
 | `Gfx`, `GfxState`, `Function` | `PdfGraphicsInterpreter`, graphics model, `PdfFunction`, `PdfShadingReader`, `PdfMeshShadingReader` | Vector slice plus sampled/exponential/stitching/calculator functions and shading types 2–7 |
@@ -124,9 +127,9 @@ it is not a claim that all of Poppler has already been translated.
    Flate/LZW/CCITT/JBIG2/JPX inline-image boundary cases.
 4. Add LUT-based ICC profiles, proofing, rendering intents and spot-color
    overprint.
-5. Complete advanced annotations, AcroForm mutation/persisted appearance
-   regeneration, XFA, alternate optional-content configurations and UI order,
-   outlines and additional inspection-only actions.
+5. Complete producer-specific annotation appearance behavior, AcroForm
+   mutation/persisted appearance regeneration, XFA, alternate optional-content
+   configurations and UI order, outlines and additional inspection metadata.
 6. Digital signature validation through managed cryptography.
 7. Writer, advanced repair mode, fuzz corpus, PDF corpus differential tests
    and API parity.
