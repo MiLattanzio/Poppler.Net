@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <UseAppHost>false</UseAppHost>
+    <IsPackable>false</IsPackable>
+    <AssemblyName>Poppler.Net.ManagedOnlyVerifier</AssemblyName>
+    <RootNamespace>Poppler.Net.ManagedOnlyVerifier</RootNamespace>
+  </PropertyGroup>
+</Project>

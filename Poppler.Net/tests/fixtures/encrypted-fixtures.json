@@ -1,0 +1,71 @@
+{
+  "generator": {
+    "pypdf": "6.10.0",
+    "reportlab": "4.4.9"
+  },
+  "userPassword": "user-03",
+  "ownerPassword": "owner-03",
+  "title": "Poppler.Net encrypted fixture",
+  "text": "Encrypted managed PDF R2-R6",
+  "attachment": "encrypted attachment payload",
+  "xmpMarker": "Poppler.Net encrypted XMP",
+  "fixtures": [
+    {
+      "file": "r2-rc4-40.pdf",
+      "algorithm": "RC4-40",
+      "revision": 2,
+      "primitive": "Rc4",
+      "sha256": "35c30128f2941001c28ae03dc260e9fa0bee834ed7099839525770776ef65d8e"
+    },
+    {
+      "file": "r3-rc4-128.pdf",
+      "algorithm": "RC4-128",
+      "revision": 3,
+      "primitive": "Rc4",
+      "sha256": "0c3e63e2a75def93f196653a3faf6e1b1354edecc8ec25c56c176dbad3bd075a"
+    },
+    {
+      "file": "r4-aes-128.pdf",
+      "algorithm": "AES-128",
+      "revision": 4,
+      "primitive": "Aes128",
+      "sha256": "6d7e5ba9a84359683ca45b2cdfa03061ad27650816b120b7e209606e019731db"
+    },
+    {
+      "file": "r5-aes-256.pdf",
+      "algorithm": "AES-256-R5",
+      "revision": 5,
+      "primitive": "Aes256",
+      "sha256": "bdfd0cd578cec7701b0c472e0cbdeecaa70b5dfcb8517a9ca132f65ecca01de6"
+    },
+    {
+      "file": "r6-aes-256.pdf",
+      "algorithm": "AES-256",
+      "revision": 6,
+      "primitive": "Aes256",
+      "sha256": "ece667ac941dc3e80fbf06ba0bd9f9f172b5768d6fbce3182da14f5b774b9e8d"
+    }
+  ],
+  "variants": [
+    {
+      "file": "r4-aes-128-string-identity.pdf",
+      "purpose": "Identity strings with AES-128 streams",
+      "sha256": "0a4cbf71e625a5c6a78adc45f6865d95aea026b1f7a1d9fd294a769acbea0aee"
+    },
+    {
+      "file": "r4-aes-128-unencrypted-metadata.pdf",
+      "purpose": "AES-128 with EncryptMetadata false",
+      "sha256": "fe16ca1f9b20a5680ac36b355272b2432b888d382265eb5021c5a36597c520f2"
+    },
+    {
+      "file": "r4-aes-128-explicit-crypt.pdf",
+      "purpose": "AES-128 selected by an explicit stream Crypt filter",
+      "sha256": "6707e18c5acf4a309d1d749784ce3f35a6595642fdbff746f521fd86b88cb707"
+    },
+    {
+      "file": "r4-aes-128-embedded-file-only.pdf",
+      "purpose": "Identity strings/streams with AES-128 EFF",
+      "sha256": "734758effeea22330ca66a42aa6274ecc185eed1d4164efac3bef093865f14aa"
+    }
+  ]
+}

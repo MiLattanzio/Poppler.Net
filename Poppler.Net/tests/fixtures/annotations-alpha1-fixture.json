@@ -1,0 +1,10 @@
+{
+  "file": "annotations-alpha1.pdf",
+  "sha256": "2ab74289a74d1a3616773dd065b889db1fca316586d6e668f0d3e39db5eeada4",
+  "pages": [
+    "links-destinations-and-visibility",
+    "managed-annotation-fallbacks",
+    "appearance-mapping-state-and-recursion",
+    "named-destination-target"
+  ]
+}

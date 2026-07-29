@@ -1,0 +1,10 @@
+{
+  "file": "rendering-alpha3.pdf",
+  "sha256": "bd3c2dbf3a86161fffbbb832df353cc2b934741b63e9fb9d272b13d61c90c314",
+  "pages": [
+    "filter-aware-inline-image-boundaries",
+    "soft-mask-transfer-function",
+    "page-box-clipping",
+    "missing-media-box-fallback"
+  ]
+}

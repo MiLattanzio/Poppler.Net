@@ -1,0 +1,27 @@
+{
+  "CoreJ2K": {
+    "version": "2.3.3.91",
+    "scope": "runtime",
+    "reason": "BSD-3-Clause pure C# JPEG 2000 Part 1 decoder; net8.0 has no transitive package dependency."
+  },
+  "JBig2Decoder.NETStandard": {
+    "version": "1.5.2",
+    "scope": "runtime",
+    "reason": "MIT pure C# JBIG2 decoder with PDF stream and JBIG2Globals support."
+  },
+  "NUnit": {
+    "version": "4.6.1",
+    "scope": "tests",
+    "reason": "Managed NUnit test framework."
+  },
+  "NUnitLite": {
+    "version": "4.6.1",
+    "scope": "tests",
+    "reason": "Managed in-process NUnit runner used only by the executable test project."
+  },
+  "StbImageSharp": {
+    "version": "2.30.15",
+    "scope": "runtime",
+    "reason": "Pure C# port of stb_image used for DCT/JPEG decoding; package has no dependencies."
+  }
+}

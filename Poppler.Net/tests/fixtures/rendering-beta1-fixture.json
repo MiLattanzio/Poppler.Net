@@ -1,0 +1,43 @@
+{
+  "file": "rendering-beta1.pdf",
+  "sha256": "f175aee599ba2ef1f218335711e5e1ab7fda8a956c1fb8bac6ca02cf89e0911a",
+  "files": [
+    {
+      "file": "rendering-beta1.pdf",
+      "sha256": "f175aee599ba2ef1f218335711e5e1ab7fda8a956c1fb8bac6ca02cf89e0911a"
+    },
+    {
+      "file": "beta-fonts/Helvetica.otf",
+      "sha256": "307ccb338af7bb724cb6d46b7cc0d70b1126d5206c5e878f142c33b89a69c478"
+    },
+    {
+      "file": "beta-fonts/HelveticaNarrow.otf",
+      "sha256": "e07d8fa57f3478a1159e8a9378e6c659c01a211f308ce1ca5a4c5c71bba346af"
+    },
+    {
+      "file": "beta-fonts/LigatureSans.otf",
+      "sha256": "3824378a0231c125ad4bacced18d34dd82e378ed2d281d20cfe50ea6ab9d3733"
+    },
+    {
+      "file": "cmaps/BetaBase-H",
+      "sha256": "afb9f58931002908ed6bd5b1d3a71187c1970a1d7c309977b4c69af4c0a9afe6"
+    },
+    {
+      "file": "cmaps/BetaBase-V",
+      "sha256": "6633a6bf67e707ef19c73d29bacf57c0136d85cca056ee6e57494b3a028842de"
+    },
+    {
+      "file": "cmaps/BetaUnicode",
+      "sha256": "1c21ad83b043830dc1ca0a69ad35d725e655e888e288116069d03798ef2a5b74"
+    }
+  ],
+  "features": [
+    "cff2-charstrings",
+    "type2-arithmetic",
+    "external-cmap",
+    "usecmap-inheritance",
+    "vertical-gsub",
+    "standard-ligature-gsub",
+    "narrow-font-substitution"
+  ]
+}
