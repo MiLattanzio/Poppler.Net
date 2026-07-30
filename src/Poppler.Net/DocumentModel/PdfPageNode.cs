@@ -23,11 +23,13 @@ internal static class PdfPageTreeReader
                               throw new PdfFormatException("Catalog has no /Pages tree.");
         var pages = new List<PdfPageNode>();
         var activeReferences = new HashSet<PdfReference>();
+        int repairedBranches = 0;
         Visit(
             pagesRoot,
             document,
             pages,
             activeReferences,
+            ref repairedBranches,
             inheritedMedia: null,
             inheritedCrop: null,
             inheritedBleed: null,
@@ -36,6 +38,11 @@ internal static class PdfPageTreeReader
             inheritedResources: null,
             inheritedRotation: 0,
             depth: 0);
+        if (pages.Count == 0 && repairedBranches > 0)
+        {
+            throw new PdfFormatException(
+                "Page-tree repair could not recover any valid pages.");
+        }
         return pages;
     }
 
@@ -44,6 +51,7 @@ internal static class PdfPageTreeReader
         PdfDocumentCore document,
         List<PdfPageNode> pages,
         HashSet<PdfReference> activeReferences,
+        ref int repairedBranches,
         PdfRectangle? inheritedMedia,
         PdfRectangle? inheritedCrop,
         PdfRectangle? inheritedBleed,
@@ -82,23 +90,49 @@ internal static class PdfPageTreeReader
             {
                 if (kids is null)
                     throw new PdfFormatException("/Pages node has no /Kids.");
+                int firstPage = pages.Count;
                 foreach (PdfObject kid in kids)
                 {
-                    Visit(
-                        kid,
-                        document,
-                        pages,
-                        activeReferences,
-                        media,
-                        crop,
-                        bleed,
-                        trim,
-                        art,
-                        resources,
-                        rotation,
-                        depth + 1);
+                    try
+                    {
+                        Visit(
+                            kid,
+                            document,
+                            pages,
+                            activeReferences,
+                            ref repairedBranches,
+                            media,
+                            crop,
+                            bleed,
+                            trim,
+                            art,
+                            resources,
+                            rotation,
+                            depth + 1);
+                    }
+                    catch (PdfFormatException exception)
+                        when (document.Options.AttemptPageTreeRepair)
+                    {
+                        repairedBranches++;
+                        document.AddDiagnosticOnce(
+                            PdfDiagnosticSeverity.Warning,
+                            "page-tree.repaired",
+                            "An invalid page-tree branch was skipped: " +
+                            exception.Message);
+                    }
                 }
 
+                int? declaredCount =
+                    node.GetValueOrNull("Count").AsInteger(document);
+                int actualCount = pages.Count - firstPage;
+                if (declaredCount is >= 0 && declaredCount.Value != actualCount)
+                {
+                    document.AddDiagnosticOnce(
+                        PdfDiagnosticSeverity.Warning,
+                        "page-tree.count-mismatch",
+                        $"A /Pages node declares {declaredCount.Value} pages " +
+                        $"but {actualCount} were discovered.");
+                }
                 return;
             }
 

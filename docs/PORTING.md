@@ -9,7 +9,7 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.9.0-beta.1` builds on the stable `0.8.0` text and graphics
+slices. Version `0.9.0-beta.2` builds on the stable `0.8.0` text and graphics
 interpreter,
 adds managed CFF1/Type 2 and Type 1 outline readers, executes Type 3 CharProcs,
 decodes inline images, ports the canonical Base-14 width tables and performs
@@ -22,7 +22,9 @@ triangle/patch meshes, uncolored patterns, calculator functions, transparency
 group refinements and process-overprint preview on top of the hardened `0.2`
 foundation, `0.3` security handler, `0.4` font/text layer,
 `0.5` graphics interpreter, `0.6` image/color pipeline and `0.7` raster;
-it is not a claim that all of Poppler has already been translated.
+the `0.9` beta 2 slice adds conservative page/content repair, decoded-stream
+reuse and refined cap/join/dash coverage. This is not a claim that all of
+Poppler has already been translated.
 
 ## Implemented sequence
 
@@ -85,6 +87,9 @@ it is not a claim that all of Poppler has already been translated.
 25. Read advanced annotation subtypes, popup/reply relationships, attachment
     file specifications and bounded inspection-only action chains without
     dispatching external, script, form, layer, multimedia or 3D behavior.
+26. Repair independent page-tree and page-content branches conservatively,
+    cache decoded indirect streams within a byte budget, bound content
+    structure growth and refine cap/join/dash raster geometry.
 
 ## Upstream-to-managed map
 
@@ -118,12 +123,13 @@ it is not a claim that all of Poppler has already been translated.
 
 ## Next implementation slices
 
-1. Complete corpus/differential/fuzz gates for the parser foundation.
+1. Expand real-world corpus, differential and fuzz gates for the parser
+   foundation beyond the beta 2 damaged-document corpus.
 2. Complete font engine: CFF2 variation-region interpolation, rare Type 1/CFF
    operators, contextual GSUB/GPOS and complex shaping, Type 1 `seac` and
    hinting.
 3. Refine nested knockout/non-isolated group interaction, adaptive patch
-   tessellation and stroke geometry; add remaining
+   tessellation and degenerate/anisotropic stroke geometry; add remaining
    Flate/LZW/CCITT/JBIG2/JPX inline-image boundary cases.
 4. Add LUT-based ICC profiles, proofing, rendering intents and spot-color
    overprint.

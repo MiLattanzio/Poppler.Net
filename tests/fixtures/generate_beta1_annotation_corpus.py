@@ -325,9 +325,9 @@ def main() -> None:
                     "multimedia-and-production-subtypes",
                 ],
                 "managed_png_sha256": [
-                    "3624de29639ce13e6730f5fa6f2ecb4a334c428c373b574a7052297615abd3d1",
+                    "967de55f26d9117d2ea37aa274f59fc4113a63ef905b067d53fa9e48dbd1fa0f",
                     "14056e286b72f7171e498abe2d432f93109da481e4a907acb48c49c563b98fde",
-                    "f986083d6903eda2f4d96ef8a0ea38cd024cf83ac6f17e0af9e75b0c5bd544c7",
+                    "14b74e3517b0f21e65f9db1b9e5787e7889579f0515e1988df82752a397f59fc",
                 ],
             },
             indent=2,

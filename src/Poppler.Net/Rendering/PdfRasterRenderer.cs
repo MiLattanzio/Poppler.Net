@@ -188,7 +188,10 @@ internal sealed class PdfRasterRenderer
                         x,
                         y,
                         width,
-                        dash),
+                        dash,
+                        element.State.LineCap,
+                        element.State.LineJoin,
+                        element.State.MiterLimit),
                     (x, y) => SampleBrush(element.State.Stroke, element.State, x, y, 0),
                     element.State.StrokeAlpha,
                     element.State.BlendMode,
@@ -262,7 +265,15 @@ internal sealed class PdfRasterRenderer
                 surface,
                 path.Bounds.Expand(width / 2 + 1),
                 element.ClipPaths,
-                (x, y) => RasterGeometry.StrokeContains(path, x, y, width, dash),
+                (x, y) => RasterGeometry.StrokeContains(
+                    path,
+                    x,
+                    y,
+                    width,
+                    dash,
+                    element.State.LineCap,
+                    element.State.LineJoin,
+                    element.State.MiterLimit),
                 (x, y) => SampleBrush(element.State.Stroke, element.State, x, y, 0),
                 element.State.StrokeAlpha,
                 element.State.BlendMode,
@@ -660,7 +671,10 @@ internal sealed class PdfRasterRenderer
                     tileX,
                     tileY,
                     Math.Max(path.State.LineWidth, 0.01),
-                    path.State.Dash))
+                    path.State.Dash,
+                    path.State.LineCap,
+                    path.State.LineJoin,
+                    path.State.MiterLimit))
             {
                 RasterColor stroke = !pattern.IsColored && pattern.UnderlyingColor.HasValue
                     ? RasterColor.FromPdf(pattern.UnderlyingColor.Value)

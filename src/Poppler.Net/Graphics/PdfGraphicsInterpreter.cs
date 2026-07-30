@@ -2790,30 +2790,7 @@ internal sealed class PdfGraphicsInterpreter
     }
 
     private byte[] ReadContent(PdfObject? contents)
-    {
-        if (contents is null)
-            return Array.Empty<byte>();
-        PdfObject resolved = contents.Resolve(_document);
-        if (resolved is PdfStream stream)
-            return _document.Decode(stream);
-        if (resolved is not PdfArray array)
-            return Array.Empty<byte>();
-
-        using var output = new MemoryStream();
-        foreach (PdfObject item in array)
-        {
-            if (item.AsStream(_document) is not { } part)
-                continue;
-            byte[] decoded = _document.Decode(part);
-            if (output.Length > 0)
-                output.WriteByte((byte)'\n');
-            if (output.Length + decoded.Length > _document.Options.MaximumDecodedStreamBytes)
-                throw new PdfLimitException("Combined page content exceeds the decoded stream limit.");
-            output.Write(decoded);
-        }
-
-        return output.ToArray();
-    }
+        => PdfPageContentReader.Read(_document, contents);
 
     private void CountOperation()
     {

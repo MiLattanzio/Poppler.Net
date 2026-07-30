@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.9.0-beta.1` compatibility release is not a complete replacement for
+> This `0.9.0-beta.2` compatibility release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -42,9 +42,12 @@ process invocation, or native NuGet dependency.
 > Beta 1 adds advanced annotation subtypes, popup/reply relationships,
 > file-attachment annotations and bounded inspection of remote, script, form,
 > layer, rendition and 3D actions. No action is executed.
+> Beta 2 adds conservative page/content repair, bounded decoded-stream caching
+> and more faithful raster caps, joins and continuous dash patterns.
 > See [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md) for its scope and limits. See
 > [docs/FORMS.md](docs/FORMS.md) for the AcroForm model and
 > [docs/OPTIONAL_CONTENT.md](docs/OPTIONAL_CONTENT.md) for layer behavior. See
+> [docs/ROBUSTNESS.md](docs/ROBUSTNESS.md) for recovery and cache behavior. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
@@ -263,9 +266,12 @@ adds Optional Content Group discovery, default view-state evaluation,
 overrides shared by the raster and SVG backends. Beta 1 adds advanced
 annotation subtypes, review/popup relationships, attachment data, callouts,
 redaction metadata and bounded inspection-only action chains for remote
-navigation, launch, JavaScript, forms, layers, multimedia and 3D. Field
-mutation/saving, XFA, alternate layer configurations, layer UI order, action
-dispatch and multimedia playback remain outside this release.
+navigation, launch, JavaScript, forms, layers, multimedia and 3D. Beta 2 adds
+conservative repair for independent page-tree/content branches, bounded
+decoded-stream reuse, content-specific limits and corrected managed cap, join,
+miter and dash geometry. Field mutation/saving, XFA, alternate layer
+configurations, layer UI order, action dispatch and multimedia playback remain
+outside this release.
 
 ## License and provenance
 

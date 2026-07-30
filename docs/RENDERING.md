@@ -1,6 +1,6 @@
 # Managed raster rendering in 0.9
 
-Release `0.9.0-alpha.1` extends the pure-C# counterpart of Poppler's
+Release `0.9.0-beta.2` extends the pure-C# counterpart of Poppler's
 `SplashOutputDev`, path scanner, compositing and font-outline responsibilities.
 It consumes the backend-neutral `Page.Graphics` display list and never loads
 Splash, Cairo, Skia, FreeType, a platform drawing API or another native
@@ -52,6 +52,9 @@ pixels at alpha zero.
 2. Cubic Bézier paths are flattened adaptively in device space.
 3. Fill, stroke and clipping coverage are sampled on a configurable 1×, 2×,
    4× or 8× grid per pixel.
+   Stroke coverage applies explicit butt/round/square caps,
+   miter/round/bevel joins and continuous dash phase, including odd dash-array
+   repetition.
 4. Solid colors, axial/radial gradients, colored/uncolored tiling patterns and
    type 4–7 mesh shadings supply straight RGBA source samples.
 5. Decoded Image XObjects use nearest-neighbor or bilinear sampling according
@@ -221,14 +224,22 @@ group-ID overrides, while the cached `Page.Graphics` display list continues to
 represent the document's default configuration. See
 [OPTIONAL_CONTENT.md](OPTIONAL_CONTENT.md).
 
+The `0.9.0-beta.2` corpus adds five managed pages for cap/join geometry,
+continuous and odd dash arrays, a partially corrupt `/Contents` array and a
+stream with a stale declared length. Its damaged page tree also includes a
+missing child, a circular branch and an inconsistent page count. The five
+managed pages were inspected at original resolution; structural, strict-mode,
+concurrency and allocation behavior is covered independently. See
+[ROBUSTNESS.md](ROBUSTNESS.md).
+
 This remains a compatibility-focused rasterizer with explicit limits:
 
 - nested knockout shape/opacity and non-isolated groups with non-Normal
   boundary blend modes remain approximations;
 - unsupported calculator operators are rejected and reported rather than
   executed;
-- line caps, joins, miter clipping and dash continuity across subpaths are
-  approximated by the first managed stroke scanner;
+- degenerate zero-length joins, extreme anisotropic transforms and uncommon
+  self-intersecting stroke geometry remain managed approximations;
 - CFF2 variation-region interpolation, uncommon Type 1/CFF operators, Type 1
   `seac`, advanced Type 3 behavior and hinting remain unsupported;
 - GSUB is limited to non-contextual `vert`/`vrt2` and exact `liga`/`rlig`;

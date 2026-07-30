@@ -29,6 +29,9 @@ var options = new PdfReadOptions
 {
     MaximumInputBytes = 64 * 1024 * 1024,
     MaximumDecodedStreamBytes = 32 * 1024 * 1024,
+    MaximumCachedDecodedBytes = 16 * 1024 * 1024,
+    MaximumContentStreamsPerPage = 2_000,
+    MaximumContentOperands = 100_000,
     MaximumCMapMappings = 100_000,
     MaximumExternalCMapBytes = 4 * 1024 * 1024,
     MaximumCMapUseDepth = 8,
@@ -59,7 +62,9 @@ var options = new PdfReadOptions
     MaximumOptionalContentExpressionNodes = 50_000,
     MaximumRenderPixels = 25_000_000,
     MaximumPages = 2_000,
-    AttemptXrefRepair = false
+    AttemptXrefRepair = false,
+    AttemptPageTreeRepair = false,
+    AttemptContentStreamRepair = false
 };
 ```
 
@@ -254,6 +259,11 @@ caches synchronize initialization and return immutable or read-only results.
 `RasterRenderOptions.FontDirectories` and raster/SVG optional-content
 visibility maps are copied when a render begins, so later caller mutations
 cannot change an operation already in progress.
+
+Decoded indirect streams are shared safely between repeated page, text and
+graphics reads until `MaximumCachedDecodedBytes` is reached. The budget is per
+document; zero disables this cache without changing decoded-stream safety
+limits. See [ROBUSTNESS.md](ROBUSTNESS.md).
 
 Do not call `Unlock` or `Dispose` concurrently with another operation.
 `Dispose` is idempotent, but the caller remains responsible for ending all

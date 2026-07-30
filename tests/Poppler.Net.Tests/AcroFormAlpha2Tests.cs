@@ -204,7 +204,7 @@ public sealed class AcroFormAlpha2Tests
         }));
 
         PdfBitmap bitmap = Render(page);
-        AssertPixel(bitmap, 44, 35, 0, 115, 0, tolerance: 5);
+        AssertPixel(bitmap, 40, 40, 0, 115, 0, tolerance: 5);
         AssertPixel(bitmap, 87, 90, 0, 51, 230, tolerance: 5);
         AssertPixel(bitmap, 40, 150, 0, 0, 0, tolerance: 70);
     }

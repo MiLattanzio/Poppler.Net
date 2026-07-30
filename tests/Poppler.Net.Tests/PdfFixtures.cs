@@ -384,6 +384,30 @@ internal static class PdfFixtures
         return result;
     }
 
+    public static byte[] CreateWithLargeCompressedContent(
+        int decodedBytes = 256 * 1024)
+    {
+        if (decodedBytes < 64)
+            throw new ArgumentOutOfRangeException(nameof(decodedBytes));
+        byte[] content = Enumerable.Repeat((byte)' ', decodedBytes).ToArray();
+        byte[] operation = Ascii("0 0 10 10 re f");
+        operation.CopyTo(content, content.Length - operation.Length);
+        byte[] compressed = Compress(content);
+        return BuildClassic(
+            new[]
+            {
+                Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+                Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+                Ascii(
+                    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] " +
+                    "/Resources << >> /Contents 4 0 R >>"),
+                Stream(
+                    $"<< /Length {compressed.Length} /Filter /FlateDecode >>",
+                    compressed)
+            },
+            infoObject: null);
+    }
+
     public static byte[] CreateWithoutEndOfFileMarker()
     {
         byte[] result = Create(compressContent: false);

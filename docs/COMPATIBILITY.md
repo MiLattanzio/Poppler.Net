@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.9.0-beta.1
+## Works in 0.9.0-beta.2
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -9,6 +9,12 @@
 - Header-relative offsets when up to 1,023 leading bytes precede `%PDF-`.
 - Conservative damaged-xref reconstruction, including xref streams and
   compressed object streams.
+- Conservative page-tree branch recovery with circular/missing-child
+  diagnostics and stale `/Count` reporting.
+- Partial `/Contents` array recovery when valid sibling streams remain,
+  with strict repair switches for validation workloads.
+- Bounded thread-safe reuse of decoded indirect streams, with a per-document
+  byte budget and an explicit disable path.
 - Catalog and page-tree traversal with inherited boxes, resources and rotation;
   reversed boxes are normalized, page boxes are clipped to `MediaBox`, and a
   damaged tree without `MediaBox` uses Poppler's 612×792-point fallback.
@@ -93,6 +99,9 @@
 - Supersampled path fill/stroke and clip coverage at 1×, 2×, 4× or 8×,
   adaptive cubic Bézier flattening, image sampling, gradients and colored
   tiling patterns.
+- Butt, round and projecting-square caps, miter/round/bevel joins with
+  miter-limit fallback, continuous dash phase across path segments and
+  PDF-correct repetition of odd dash arrays.
 - Straight-alpha compositing for the 16 standard separable/nonseparable PDF
   blend modes.
 - Preserved Form transparency groups, isolated/non-isolated and knockout
@@ -196,8 +205,9 @@
   corresponding vector brush implementation.
 - Vertical writing supports metrics and non-contextual `vert`/`vrt2`
   alternates; contextual vertical shaping remains unsupported.
-- Stroke cap/join/miter geometry and dash continuity use the first managed
-  approximation and are not yet pixel-equivalent to Splash in every case.
+- Degenerate zero-length strokes, extreme anisotropic transforms and uncommon
+  self-intersecting joins are not yet pixel-equivalent to Splash in every
+  case.
 - JPEG 2000 Part 2, unusual JPEG color transforms and malformed/extension
   streams outside the managed codec coverage remain unsupported.
 - Annotation actions are never executed. AcroForm support is read-only:
@@ -216,9 +226,10 @@
 
 ## Safety limits
 
-Default limits are 256 MiB input, 256 MiB decoded per stream, 16 MiB per
-external CMap, 16 inherited CMaps, 1,000,000
-indirect objects, 1,000,000 direct collection items, 250,000 CMap mappings,
+Default limits are 256 MiB input, 256 MiB decoded per stream, a 64 MiB decoded
+stream cache, 10,000 content streams per page, 250,000 pending content
+operands, 16 MiB per external CMap, 16 inherited CMaps, 1,000,000 indirect
+objects, 1,000,000 direct collection items, 250,000 CMap mappings,
 1,000,000 graphics operations, 250,000 display-list elements, 1,000,000 path
 segments, 100,000,000 decoded pixels per image, 32 image components, 16 MiB
 per ICC profile, 1,000,000 sampled-function samples, graphics stack depth 256,

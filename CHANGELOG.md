@@ -1,5 +1,32 @@
 # Changelog
 
+## 0.9.0-beta.2 — 2026-07-30
+
+- Added conservative page-tree repair that skips invalid sibling branches,
+  stops circular branches and reports stale `/Count` values while preserving
+  every recoverable page. Strict behavior remains available through
+  `AttemptPageTreeRepair`.
+- Added partial recovery for page `/Contents` arrays: malformed stream
+  fragments and non-stream entries are skipped only when at least one valid
+  fragment remains. Limits are never swallowed, and
+  `AttemptContentStreamRepair` restores strict behavior.
+- Added a thread-safe decoded-stream cache bounded by
+  `MaximumCachedDecodedBytes`; setting the budget to zero disables it.
+- Added `MaximumContentStreamsPerPage` and `MaximumContentOperands` before
+  content-array concatenation or operand-list growth can allocate
+  disproportionately.
+- Corrected raster line caps, miter/round/bevel joins, miter-limit fallback,
+  dash phase continuity across path segments and the PDF repetition rule for
+  odd-length dash arrays.
+- Added stable `page-tree.repaired`, `page-tree.count-mismatch` and
+  `content.repaired` diagnostics, deduplicated under concurrent reads.
+- Added a deterministic five-page damaged/visual corpus covering missing and
+  circular page-tree branches, stale page counts, invalid Flate fragments,
+  recovered stream lengths, cap/join families and continuous/odd dash
+  patterns.
+- Added allocation, concurrency, strict-mode, limit, structural, raster and
+  fixture-integrity regressions, bringing the suite to 200 tests.
+
 ## 0.9.0-beta.1 — 2026-07-29
 
 - Added typed Caret, Popup, FileAttachment, Sound, Movie, Screen, PrinterMark,

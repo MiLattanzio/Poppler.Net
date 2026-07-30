@@ -12,13 +12,18 @@ internal sealed class PdfDocumentCore : IDisposable
     private readonly PdfReadOptions _options;
     private readonly Dictionary<PdfReference, PdfObject> _objectCache = new();
     private readonly HashSet<PdfReference> _resolving = new();
+    private readonly Dictionary<PdfReference, Lazy<byte[]>> _decodedStreamCache = new();
     private readonly List<PdfDiagnostic> _diagnostics = new();
+    private readonly HashSet<string> _reportedDiagnostics = new(StringComparer.Ordinal);
     private readonly object _resolutionSync = new();
+    private readonly object _decodedStreamSync = new();
     private readonly object _diagnosticSync = new();
     private readonly PdfCrossReference _crossReference;
     private readonly Lazy<PdfCMapResolver> _cMapResolver;
     private PdfStandardSecurityHandler? _securityHandler;
     private PdfReference? _encryptionReference;
+    private long _cachedDecodedBytes;
+    private const int MaximumDecodedStreamCacheEntries = 4096;
 
     public PdfDocumentCore(
         byte[] data,
@@ -117,8 +122,53 @@ internal sealed class PdfDocumentCore : IDisposable
         }
     }
 
-    public byte[] Decode(PdfStream stream) =>
-        PdfFilterPipeline.Decode(stream, this, _options);
+    public byte[] Decode(PdfStream stream)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        PdfReference? reference = stream.SourceReference;
+        if (reference is null || _options.MaximumCachedDecodedBytes == 0)
+            return PdfFilterPipeline.Decode(stream, this, _options);
+
+        Lazy<byte[]>? cached = null;
+        bool cacheCapacityReached = false;
+        lock (_decodedStreamSync)
+        {
+            if (!_decodedStreamCache.TryGetValue(reference, out cached))
+            {
+                if (_decodedStreamCache.Count >= MaximumDecodedStreamCacheEntries)
+                {
+                    cacheCapacityReached = true;
+                }
+                else
+                {
+                    cached = new Lazy<byte[]>(
+                        () => DecodeAndAccount(stream, reference),
+                        LazyThreadSafetyMode.ExecutionAndPublication);
+                    _decodedStreamCache.Add(reference, cached);
+                }
+            }
+        }
+        if (cacheCapacityReached)
+            return PdfFilterPipeline.Decode(stream, this, _options);
+
+        try
+        {
+            return cached!.Value;
+        }
+        catch
+        {
+            lock (_decodedStreamSync)
+            {
+                if (_decodedStreamCache.TryGetValue(reference, out Lazy<byte[]>? current) &&
+                    ReferenceEquals(current, cached))
+                {
+                    _decodedStreamCache.Remove(reference);
+                }
+            }
+
+            throw;
+        }
+    }
 
     public byte[] DecryptExplicitStream(
         PdfStream stream,
@@ -200,6 +250,19 @@ internal sealed class PdfDocumentCore : IDisposable
             _diagnostics.Add(new PdfDiagnostic(severity, code, message, offset));
     }
 
+    public void AddDiagnosticOnce(
+        PdfDiagnosticSeverity severity,
+        string code,
+        string message,
+        long? offset = null)
+    {
+        lock (_diagnosticSync)
+        {
+            if (_reportedDiagnostics.Add(code))
+                _diagnostics.Add(new PdfDiagnostic(severity, code, message, offset));
+        }
+    }
+
     public int ToPhysicalOffset(long logicalOffset)
     {
         long physicalOffset;
@@ -226,9 +289,41 @@ internal sealed class PdfDocumentCore : IDisposable
             _objectCache.Clear();
             _resolving.Clear();
         }
+        lock (_decodedStreamSync)
+        {
+            _decodedStreamCache.Clear();
+            _cachedDecodedBytes = 0;
+        }
     }
 
-    public void Dispose() => _securityHandler?.Dispose();
+    public void Dispose()
+    {
+        _securityHandler?.Dispose();
+        lock (_decodedStreamSync)
+        {
+            _decodedStreamCache.Clear();
+            _cachedDecodedBytes = 0;
+        }
+    }
+
+    private byte[] DecodeAndAccount(PdfStream stream, PdfReference reference)
+    {
+        byte[] decoded = PdfFilterPipeline.Decode(stream, this, _options);
+        lock (_decodedStreamSync)
+        {
+            long remaining = _options.MaximumCachedDecodedBytes - _cachedDecodedBytes;
+            if (decoded.Length <= remaining)
+            {
+                _cachedDecodedBytes += decoded.Length;
+            }
+            else
+            {
+                _decodedStreamCache.Remove(reference);
+            }
+        }
+
+        return decoded;
+    }
 
     private PdfObject ReadUncompressed(PdfReference requested, PdfXrefEntry entry)
     {

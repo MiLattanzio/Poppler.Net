@@ -1,0 +1,18 @@
+{
+  "file": "robustness-beta2.pdf",
+  "sha256": "451bcc89375c187328708e0485fddb6ae5a465bc0b35ec37469b90a033bfc0e2",
+  "pages": [
+    "line-caps-and-dotted-strokes",
+    "continuous-and-odd-dash-patterns",
+    "partially-damaged-content-array",
+    "recovered-stream-length",
+    "miter-round-and-bevel-joins"
+  ],
+  "managed_png_sha256": [
+    "0ef1ba1189d2ee5556594b9e74b2ac087a0ef663de5d7d1e3c18aab12c233ad1",
+    "b9c85729a4a0cd3f242765221a8f2a8f036a2fb2bfa1012d570f05970125818d",
+    "68ea4e8840c19625bbce95a1e7f31b2b072dcb875206af7f85b6186041cae22f",
+    "a9a5984fa72cf5733efc2186eed9ca840571de33482a6b0df49739686e5fdeaf",
+    "87a9a6bd772e671de8584659db2d8a86d91e8587dc501a2302f47ca873660e49"
+  ]
+}

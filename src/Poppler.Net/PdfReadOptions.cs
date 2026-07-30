@@ -7,8 +7,11 @@ public sealed record PdfReadOptions
 
     public long MaximumInputBytes { get; init; } = 256L * 1024 * 1024;
     public int MaximumDecodedStreamBytes { get; init; } = 256 * 1024 * 1024;
+    public long MaximumCachedDecodedBytes { get; init; } = 64L * 1024 * 1024;
     public int MaximumObjects { get; init; } = 1_000_000;
     public int MaximumCollectionItems { get; init; } = 1_000_000;
+    public int MaximumContentStreamsPerPage { get; init; } = 10_000;
+    public int MaximumContentOperands { get; init; } = 250_000;
     public int MaximumCMapMappings { get; init; } = 250_000;
     public int MaximumExternalCMapBytes { get; init; } = 16 * 1024 * 1024;
     public int MaximumCMapUseDepth { get; init; } = 16;
@@ -46,6 +49,8 @@ public sealed record PdfReadOptions
     public int MaximumObjectDepth { get; init; } = 64;
     public int MaximumTreeDepth { get; init; } = 128;
     public bool AttemptXrefRepair { get; init; } = true;
+    public bool AttemptPageTreeRepair { get; init; } = true;
+    public bool AttemptContentStreamRepair { get; init; } = true;
 
     internal PdfReadOptions Snapshot()
     {
@@ -62,10 +67,16 @@ public sealed record PdfReadOptions
             throw new ArgumentOutOfRangeException(nameof(MaximumInputBytes));
         if (MaximumDecodedStreamBytes < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumDecodedStreamBytes));
+        if (MaximumCachedDecodedBytes < 0)
+            throw new ArgumentOutOfRangeException(nameof(MaximumCachedDecodedBytes));
         if (MaximumObjects < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumObjects));
         if (MaximumCollectionItems < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumCollectionItems));
+        if (MaximumContentStreamsPerPage < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumContentStreamsPerPage));
+        if (MaximumContentOperands < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumContentOperands));
         if (MaximumCMapMappings < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumCMapMappings));
         if (MaximumExternalCMapBytes < 1)

@@ -33,6 +33,11 @@ internal static class PdfContentReader
 
             if (value is not PdfKeyword keyword)
             {
+                if (operands.Count >= options.MaximumContentOperands)
+                {
+                    throw new PdfLimitException(
+                        "Content-stream operand count exceeds the configured limit.");
+                }
                 operands.Add(value);
                 continue;
             }
@@ -66,6 +71,12 @@ internal static class PdfContentReader
             reader.SkipTrivia();
             if (reader.AtEnd)
                 throw new PdfFormatException("Inline-image dictionary is truncated.");
+            if (!entries.ContainsKey(name.Value) &&
+                entries.Count >= options.MaximumCollectionItems)
+            {
+                throw new PdfLimitException(
+                    "Inline-image dictionary exceeds the configured collection limit.");
+            }
             entries[name.Value] = reader.ReadObject();
         }
 
