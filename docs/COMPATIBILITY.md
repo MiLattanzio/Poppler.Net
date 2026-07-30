@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.9.0-beta.2
+## Works in 0.9.0-rc.1
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.

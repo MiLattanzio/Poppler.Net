@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.9.0-rc.1 — 2026-07-30
+
+- Froze the callable `0.9` public API carried by `0.9.0-beta.2`; only the
+  expected `Document.PortVersion` constant changes for the release candidate.
+- Added a version-normalized reflection fingerprint so future promotion cannot
+  silently alter public types, members, optional defaults or constant values.
+- Made CLI document-information ordering explicitly ordinal and
+  culture-independent.
+- Added release regressions for caller-buffer ownership, byte-for-byte saving,
+  culture-independent parsing/SVG/raster output, per-operation layer override
+  snapshots and independent diagnostic snapshots.
+- Added standalone release notes to both source and NuGet distributions.
+- Kept every historical corpus and raster regression active, bringing the suite
+  to 205 tests without adding a new public feature family.
+
 ## 0.9.0-beta.2 — 2026-07-30
 
 - Added conservative page-tree repair that skips invalid sibling branches,

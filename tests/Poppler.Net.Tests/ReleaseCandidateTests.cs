@@ -11,7 +11,9 @@ namespace Poppler.Net.Tests;
 public sealed class ReleaseCandidateTests
 {
     private const string FrozenPublicApiSha256 =
-        "db65f8de415117a759a689e184bf41955224b67cf466154b31c40caa4166db45";
+        "9a6e27ff4b193eeedfa4b610fa0dfd2a58ea72d6ac2241a43f043ae606e5f5cc";
+    private const string FrozenCallableApiSha256 =
+        "b7c30ce2ca93e6c2887c83c6ee045cc109c6cbaebee86922885ab90c9320f99c";
 
     [Test]
     public async Task ConcurrentReadsFromOneDocumentAreDeterministic()
@@ -74,6 +76,135 @@ public sealed class ReleaseCandidateTests
     }
 
     [Test]
+    public void LoadFromDataOwnsItsInputBytes()
+    {
+        byte[] source = PdfFixtures.Create(compressContent: false);
+        byte[] expected = source.ToArray();
+        using Document document = Document.LoadFromData(source);
+
+        Array.Fill(source, (byte)0);
+
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(document.Title, Is.EqualTo("Managed fixture"));
+            Assert.That(
+                document.CreatePage(0).Text(layout: TextLayout.RawOrder),
+                Does.Contain("Hello managed PDF"));
+        }));
+
+        string path = Path.Combine(
+            Path.GetTempPath(),
+            $"poppler-net-owned-input-{Guid.NewGuid():N}.pdf");
+        try
+        {
+            document.SaveACopy(path);
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(expected));
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Test]
+    [NonParallelizable]
+    public void StructuredOutputIsIndependentOfCurrentCulture()
+    {
+        byte[] source = PdfFixtures.Create(compressContent: false);
+        CultureInfo originalCulture = CultureInfo.CurrentCulture;
+        CultureInfo originalUiCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            string[] snapshots =
+            [
+                SnapshotForCulture(source, "en-US"),
+                SnapshotForCulture(source, "it-IT"),
+                SnapshotForCulture(source, "tr-TR"),
+                SnapshotForCulture(source, "ar-SA")
+            ];
+
+            Assert.That(snapshots, Has.All.EqualTo(snapshots[0]));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+            CultureInfo.CurrentUICulture = originalUiCulture;
+        }
+    }
+
+    [Test]
+    public void RenderOverridesAreSnapshottedPerOperation()
+    {
+        using Document document = Document.LoadFromFile(
+            Path.Combine(FixtureDirectory(), "optional-content-alpha3.pdf"));
+        Page page = document.CreatePage(0);
+        string groupId = document.OptionalContentGroups[0].Id;
+        var overrides = new Dictionary<string, bool>(StringComparer.Ordinal)
+        {
+            [groupId] = false
+        };
+        var options = new RasterRenderOptions
+        {
+            Dpi = 36,
+            Antialiasing = 1,
+            UseFontSubstitution = false,
+            OptionalContentVisibility = overrides
+        };
+
+        string hidden = Hash(page.RenderToPng(options));
+        overrides[groupId] = true;
+        string visible = Hash(page.RenderToPng(options));
+
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(hidden, Is.Not.EqualTo(visible));
+            Assert.That(
+                hidden,
+                Is.EqualTo(Hash(page.RenderToPng(options with
+                {
+                    OptionalContentVisibility =
+                        new Dictionary<string, bool>(StringComparer.Ordinal)
+                        {
+                            [groupId] = false
+                        }
+                }))));
+            Assert.That(
+                visible,
+                Is.EqualTo(Hash(page.RenderToPng(options with
+                {
+                    OptionalContentVisibility =
+                        new Dictionary<string, bool>(StringComparer.Ordinal)
+                        {
+                            [groupId] = true
+                        }
+                }))));
+        }));
+    }
+
+    [Test]
+    public void DiagnosticReadsReturnIndependentSnapshots()
+    {
+        using Document document = Document.LoadFromFile(
+            Path.Combine(FixtureDirectory(), "robustness-beta2.pdf"));
+        IReadOnlyList<PdfDiagnostic> first = document.Diagnostics;
+        IReadOnlyList<PdfDiagnostic> second = document.Diagnostics;
+
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(first, Is.Not.Empty);
+            Assert.That(second, Is.EqualTo(first));
+            Assert.That(ReferenceEquals(first, second), Is.False);
+        }));
+
+        if (first is PdfDiagnostic[] mutable)
+        {
+            mutable[0] = null!;
+            Assert.That(document.Diagnostics[0], Is.Not.Null);
+        }
+    }
+
+    [Test]
     [NonParallelizable]
     public void ReleaseSmokeFitsTimeAndAllocationBudgets()
     {
@@ -124,7 +255,7 @@ public sealed class ReleaseCandidateTests
     [Test]
     public void PublicApiMatchesReleaseSurface()
     {
-        string surface = PublicApiSurface();
+        string surface = PublicApiSurface(normalizePortVersion: false);
         string actual = Convert.ToHexString(
                 SHA256.HashData(Encoding.UTF8.GetBytes(surface)))
             .ToLowerInvariant();
@@ -133,6 +264,20 @@ public sealed class ReleaseCandidateTests
             actual,
             Is.EqualTo(FrozenPublicApiSha256),
             $"Public API changed. Actual SHA-256: {actual}");
+    }
+
+    [Test]
+    public void CallablePublicApiMatchesFrozenReleaseSurface()
+    {
+        string surface = PublicApiSurface(normalizePortVersion: true);
+        string actual = Convert.ToHexString(
+                SHA256.HashData(Encoding.UTF8.GetBytes(surface)))
+            .ToLowerInvariant();
+
+        Assert.That(
+            actual,
+            Is.EqualTo(FrozenCallableApiSha256),
+            $"Callable public API changed. Actual SHA-256: {actual}");
     }
 
     [Test]
@@ -146,6 +291,38 @@ public sealed class ReleaseCandidateTests
 
         Assert.That(Document.PortVersion, Is.EqualTo(packageVersion));
     }
+
+    private static string SnapshotForCulture(byte[] source, string cultureName)
+    {
+        var culture = CultureInfo.GetCultureInfo(cultureName);
+        CultureInfo.CurrentCulture = culture;
+        CultureInfo.CurrentUICulture = culture;
+        using Document document = Document.LoadFromData(source);
+        Page page = document.CreatePage(0);
+        long creationTicks =
+            document.CreationDate?.ToUniversalTime().Ticks ?? 0;
+        string svg = page.RenderToSvg(new SvgRenderOptions
+        {
+            IncludeImages = false
+        });
+        string png = Hash(page.RenderToPng(new RasterRenderOptions
+        {
+            Dpi = 24,
+            Antialiasing = 1,
+            UseFontSubstitution = false
+        }));
+        return string.Join(
+            "\n",
+            document.PdfVersion,
+            creationTicks.ToString(CultureInfo.InvariantCulture),
+            page.PageRect().ToString(),
+            page.Text(layout: TextLayout.RawOrder),
+            svg,
+            png);
+    }
+
+    private static string Hash(byte[] data) =>
+        Convert.ToHexString(SHA256.HashData(data));
 
     private static string ReadAndRender(Document document)
     {
@@ -165,7 +342,7 @@ public sealed class ReleaseCandidateTests
         return $"{text}|{fonts}|{graphics}|{hash}";
     }
 
-    private static string PublicApiSurface()
+    private static string PublicApiSurface(bool normalizePortVersion)
     {
         Assembly assembly = typeof(Document).Assembly;
         var lines = new List<string>();
@@ -184,8 +361,16 @@ public sealed class ReleaseCandidateTests
                     : field.IsStatic
                         ? field.IsInitOnly ? "static readonly " : "static "
                         : field.IsInitOnly ? "readonly " : "";
+                object? rawValue =
+                    field.IsLiteral ? field.GetRawConstantValue() : null;
+                if (normalizePortVersion &&
+                    type == typeof(Document) &&
+                    field.Name == nameof(Document.PortVersion))
+                {
+                    rawValue = "<version>";
+                }
                 string value = field.IsLiteral
-                    ? $" = {FormatDefault(field.GetRawConstantValue())}"
+                    ? $" = {FormatDefault(rawValue)}"
                     : "";
                 lines.Add(
                     $"  field {modifier}{FriendlyName(field.FieldType)} {field.Name}{value}");

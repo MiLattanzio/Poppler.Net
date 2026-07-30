@@ -9,7 +9,7 @@ Fontconfig, FreeType, LCMS, NSS, GPGME, OpenJPEG or libjpeg.
 
 The supplied Poppler 26.07.0 tree contains 228,947 lines across C/C++ headers
 and implementations. A faithful port therefore has to be delivered in audited
-slices. Version `0.9.0-beta.2` builds on the stable `0.8.0` text and graphics
+slices. Version `0.9.0-rc.1` builds on the stable `0.8.0` text and graphics
 interpreter,
 adds managed CFF1/Type 2 and Type 1 outline readers, executes Type 3 CharProcs,
 decodes inline images, ports the canonical Base-14 width tables and performs
@@ -25,6 +25,11 @@ foundation, `0.3` security handler, `0.4` font/text layer,
 the `0.9` beta 2 slice adds conservative page/content repair, decoded-stream
 reuse and refined cap/join/dash coverage. This is not a claim that all of
 Poppler has already been translated.
+
+The first `0.9` release candidate freezes that callable surface and adds
+distribution, culture-independence, input-ownership, option-snapshot and
+diagnostic-snapshot gates. It intentionally introduces no new public feature
+family after beta 2.
 
 ## Implemented sequence
 

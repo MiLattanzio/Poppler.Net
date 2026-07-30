@@ -71,8 +71,13 @@ internal static class Cli
         Console.WriteLine($"Optional layers:    {document.OptionalContentGroups.Count}");
         Console.WriteLine($"JavaScript present: {YesNo(document.HasJavaScript)}");
         Console.WriteLine($"Embedded files:     {document.EmbeddedFiles.Count}");
-        foreach ((string key, string value) in document.Information.OrderBy(pair => pair.Key))
+        foreach ((string key, string value) in
+                 document.Information.OrderBy(
+                     pair => pair.Key,
+                     StringComparer.Ordinal))
+        {
             Console.WriteLine($"{key,-20} {value}");
+        }
         if (document.PdfId is { } id)
         {
             Console.WriteLine($"Permanent ID:       {id.PermanentId}");
