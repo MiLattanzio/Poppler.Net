@@ -11,7 +11,7 @@ namespace Poppler.Net.Tests;
 public sealed class ReleaseCandidateTests
 {
     private const string FrozenPublicApiSha256 =
-        "9a6e27ff4b193eeedfa4b610fa0dfd2a58ea72d6ac2241a43f043ae606e5f5cc";
+        "5d12fd1d599f6e16c2a55dd2e203b0fe9085eb90eb589b37d7543ed731bd48a0";
     private const string FrozenCallableApiSha256 =
         "b7c30ce2ca93e6c2887c83c6ee045cc109c6cbaebee86922885ab90c9320f99c";
 
@@ -290,6 +290,23 @@ public sealed class ReleaseCandidateTests
         string packageVersion = informationalVersion.Split('+', 2)[0];
 
         Assert.That(Document.PortVersion, Is.EqualTo(packageVersion));
+    }
+
+    [Test]
+    public void StableVersionHasNoPrereleaseLabel()
+    {
+        string informationalVersion =
+            typeof(Document).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!
+                .InformationalVersion;
+        string packageVersion = informationalVersion.Split('+', 2)[0];
+
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(Document.PortVersion, Is.EqualTo("0.9.0"));
+            Assert.That(packageVersion, Is.EqualTo("0.9.0"));
+            Assert.That(packageVersion, Does.Not.Contain('-'));
+        }));
     }
 
     private static string SnapshotForCulture(byte[] source, string cultureName)

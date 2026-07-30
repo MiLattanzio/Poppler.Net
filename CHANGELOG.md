@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.9.0 — 2026-07-31
+
+- Promoted `0.9.0-rc.1` to the stable `0.9.0` release without changing the
+  callable public API, parsing behavior or verified raster output.
+- Preserved the version-normalized API fingerprint frozen in RC 1 and added a
+  stable-version regression that rejects prerelease labels.
+- Finalized the library, CLI, assembly and NuGet version at `0.9.0`.
+- Retained all RC compatibility, culture-independence, input-ownership,
+  option-snapshot, diagnostic-snapshot, concurrency and performance gates.
+- Finalized stable release notes and compatibility documentation while keeping
+  editing, action execution, signature validation, advanced shaping, complete
+  color proofing and SVG mesh painting explicitly outside the release.
+- Retained the managed-only dependency policy, Linux/Windows/macOS CI matrix
+  and NuGet.org OIDC Trusted Publishing flow.
+
 ## 0.9.0-rc.1 — 2026-07-30
 
 - Froze the callable `0.9` public API carried by `0.9.0-beta.2`; only the

@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.9.0-rc.1` release candidate is not a complete replacement for
+> This `0.9.0` compatibility release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -47,6 +47,8 @@ process invocation, or native NuGet dependency.
 > RC 1 freezes the callable `0.9` surface and adds culture, input-ownership,
 > option-snapshot and diagnostic-snapshot release gates without introducing a
 > new public feature family.
+> Stable `0.9.0` promotes that frozen surface without changing rendering or
+> adding a public feature family.
 > See [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md) for its scope and limits. See
 > [docs/FORMS.md](docs/FORMS.md) for the AcroForm model and
 > [docs/OPTIONAL_CONTENT.md](docs/OPTIONAL_CONTENT.md) for layer behavior. See

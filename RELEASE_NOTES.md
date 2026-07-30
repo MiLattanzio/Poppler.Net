@@ -1,24 +1,19 @@
-# Poppler.Net 0.9.0-rc.1
+# Poppler.Net 0.9.0
 
-Release date: 2026-07-30
+Release date: 2026-07-31
 
-`0.9.0-rc.1` is the first release candidate for the managed-only Poppler
-26.07.0 port. The `0.9` feature set is now frozen: this release focuses on
-compatibility, deterministic behavior and distribution quality rather than new
-public functionality.
+`0.9.0` is the stable release of the managed-only Poppler 26.07.0 port's
+`0.9` line. It promotes `0.9.0-rc.1` without changing the callable public API,
+parsing behavior or verified raster output.
 
-## Highlights
+## Changes since 0.9.0-rc.1
 
-- Freezes the callable public API carried by `0.9.0-beta.2`; the only public
-  constant change is the expected `Document.PortVersion` value.
-- Adds a version-normalized API fingerprint so promotion from RC to stable
-  cannot silently add, remove or alter a public type, member or default value.
-- Makes CLI document-information ordering explicitly ordinal and therefore
-  independent of the current operating-system culture.
-- Adds release gates for owned input bytes, byte-for-byte save copies after
-  caller-buffer mutation, culture-independent PDF/SVG/PNG output,
-  per-operation layer-override snapshots and independent diagnostic snapshots.
-- Aligns library, CLI, assembly and NuGet versions at `0.9.0-rc.1`.
+- Finalizes library, CLI, assembly and NuGet versions at `0.9.0`.
+- Preserves the callable API fingerprint frozen in RC 1; only the expected
+  public `Document.PortVersion` value changes.
+- Adds a stable-version regression that rejects prerelease labels.
+- Finalizes stable release notes and compatibility documentation.
+- Introduces no new production feature or rendering change.
 
 ## What the 0.9 line adds over 0.8
 
@@ -33,14 +28,16 @@ public functionality.
   strict-mode switches and bounded decoded-stream caching.
 - More faithful raster line caps, joins, miter fallback and continuous/odd dash
   patterns.
+- Culture-independent output, owned input bytes, operation-scoped option
+  snapshots and independent diagnostic snapshots.
 
 ## Compatibility and upgrading
 
 There are no intentional source or binary breaking changes from
-`0.9.0-beta.2`. Update the package reference:
+`0.9.0-beta.2` or `0.9.0-rc.1`. Update the package reference:
 
 ```xml
-<PackageReference Include="Poppler.Net" Version="0.9.0-rc.1" />
+<PackageReference Include="Poppler.Net" Version="0.9.0" />
 ```
 
 Applications should continue to treat documents, pages, annotations, fields
@@ -65,8 +62,8 @@ matrix.
 ## Verification
 
 - Release build of all four projects with warnings treated as errors.
-- 205 NUnit tests, including historical raster and corpus-integrity
-  regressions.
+- 206 NUnit tests, including the frozen callable API and all historical raster
+  and corpus-integrity regressions.
 - Managed-only production and dependency graph verification.
 - Deterministic fixture regeneration and visual inspection of representative
   PDF pages.
@@ -74,4 +71,4 @@ matrix.
 - Offline restore, rebuild, test, package and rendering checks from the
   extracted source ZIP.
 
-Base revision: `7c47d57e14a8b1642aabf6ea8beb75edb99ae02f`.
+Base revision: `036e5912ab17693e0d47632532f0b6c86917ff4e`.

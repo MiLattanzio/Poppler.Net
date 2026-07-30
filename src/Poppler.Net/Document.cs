@@ -10,7 +10,7 @@ namespace Poppler;
 /// <summary>Read-only managed representation of a PDF document.</summary>
 public sealed class Document : IDisposable
 {
-    public const string PortVersion = "0.9.0-rc.1";
+    public const string PortVersion = "0.9.0";
     public const string UpstreamVersion = "26.07.0";
 
     private readonly byte[] _data;

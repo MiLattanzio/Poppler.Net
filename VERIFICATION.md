@@ -1,14 +1,14 @@
 # Verification record
 
-Verification performed on 2026-07-30 for `0.9.0-rc.1`, based on GitHub
-`master` commit `7c47d57e14a8b1642aabf6ea8beb75edb99ae02f`:
+Verification performed on 2026-07-31 for `0.9.0`, based on GitHub `master`
+commit `036e5912ab17693e0d47632532f0b6c86917ff4e`:
 
 - .NET SDK 8.0.423 compiled all four solution projects in Release with
   warnings treated as errors.
-- NUnitLite executed 205 tests: 205 passed, 0 failed, 0 warnings, 0 skipped.
+- NUnitLite executed 206 tests: 206 passed, 0 failed, 0 warnings, 0 skipped.
 - The managed-only verifier accepted production source and every asset in the
   restored NuGet graph, including the three managed runtime codecs.
-- `Poppler.Net.0.9.0-rc.1.nupkg` contains the Release net8.0 DLL/XML, README,
+- `Poppler.Net.0.9.0.nupkg` contains the Release net8.0 DLL/XML, README,
   release notes, license and notice. Its metadata names `Mi Lattanzio` as
   author and `https://github.com/MiLattanzio/Poppler.Net` as project and git
   repository.
@@ -23,14 +23,14 @@ Verification performed on 2026-07-30 for `0.9.0-rc.1`, based on GitHub
 
 - A deterministic reflection fingerprint covers every public type, member and
   constant value. The frozen SHA-256 is
-  `9a6e27ff4b193eeedfa4b610fa0dfd2a58ea72d6ac2241a43f043ae606e5f5cc`.
+  `5d12fd1d599f6e16c2a55dd2e203b0fe9085eb90eb589b37d7543ed731bd48a0`.
 - A second fingerprint normalizes only `Document.PortVersion` and freezes the
   callable surface at
   `b7c30ce2ca93e6c2887c83c6ee045cc109c6cbaebee86922885ab90c9320f99c`.
-  Promotion from RC to stable therefore cannot silently change any other
-  public signature, optional default or constant value.
+  The stable promotion therefore changes no public signature, optional default
+  or constant other than the expected version value.
 - `Document.PortVersion`, assembly informational version, CLI and NuGet
-  package version all report `0.9.0-rc.1`.
+  package version all report `0.9.0` without a prerelease label.
 - Twenty-four workers concurrently read pages, text, fonts, graphics and
   raster output from one `Document`.
 - Thirty-two workers concurrently materialize one lazy embedded file.
@@ -46,10 +46,10 @@ Verification performed on 2026-07-30 for `0.9.0-rc.1`, based on GitHub
   under en-US, it-IT, tr-TR and ar-SA current cultures.
 - Repeated diagnostic reads return independent snapshots, and a mutable layer
   dictionary is resnapshotted for each render operation.
-- The Release smoke workload completed in 96.5 ms and allocated 14.9 MiB,
+- The Release smoke workload completed in 93.7 ms and allocated 14.9 MiB,
   within the explicit 30-second and 512-MiB regression budgets.
 - Twelve repeated reads of a 256-KiB decoded content stream allocated 78.1 KiB
-  with the cache and 7,772.6 KiB with caching disabled.
+  with the cache and 7,768.3 KiB with caching disabled.
 
 ## Robustness and stroke compatibility
 
@@ -85,8 +85,8 @@ repair switches, safety limits and concurrent reads are asserted separately.
 
 ## Historical compatibility
 
-All 200 tests inherited from `0.9.0-beta.2` remain green. The 192 tests already
-present in `0.9.0-beta.1` cover:
+All 205 tests inherited from `0.9.0-rc.1` remain green. The 200 tests already
+present in `0.9.0-beta.2` cover:
 
 - advanced annotations/actions, AcroForm and optional-content models;
 - eight default/inverted optional-content raster states;
