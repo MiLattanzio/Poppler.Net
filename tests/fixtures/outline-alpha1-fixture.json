@@ -1,0 +1,13 @@
+{
+  "file": "outline-alpha1.pdf",
+  "sha256": "d584fbceaa427f42c1800a8a9dfbedb07a7cc4481568fdf8fd8d34a04b8fe9f5",
+  "pages": 3,
+  "outline_items": 7,
+  "coverage": [
+    "multilevel-first-last-next-prev-parent",
+    "direct-and-named-destinations",
+    "style-color-and-open-state",
+    "inspection-only-actions",
+    "circular-action-and-repeated-outline-references"
+  ]
+}

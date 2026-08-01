@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.10.0-alpha.1 — 2026-08-01
+
+- Added immutable `Document.OutlineItems` and `PdfOutlineItem` trees with
+  title, children, resolved destination, inspection-only action, open state,
+  bold/italic flags and RGB color.
+- Traversed `/First`/`Next` order and nested children while validating
+  `/Last`, `/Prev` and `/Parent` links without exposing cyclic public graphs.
+- Reused direct and named destination resolution plus the existing action
+  model; bookmark actions and JavaScript are decoded but never executed.
+- Added global repeated-node and circular-action truncation with stable
+  diagnostics.
+- Added `MaximumOutlineItems`, `MaximumOutlineDepth` and
+  `MaximumOutlineTitleBytes` for hostile documents.
+- Added the CLI `outline` command and a deterministic three-page, seven-item
+  corpus with direct/named navigation, actions, styles, hierarchy and cycles.
+- Preserved the `0.9.0` rendering path and historical raster output.
+
 ## 0.9.0 — 2026-07-31
 
 - Promoted `0.9.0-rc.1` to the stable `0.9.0` release without changing the

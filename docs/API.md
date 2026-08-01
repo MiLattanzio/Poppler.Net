@@ -152,6 +152,24 @@ executed. Direct destinations,
 catalog `/Dests` and `/Names/Dests` name trees resolve to zero-based page
 indices. See [ANNOTATIONS.md](ANNOTATIONS.md).
 
+## Outlines and bookmarks
+
+```csharp
+foreach (PdfOutlineItem item in document.OutlineItems)
+{
+    Console.WriteLine(
+        $"{item.Title}: page {item.Destination?.PageNumber}, " +
+        $"open={item.IsOpen}, action={item.Action.Type}");
+}
+```
+
+`Document.OutlineItems` preserves the linked sibling order and exposes
+immutable children, title, RGB color, bold/italic flags, open state, resolved
+destination and inspection-only action. Direct and named targets reuse the
+same `PdfDestination` resolver used by annotations. `/First`, `/Last`,
+`/Next`, `/Prev` and `/Parent` links are bounded and checked for repeated or
+circular nodes. See [OUTLINES.md](OUTLINES.md).
+
 ## AcroForm fields and widgets
 
 ```csharp

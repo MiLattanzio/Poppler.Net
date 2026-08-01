@@ -32,6 +32,9 @@ public sealed record PdfReadOptions
     public int MaximumActions { get; init; } = 10_000;
     public int MaximumActionDepth { get; init; } = 32;
     public int MaximumActionScriptBytes { get; init; } = 1024 * 1024;
+    public int MaximumOutlineItems { get; init; } = 100_000;
+    public int MaximumOutlineDepth { get; init; } = 128;
+    public int MaximumOutlineTitleBytes { get; init; } = 65_536;
     public int MaximumFormFields { get; init; } = 100_000;
     public int MaximumFormWidgets { get; init; } = 100_000;
     public int MaximumFormOptions { get; init; } = 250_000;
@@ -119,6 +122,12 @@ public sealed record PdfReadOptions
             throw new ArgumentOutOfRangeException(nameof(MaximumActionDepth));
         if (MaximumActionScriptBytes < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumActionScriptBytes));
+        if (MaximumOutlineItems < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumOutlineItems));
+        if (MaximumOutlineDepth < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumOutlineDepth));
+        if (MaximumOutlineTitleBytes < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumOutlineTitleBytes));
         if (MaximumFormFields < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumFormFields));
         if (MaximumFormWidgets < 1)

@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.9.0
+## Works in 0.10.0-alpha.1
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -127,6 +127,12 @@
 - Inspection-only URI, GoTo, Named, GoToR, Launch, JavaScript, SubmitForm,
   ResetForm, ImportData, Hide, SetOCGState, Rendition, Trans and GoTo3DView
   actions, including bounded `/Next` chains, plus CLI `annotations`.
+- Immutable `/Outlines` bookmark trees in `/First`/`Next` order, with
+  `/Last`, `/Prev` and `/Parent` consistency checks, nested children,
+  title/color/bold/italic/open-state metadata, direct and named destinations,
+  inspection-only actions and CLI `outline` output.
+- Circular and repeated outline references are truncated with diagnostics;
+  item count, hierarchy depth and title byte length are independently bounded.
 - Popup/parent/reply relationships, review state, intent, rich text, callout
   geometry, line endings, rectangle differences and lazy FileAttachment data.
 - `/AP/N` stream and state-dictionary selection through `/AS`, BBox/Matrix
@@ -215,6 +221,8 @@
   validation are not implemented. Rich-text layout, media playback, 3D
   activation, action dispatch and advanced producer-specific behavior remain
   outside this beta.
+- Outline actions are never executed. Bookmark creation, mutation, reordering
+  and persisted open-state changes are not implemented.
 - Optional content uses the default `/D` configuration and View event.
   Alternate `/Configs`, the presentation hierarchy in `/Order`, ListMode,
   print/export usage events, zoom/language/user usage applications and
@@ -237,6 +245,7 @@ XObject depth 32, transparency-group depth 32, 100,000,000 rendered pixels,
 33 shading stops, 65,536 mesh triangles, 100,000 annotations per page,
 250,000 annotation geometry points, annotation-appearance depth 16,
 10,000 actions per page, action-chain depth 32, 1 MiB per action script,
+100,000 outline items, outline depth 128, 64 KiB per outline title,
 100,000 form fields, 100,000 form widgets, 250,000 form options, form-field
 depth 128, 64 KiB per default-appearance string, 100,000 optional-content
 groups, optional-content nesting depth 128, 250,000 optional-content

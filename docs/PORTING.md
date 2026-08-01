@@ -30,6 +30,9 @@ The stable `0.9.0` release preserves the callable surface frozen by RC 1 and
 its distribution, culture-independence, input-ownership, option-snapshot and
 diagnostic-snapshot gates. It intentionally introduces no new public feature
 family after beta 2.
+The `0.10.0-alpha.1` slice begins reader completion with immutable, bounded
+document outlines and bookmark navigation while preserving the `0.9.0`
+rendering output.
 
 ## Implemented sequence
 
@@ -95,6 +98,9 @@ family after beta 2.
 26. Repair independent page-tree and page-content branches conservatively,
     cache decoded indirect streams within a byte budget, bound content
     structure growth and refine cap/join/dash raster geometry.
+27. Traverse `/Outlines` sibling/child links without exposing cyclic public
+    graphs, resolve direct/named destinations, reuse inspection-only actions
+    and bound item count, hierarchy depth and title bytes.
 
 ## Upstream-to-managed map
 
@@ -110,7 +116,7 @@ family after beta 2.
 | `CMap`, `CharCodeToUnicode` | `PdfCMap`, `PdfCMapResolver` | Embedded/Identity and bounded external code, CID and Unicode maps with inheritance |
 | `GfxFont`, FoFi inspection | `PdfFontDecoder`, `PdfOpenTypeCmap`, `PdfOpenTypeLayout`, `PdfTrueTypeFont`, `PdfCffFont`, `PdfType1Font` | Text metrics, sfnt fallback, common TrueType/CFF1/Type 1 outlines, initial CFF2 and targeted GSUB |
 | `TextOutputDev` | `PdfTextExtractor`, `PdfTextLayoutEngine` | Horizontal/vertical runs and initial reading order |
-| `Outline`, `Link` | `PdfAnnotation`, `PdfAnnotationAction`, `PdfDestination` | Link/destination slice implemented; outlines planned |
+| `Outline`, `Link` | `PdfOutlineItem`, `PdfAnnotation`, `PdfAnnotationAction`, `PdfDestination` | Read-only bookmarks, links and destinations implemented |
 | `Decrypt`, `SecurityHandler` | `PdfStandardSecurityHandler`, `PdfCryptography` | R2–R6 implemented |
 | `Annot` | `PdfAnnotationReader`, appearance reuse of `PdfGraphicsInterpreter` | Read-only basic/advanced annotations, relationships, attachments, actions and normal appearances |
 | `Form` | `PdfFormReader`, `PdfFormField`, `PdfFormWidget`, appearance reuse of `PdfGraphicsInterpreter` | Read-only AcroForm tree, values, options, widgets and fallbacks |
@@ -140,7 +146,7 @@ family after beta 2.
    overprint.
 5. Complete producer-specific annotation appearance behavior, AcroForm
    mutation/persisted appearance regeneration, XFA, alternate optional-content
-   configurations and UI order, outlines and additional inspection metadata.
+   configurations and UI order, tagged structure and additional inspection metadata.
 6. Digital signature validation through managed cryptography.
 7. Writer, advanced repair mode, fuzz corpus, PDF corpus differential tests
    and API parity.

@@ -11,9 +11,9 @@ namespace Poppler.Net.Tests;
 public sealed class ReleaseCandidateTests
 {
     private const string FrozenPublicApiSha256 =
-        "5d12fd1d599f6e16c2a55dd2e203b0fe9085eb90eb589b37d7543ed731bd48a0";
+        "8d97d6d03d3e19edb3966633de2060a202445ce47218fc2c5449f68e261ad1a6";
     private const string FrozenCallableApiSha256 =
-        "b7c30ce2ca93e6c2887c83c6ee045cc109c6cbaebee86922885ab90c9320f99c";
+        "e4d2665d279da5f9b44b352cba6c59b8ede1ddc55adfba5279678e30f4b127fb";
 
     [Test]
     public async Task ConcurrentReadsFromOneDocumentAreDeterministic()
@@ -293,7 +293,7 @@ public sealed class ReleaseCandidateTests
     }
 
     [Test]
-    public void StableVersionHasNoPrereleaseLabel()
+    public void VersionMatchesOutlineAlphaOnePrerelease()
     {
         string informationalVersion =
             typeof(Document).Assembly
@@ -303,9 +303,9 @@ public sealed class ReleaseCandidateTests
 
         Assert.Multiple((Action)(() =>
         {
-            Assert.That(Document.PortVersion, Is.EqualTo("0.9.0"));
-            Assert.That(packageVersion, Is.EqualTo("0.9.0"));
-            Assert.That(packageVersion, Does.Not.Contain('-'));
+            Assert.That(Document.PortVersion, Is.EqualTo("0.10.0-alpha.1"));
+            Assert.That(packageVersion, Is.EqualTo("0.10.0-alpha.1"));
+            Assert.That(packageVersion, Does.EndWith("-alpha.1"));
         }));
     }
 

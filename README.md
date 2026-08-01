@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.9.0` compatibility release is not a complete replacement for
+> This `0.10.0-alpha.1` reader release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -49,10 +49,15 @@ process invocation, or native NuGet dependency.
 > new public feature family.
 > Stable `0.9.0` promotes that frozen surface without changing rendering or
 > adding a public feature family.
+> Alpha 1 of the `0.10` line adds immutable document outlines/bookmarks,
+> direct and named navigation targets, style/open-state metadata, bounded
+> cycle-safe traversal and the CLI `outline` command. Bookmark actions remain
+> inspection-only and are never executed.
 > See [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md) for its scope and limits. See
 > [docs/FORMS.md](docs/FORMS.md) for the AcroForm model and
 > [docs/OPTIONAL_CONTENT.md](docs/OPTIONAL_CONTENT.md) for layer behavior. See
 > [docs/ROBUSTNESS.md](docs/ROBUSTNESS.md) for recovery and cache behavior. See
+> [docs/OUTLINES.md](docs/OUTLINES.md) for bookmark traversal and safety limits. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build
@@ -100,6 +105,7 @@ dotnet run --project src/Poppler.Net.Cli -- info input.pdf
 dotnet run --project src/Poppler.Net.Cli -- text input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- fonts input.pdf
 dotnet run --project src/Poppler.Net.Cli -- annotations input.pdf --page 1
+dotnet run --project src/Poppler.Net.Cli -- outline input.pdf
 dotnet run --project src/Poppler.Net.Cli -- forms input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- layers input.pdf
 dotnet run --project src/Poppler.Net.Cli -- graphics input.pdf --page 1
@@ -144,6 +150,8 @@ foreach (PdfFormField field in document.FormFields)
     Console.WriteLine($"{field.FullyQualifiedName}: {field.Type} = {field.Value}");
 foreach (PdfOptionalContentGroup group in document.OptionalContentGroups)
     Console.WriteLine($"{group.Id}: {group.Name}, visible={group.IsVisible}");
+foreach (PdfOutlineItem item in document.OutlineItems)
+    Console.WriteLine($"{item.Title}: page {item.Destination?.PageNumber}");
 foreach (PdfImage image in page.Images)
 {
     Console.WriteLine($"{image.ResourceName}: {image.Width}x{image.Height}, stride {image.BytesPerRow}");
@@ -191,6 +199,8 @@ matching Poppler's C++ API, returns the document's new locking status
   pages and selected appearance states.
 - `OptionalContent/` reads OCG metadata and default configuration state, then
   evaluates `OCMD` policies and bounded `/VE` expressions for each backend.
+- `Outlines/` reads immutable bookmarks, validates their linked hierarchy and
+  resolves navigation through the shared destination/action model.
 - `Text/` corresponds to the first managed slice of `TextOutputDev`, font
   encodings, `GfxFont`, CID metrics and `ToUnicode`/encoding CMaps.
 - `Graphics/` is the first managed slice of `Gfx`, `GfxState`, `Function`,
@@ -277,6 +287,13 @@ decoded-stream reuse, content-specific limits and corrected managed cap, join,
 miter and dash geometry. Field mutation/saving, XFA, alternate layer
 configurations, layer UI order, action dispatch and multimedia playback remain
 outside this release.
+
+The `0.10` alpha 1 slice reads `/Outlines` and linked bookmark hierarchies,
+exposes title/style/color/open state, resolves direct and named destinations,
+and reuses the inspection-only action model. Repeated or circular nodes are
+truncated with stable diagnostics; item, depth and title-byte limits bound
+hostile structures. Outline editing and persistence remain outside this
+release. See [docs/OUTLINES.md](docs/OUTLINES.md).
 
 ## License and provenance
 

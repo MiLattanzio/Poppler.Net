@@ -1,74 +1,79 @@
-# Poppler.Net 0.9.0
+# Poppler.Net 0.10.0-alpha.1
 
-Release date: 2026-07-31
+Release date: 2026-08-01
 
-`0.9.0` is the stable release of the managed-only Poppler 26.07.0 port's
-`0.9` line. It promotes `0.9.0-rc.1` without changing the callable public API,
-parsing behavior or verified raster output.
+`0.10.0-alpha.1` begins the document-reader completion line of the
+managed-only Poppler 26.07.0 port. It adds immutable outlines/bookmarks and
+navigation metadata without changing page parsing or rendering behavior.
 
-## Changes since 0.9.0-rc.1
+## Highlights
 
-- Finalizes library, CLI, assembly and NuGet versions at `0.9.0`.
-- Preserves the callable API fingerprint frozen in RC 1; only the expected
-  public `Document.PortVersion` value changes.
-- Adds a stable-version regression that rejects prerelease labels.
-- Finalizes stable release notes and compatibility documentation.
-- Introduces no new production feature or rendering change.
-
-## What the 0.9 line adds over 0.8
-
-- Immutable annotations, destinations and inspection-only PDF actions,
-  including advanced annotation subtypes, reply/popup relationships and lazy
-  file attachments.
-- Read-only AcroForm field/widget inspection with inherited values, appearance
-  selection and deterministic managed fallbacks.
-- Optional Content Group and OCMD evaluation, visibility expressions and
-  per-render layer overrides for raster and SVG output.
-- Conservative page-tree and content-stream recovery with stable diagnostics,
-  strict-mode switches and bounded decoded-stream caching.
-- More faithful raster line caps, joins, miter fallback and continuous/odd dash
-  patterns.
-- Culture-independent output, owned input bytes, operation-scoped option
-  snapshots and independent diagnostic snapshots.
+- Adds `Document.OutlineItems` and immutable `PdfOutlineItem` trees.
+- Exposes title, children, direct or named destination, inspection-only action,
+  open state, bold/italic flags and optional RGB color.
+- Preserves `/First` and `/Next` ordering while checking `/Last`, `/Prev` and
+  `/Parent` consistency.
+- Reuses the existing destination resolver and `PdfAnnotationAction` model;
+  URI, JavaScript, Launch and every other action remain data only and are never
+  executed.
+- Truncates circular/repeated outline nodes and circular action chains with
+  stable diagnostics instead of recursing indefinitely.
+- Adds the `outline` CLI command with invariant, hierarchical output.
+- Adds `MaximumOutlineItems`, `MaximumOutlineDepth` and
+  `MaximumOutlineTitleBytes`.
+- Adds a deterministic three-page corpus with seven bookmarks, three hierarchy
+  levels, direct/named destinations, styles, actions and cycles.
 
 ## Compatibility and upgrading
 
-There are no intentional source or binary breaking changes from
-`0.9.0-beta.2` or `0.9.0-rc.1`. Update the package reference:
+The release adds public read-only members but does not remove or alter the
+`0.9.0` callable surface. Existing code remains source compatible. Update the
+package reference:
 
 ```xml
-<PackageReference Include="Poppler.Net" Version="0.9.0" />
+<PackageReference Include="Poppler.Net" Version="0.10.0-alpha.1" />
 ```
 
-Applications should continue to treat documents, pages, annotations, fields
-and optional-content models as read-only. Annotation actions and JavaScript are
-inspection data only and are never executed.
+Applications should treat `Document`, pages, outlines, annotations, fields and
+optional-content models as immutable inspection objects. Navigation and action
+dispatch remain the responsibility of the host application.
+
+## Safety and behavior
+
+- The outline is initialized lazily and published as one immutable snapshot.
+- Traversal and final tree construction are iterative.
+- Top-level items have outline depth 1; exceeding any configured outline limit
+  throws `PdfLimitException`.
+- Direct and named destinations resolve to the existing zero-based
+  `PdfDestination.PageIndex` model.
+- Repeated nodes are skipped globally, so one malformed PDF object cannot be
+  represented under multiple parents or form a cycle in the public tree.
+- Outline state does not participate in page rendering; historical raster
+  output is expected to remain byte-identical.
 
 ## Known limitations
 
-- Editing, incremental writing, form mutation, signature validation and
-  JavaScript/action execution are not implemented.
-- Complex-script shaping, full bidirectional layout, complete color proofing,
-  ICC LUT/device-link profiles and every malformed-PDF recovery heuristic
-  remain outside this release.
-- SVG is a vector preview backend and does not paint mesh shadings.
-- Font substitution is file-based and can vary with installed fonts unless
-  explicit font directories are supplied.
+- Bookmark creation, deletion, reordering, mutation and persisted open-state
+  changes are not implemented.
+- Actions and JavaScript are not executed.
+- Tagged PDF structure, alternate optional-content configurations, complex
+  shaping, complete color proofing, signature validation and PDF writing remain
+  planned for later releases.
+- SVG remains a preview backend and does not paint mesh shadings.
 
-See `docs/COMPATIBILITY.md`, `docs/ANNOTATIONS.md`, `docs/FORMS.md`,
-`docs/OPTIONAL_CONTENT.md` and `docs/ROBUSTNESS.md` for the detailed support
-matrix.
+See `docs/OUTLINES.md` and `docs/COMPATIBILITY.md` for the detailed contract.
 
 ## Verification
 
 - Release build of all four projects with warnings treated as errors.
-- 206 NUnit tests, including the frozen callable API and all historical raster
-  and corpus-integrity regressions.
-- Managed-only production and dependency graph verification.
-- Deterministic fixture regeneration and visual inspection of representative
-  PDF pages.
-- NuGet metadata, dependency and payload inspection.
-- Offline restore, rebuild, test, package and rendering checks from the
-  extracted source ZIP.
+- 218/218 NUnit tests, with every historical regression retained.
+- Outline order, metadata, destinations, actions, cycles, concurrency, limits
+  and deterministic fixture integrity covered by NUnit.
+- Corpus opened, text-extracted and rendered independently with Poppler tools;
+  all three pages were visually inspected.
+- Historical parser, rendering, security, form, annotation and optional-content
+  regressions retained.
+- Managed-only dependency verification, NuGet inspection and offline rebuild
+  from the extracted source ZIP are release gates.
 
-Base revision: `036e5912ab17693e0d47632532f0b6c86917ff4e`.
+Base revision: `b28458c306c9f4f32107379aa35119ff1a67c52d`.

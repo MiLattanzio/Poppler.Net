@@ -1,141 +1,105 @@
 # Verification record
 
-Verification performed on 2026-07-31 for `0.9.0`, based on GitHub `master`
-commit `036e5912ab17693e0d47632532f0b6c86917ff4e`:
+Verification performed on 2026-08-01 for `0.10.0-alpha.1`, based on GitHub
+`master` commit `b28458c306c9f4f32107379aa35119ff1a67c52d` (`v0.9.0`).
 
 - .NET SDK 8.0.423 compiled all four solution projects in Release with
   warnings treated as errors.
-- NUnitLite executed 206 tests: 206 passed, 0 failed, 0 warnings, 0 skipped.
+- NUnitLite executed 218 tests: 218 passed, 0 failed, 0 warnings, 0 skipped.
 - The managed-only verifier accepted production source and every asset in the
-  restored NuGet graph, including the three managed runtime codecs.
-- `Poppler.Net.0.9.0.nupkg` contains the Release net8.0 DLL/XML, README,
-  release notes, license and notice. Its metadata names `Mi Lattanzio` as
-  author and `https://github.com/MiLattanzio/Poppler.Net` as project and git
-  repository.
-- The package names only the pinned CoreJ2K, JBig2Decoder.NETStandard and
-  StbImageSharp managed dependencies.
-- The Linux, Windows and macOS CI workflow parsed as YAML, and `build.sh`
-  passed shell syntax validation.
-- Generated ASCII-heavy PDF fixtures are fixed to LF by `.gitattributes`,
-  including the new `robustness-beta2.pdf` corpus.
+  restored NuGet graph.
+- `Poppler.Net.0.10.0-alpha.1.nupkg` contains the Release net8.0 DLL/XML,
+  README, release notes, license and notice.
+- NuGet metadata identifies Mi Lattanzio as author and the public repository as
+  `https://github.com/MiLattanzio/Poppler.Net`.
+- The runtime graph contains only CoreJ2K 2.3.3.91,
+  JBig2Decoder.NETStandard 1.5.2 and StbImageSharp 2.30.15.
+- The Linux, Windows and macOS CI workflow parses as YAML, and `build.sh`
+  passes shell syntax validation.
 
-## Release-surface, concurrency and performance gates
+## Public API and version
 
-- A deterministic reflection fingerprint covers every public type, member and
-  constant value. The frozen SHA-256 is
-  `5d12fd1d599f6e16c2a55dd2e203b0fe9085eb90eb589b37d7543ed731bd48a0`.
-- A second fingerprint normalizes only `Document.PortVersion` and freezes the
-  callable surface at
-  `b7c30ce2ca93e6c2887c83c6ee045cc109c6cbaebee86922885ab90c9320f99c`.
-  The stable promotion therefore changes no public signature, optional default
-  or constant other than the expected version value.
-- `Document.PortVersion`, assembly informational version, CLI and NuGet
-  package version all report `0.9.0` without a prerelease label.
-- Twenty-four workers concurrently read pages, text, fonts, graphics and
-  raster output from one `Document`.
-- Thirty-two workers concurrently materialize one lazy embedded file.
-- Existing annotation, AcroForm and optional-content concurrency gates remain
-  active.
-- Twenty-four workers concurrently inspect advanced action chains and the
-  damaged beta 2 corpus. Repair diagnostics remain deduplicated.
-- Caller-owned font, CMap-directory and optional-content override collections
-  are snapshotted at operation boundaries.
-- `LoadFromData` retains an owned input copy even when the caller overwrites its
-  original buffer; `SaveACopy` still reproduces the initial bytes exactly.
-- PDF parsing, raw text, geometry, SVG and managed PNG output remain identical
-  under en-US, it-IT, tr-TR and ar-SA current cultures.
-- Repeated diagnostic reads return independent snapshots, and a mutable layer
-  dictionary is resnapshotted for each render operation.
-- The Release smoke workload completed in 93.7 ms and allocated 14.9 MiB,
-  within the explicit 30-second and 512-MiB regression budgets.
-- Twelve repeated reads of a 256-KiB decoded content stream allocated 78.1 KiB
-  with the cache and 7,768.3 KiB with caching disabled.
+The complete public-surface SHA-256 is
+`8d97d6d03d3e19edb3966633de2060a202445ce47218fc2c5449f68e261ad1a6`.
+The fingerprint that normalizes only `Document.PortVersion` is
+`e4d2665d279da5f9b44b352cba6c59b8ede1ddc55adfba5279678e30f4b127fb`.
 
-## Robustness and stroke compatibility
+The added public surface consists of:
 
-The deterministic five-page beta 2 fixture has SHA-256
-`451bcc89375c187328708e0485fddb6ae5a465bc0b35ec37469b90a033bfc0e2`.
-Its generator reproduces both PDF and manifest byte for byte.
+- `Document.OutlineItems`;
+- immutable `PdfOutlineItem` and its title, children, destination, action,
+  open, bold, italic and color properties;
+- `MaximumOutlineItems`, `MaximumOutlineDepth` and
+  `MaximumOutlineTitleBytes` on `PdfReadOptions`.
 
-The corpus covers:
+`Document.PortVersion`, library/CLI informational versions and NuGet version
+all report `0.10.0-alpha.1`.
 
-- one missing page-tree child and one circular `/Pages` branch;
-- a stale root `/Count` while five valid pages remain recoverable;
-- a `/Contents` array containing valid streams, an invalid Flate stream and a
-  non-stream entry;
-- a stream whose declared `/Length` is shorter than its actual bytes;
-- butt, round and projecting-square caps;
-- miter, round and bevel joins plus miter-limit fallback;
-- dash phase continuity and PDF repetition of odd-length dash arrays.
+## Outline corpus and safety
 
-Managed output at 72 DPI with 2x antialiasing was inspected at original
-resolution and frozen as:
+The deterministic `outline-alpha1.pdf` corpus is 3,124 bytes with SHA-256
+`d584fbceaa427f42c1800a8a9dfbedb07a7cc4481568fdf8fd8d34a04b8fe9f5`.
+Its generator reproduces the PDF and manifest byte for byte.
 
-| Page | Purpose | PNG SHA-256 |
-| --- | --- | --- |
-| 1 | Line caps and dotted round strokes | `0ef1ba1189d2ee5556594b9e74b2ac087a0ef663de5d7d1e3c18aab12c233ad1` |
-| 2 | Continuous and odd dash patterns | `b9c85729a4a0cd3f242765221a8f2a8f036a2fb2bfa1012d570f05970125818d` |
-| 3 | Partially damaged content array | `68ea4e8840c19625bbce95a1e7f31b2b072dcb875206af7f85b6186041cae22f` |
-| 4 | Recovered stream length | `a9a5984fa72cf5733efc2186eed9ca840571de33482a6b0df49739686e5fdeaf` |
-| 5 | Miter, round and bevel joins | `87a9a6bd772e671de8584659db2d8a86d91e8587dc501a2302f47ca873660e49` |
+The seven unique bookmarks cover:
 
-Poppler 26.05.0 opens the damaged fixture while reporting the expected missing
-child, malformed contents and page-tree loop. Structural recovery, strict
-repair switches, safety limits and concurrent reads are asserted separately.
+- three hierarchy levels and `/First`, `/Last`, `/Next`, `/Prev`, `/Parent`;
+- open and closed parents, UTF-16 title decoding, RGB color and style flags;
+- direct XYZ/FitR and named Fit/FitH destinations;
+- GoTo, URI and JavaScript inspection through the existing action model;
+- a circular action `/Next`, a top-level `/Next` cycle and one child reused by
+  two parents.
 
-## Historical compatibility
+Repeated outline nodes and circular actions are truncated with deterministic
+diagnostics. Thirty-two workers concurrently read the same lazy outline
+snapshot. Separate regressions enforce item count, depth and title-byte limits,
+validate invalid option values and confirm that documents without `/Outlines`
+return an empty snapshot. No action or script is dispatched.
 
-All 205 tests inherited from `0.9.0-rc.1` remain green. The 200 tests already
-present in `0.9.0-beta.2` cover:
+The `outline` CLI prints all seven nodes in hierarchy order, uses invariant
+numeric formatting and reports the two expected cycle diagnostics.
 
-- advanced annotations/actions, AcroForm and optional-content models;
-- eight default/inverted optional-content raster states;
-- annotation appearance mapping and managed fallbacks;
-- six mesh/pattern/transparency/overprint pages;
-- external CMaps, CFF1/CFF2, Type 1, Type 3, Base-14 metrics, targeted GSUB,
-  text/graphics ordering and filtered inline images;
-- encryption revisions 2-6, image/color codecs and damaged-xref recovery.
+## Independent PDF and rendering checks
 
-Raster hashes that contain managed fallback strokes were intentionally updated
-for the corrected cap/join scanner. The four-page AcroForm and three-page
-advanced-annotation generators reproduce those updated manifests exactly.
+Poppler 26.05.0 `pdfinfo`, `pdftotext` and `pdftoppm` open, extract and render
+all three corpus pages. The 96-DPI Poppler PNG hashes are:
 
-The three pages of `drylab.pdf` were rerendered and visually inspected at
-96 DPI. The managed hashes are:
+- page 1: `fbedc09d4e5db6a31d6d53ad82234e8f85825def27b4d6050680d633597d61bd`;
+- page 2: `8101c34e10b8031297b1432586e52eda384d78ebea680f43c26ce8ca2e136429`;
+- page 3: `a93d98a38bb8eca1708135bf1266fd11acc3e798ac16168e869969ceb45d326f`.
 
-- page 1: `2dd5d63520e0eff4629fe72ab8034403077d9316688de728b3b85d993661c061`;
-- page 2: `f369bc9fcb56e85f31c924b12ed3d1ae1c362d081d788111e9100c44b791698b`;
-- page 3: `a901f43cf1e48d39d0fa73d04e5057851d9df11e4c51114544b6f430880abb2a`.
+All pages were inspected at original resolution and have legible text, stable
+page geometry and no clipping or overlap. Outline parsing does not enter the
+page display-list or renderer. All historical raster/corpus regressions remain
+green, and no production file under `Graphics/`, `Rendering/`, `Images/`,
+`Color/`, `Text/` or `Forms/` changed.
 
-## CI and NuGet publishing
+## Concurrency and performance
 
-`.github/workflows/ci.yml` defines Release build, test, managed-only and
-package jobs on Ubuntu, Windows and macOS. A published GitHub Release triggers
-NuGet.org publication through OIDC Trusted Publishing in the protected
-`nuget.org` environment. Ordinary pushes, pull requests and manual workflow
-runs never publish.
+All `0.9.0` ownership, culture, option-snapshot, diagnostic-snapshot and
+shared-document concurrency gates remain active. The Release smoke workload
+completed in 95.5 ms and allocated 14.9 MiB, inside the 30-second/512-MiB
+budgets. The repeated decoded-stream test allocated 78.1 KiB with caching and
+7,768.3 KiB with caching disabled.
 
 ## Distribution
 
-The source archive contains 193 files, including 94 C# files across the four
-projects and 29,274 lines of production-library C#. It excludes `.git`, `bin`,
-`obj`, NuGet packages, test results, QA renders, generated bytecode,
-executables and native artifacts.
+The source archive contains 200 files beneath one `Poppler.Net/` root,
+including 97 C# files across the four projects and 29,631 lines of
+production-library C#. It excludes `.git`, `bin`, `obj`, NuGet packages, test
+results, temporary renders, generated bytecode, executables and native assets.
 
-The final ZIP is extracted into a fresh directory and compared byte for byte
-with the selected source tree. From that copy the release is restored from the
-five-package managed offline feed, rebuilt without warnings, tested, verified
-as managed-only, repackaged and rerendered.
+The final ZIP is extracted to a new directory and compared byte for byte with
+the selected source set. From that copy the solution is restored from the five
+approved local managed packages, rebuilt without warnings, tested, verified as
+managed-only, repackaged and exercised through the CLI.
 
-The environment's `dotnet` CLI intermittently cannot inspect its process
-namespace. Running MSBuild single-node with node reuse disabled and the CLI in
-the foreground avoids `System.Diagnostics.Process.GetStat`; this is an
-execution-environment issue, not a project or package error. The standard user
-entry point remains:
+The environment's `dotnet` CLI can intermittently fail while inspecting its
+process namespace. Running MSBuild single-node with node reuse disabled and
+the CLI in a foreground PTY avoids `System.Diagnostics.Process.GetStat`; this
+is an execution-environment issue, not a project or package error. The normal
+user entry point remains:
 
 ```bash
 ./build.sh Release
 ```
-
-It restores, compiles with warnings as errors, inspects the complete NuGet
-graph, runs NUnitLite and packs the library.

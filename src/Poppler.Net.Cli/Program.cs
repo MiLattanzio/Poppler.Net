@@ -22,6 +22,7 @@ internal static class Cli
                 "text" => Text(args),
                 "fonts" => Fonts(args),
                 "annotations" => Annotations(args),
+                "outline" => Outline(args),
                 "forms" => Forms(args),
                 "layers" => Layers(args),
                 "graphics" => Graphics(args),
@@ -236,6 +237,61 @@ internal static class Cli
             foreach (IReadOnlyList<string> radioGroup in configuration.RadioButtonGroups)
                 Console.WriteLine($"radio: {string.Join(", ", radioGroup)}");
         }
+        return 0;
+    }
+
+    private static int Outline(string[] args)
+    {
+        RequireCount(args, 2, "outline requires an input PDF.");
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
+
+        var stack = new Stack<(PdfOutlineItem Item, int Depth)>();
+        for (int index = document.OutlineItems.Count - 1; index >= 0; index--)
+            stack.Push((document.OutlineItems[index], 0));
+
+        int total = 0;
+        while (stack.Count > 0)
+        {
+            (PdfOutlineItem item, int depth) = stack.Pop();
+            total++;
+            string style = item.IsBold && item.IsItalic
+                ? "bold+italic"
+                : item.IsBold
+                    ? "bold"
+                    : item.IsItalic
+                        ? "italic"
+                        : "regular";
+            string color = item.Color is { } itemColor
+                ? string.Join(
+                    ",",
+                    new[]
+                    {
+                        itemColor.Component1,
+                        itemColor.Component2,
+                        itemColor.Component3
+                    }.Select(component => component.ToString(
+                        "0.###",
+                        CultureInfo.InvariantCulture)))
+                : "default";
+            string destination = item.Destination is { } target
+                ? $"page {target.PageNumber} {target.Type}" +
+                  (target.NamedDestination is { Length: > 0 } name
+                      ? $" ({SingleLine(name)})"
+                      : "")
+                : "none";
+            Console.WriteLine(
+                $"{new string(' ', depth * 2)}- {SingleLine(item.Title)} " +
+                $"[{(item.IsOpen ? "open" : "closed")}; {style}; " +
+                $"color={color}; action={item.Action.Type}; " +
+                $"destination={destination}]");
+
+            for (int index = item.Children.Count - 1; index >= 0; index--)
+                stack.Push((item.Children[index], depth + 1));
+        }
+
+        Console.WriteLine($"{total} outline item(s).");
+        WriteDiagnostics(document);
         return 0;
     }
 
@@ -652,6 +708,7 @@ internal static class Cli
               poppler-net text <input.pdf> [--page N] [--raw|--reading-order] [password options]
               poppler-net fonts <input.pdf> [--page N] [password options]
               poppler-net annotations <input.pdf> [--page N] [password options]
+              poppler-net outline <input.pdf> [password options]
               poppler-net forms <input.pdf> [--page N] [password options]
               poppler-net layers <input.pdf> [password options]
               poppler-net graphics <input.pdf> [--page N] [password options]

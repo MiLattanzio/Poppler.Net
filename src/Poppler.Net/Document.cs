@@ -4,13 +4,14 @@ using Poppler.DocumentModel;
 using Poppler.Annotations;
 using Poppler.Forms;
 using Poppler.OptionalContent;
+using Poppler.Outlines;
 
 namespace Poppler;
 
 /// <summary>Read-only managed representation of a PDF document.</summary>
 public sealed class Document : IDisposable
 {
-    public const string PortVersion = "0.9.0";
+    public const string PortVersion = "0.10.0-alpha.1";
     public const string UpstreamVersion = "26.07.0";
 
     private readonly byte[] _data;
@@ -29,6 +30,8 @@ public sealed class Document : IDisposable
         new(() => PdfFormModel.Empty(0));
     private Lazy<PdfOptionalContentModel> _optionalContent =
         new(() => throw new InvalidOperationException());
+    private Lazy<IReadOnlyList<PdfOutlineItem>> _outlineItems =
+        new(() => Array.Empty<PdfOutlineItem>());
     private readonly object _lifecycleSync = new();
     private bool _disposed;
 
@@ -67,6 +70,8 @@ public sealed class Document : IDisposable
             () => PdfFormReader.Read(_core, _catalog, _pageNodes));
         _optionalContent = new Lazy<PdfOptionalContentModel>(
             () => PdfOptionalContentModel.Read(_core, _catalog));
+        _outlineItems = new Lazy<IReadOnlyList<PdfOutlineItem>>(
+            () => PdfOutlineReader.Read(_core, _catalog, _destinations.Value));
     }
 
     public string PdfVersion => _core.PdfVersion;
@@ -137,6 +142,14 @@ public sealed class Document : IDisposable
         {
             EnsureUnlocked();
             return _optionalContent.Value.Configuration;
+        }
+    }
+    public IReadOnlyList<PdfOutlineItem> OutlineItems
+    {
+        get
+        {
+            EnsureUnlocked();
+            return _outlineItems.Value;
         }
     }
 
@@ -401,6 +414,8 @@ public sealed class Document : IDisposable
                 () => PdfFormReader.Read(_core, _catalog, _pageNodes));
             _optionalContent = new Lazy<PdfOptionalContentModel>(
                 () => PdfOptionalContentModel.Read(_core, _catalog));
+            _outlineItems = new Lazy<IReadOnlyList<PdfOutlineItem>>(
+                () => PdfOutlineReader.Read(_core, _catalog, _destinations.Value));
             return false;
         }
     }

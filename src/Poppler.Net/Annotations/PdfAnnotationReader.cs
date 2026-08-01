@@ -375,19 +375,22 @@ internal static class PdfAnnotationReader
             Math.Max(rectangle.Bottom, rectangle.Top));
     }
 
-    private sealed class PdfActionReader
+    internal sealed class PdfActionReader
     {
         private readonly PdfDocumentCore _document;
         private readonly PdfDestinationResolver _destinations;
+        private readonly string _diagnosticScope;
         private readonly HashSet<PdfReference> _active = new();
         private int _count;
 
         public PdfActionReader(
             PdfDocumentCore document,
-            PdfDestinationResolver destinations)
+            PdfDestinationResolver destinations,
+            string diagnosticScope = "annotation")
         {
             _document = document;
             _destinations = destinations;
+            _diagnosticScope = diagnosticScope;
         }
 
         public PdfAnnotationAction ReadAnnotationAction(PdfDictionary annotation)
@@ -418,7 +421,7 @@ internal static class PdfAnnotationReader
             {
                 _document.AddDiagnostic(
                     PdfDiagnosticSeverity.Warning,
-                    "annotation.action.circular",
+                    $"{_diagnosticScope}.action.circular",
                     "A circular PDF action chain was truncated.");
                 return Empty();
             }

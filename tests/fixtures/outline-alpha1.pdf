@@ -1,0 +1,118 @@
+%PDF-1.7
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Outlines 6 0 R /PageMode /UseOutlines /Names << /Dests 17 0 R >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Count 3 /Kids [3 0 R 4 0 R 5 0 R] >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 360 280] /Resources << /Font << /F1 18 0 R >> >> /Contents 19 0 R >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 360 280] /Resources << /Font << /F1 18 0 R >> >> /Contents 20 0 R >>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 360 280] /Resources << /Font << /F1 18 0 R >> >> /Contents 21 0 R >>
+endobj
+6 0 obj
+<< /Type /Outlines /First 7 0 R /Last 13 0 R /Count 7 >>
+endobj
+7 0 obj
+<< /Title (Chapter One) /Parent 6 0 R /First 8 0 R /Last 9 0 R /Count 2 /Next 10 0 R /Dest [3 0 R /XYZ 24 250 1.25] /C [0.9 0.1 0.1] /F 3 >>
+endobj
+8 0 obj
+<< /Title <FEFF00530065006300740069006F006E00200031002E00310020002D0020004F0076006500720076006900650077> /Parent 7 0 R /Next 9 0 R /Dest (chapter-two) >>
+endobj
+9 0 obj
+<< /Title (External reference) /Parent 7 0 R /Prev 8 0 R /A 14 0 R /F 1 >>
+endobj
+10 0 obj
+<< /Title (Chapter Two) /Parent 6 0 R /Prev 7 0 R /Next 13 0 R /First 11 0 R /Last 11 0 R /Count -1 /A 16 0 R /C [0.1 0.25 0.85] >>
+endobj
+11 0 obj
+<< /Title (Inspection only script) /Parent 10 0 R /First 12 0 R /Last 12 0 R /Count 1 /A 15 0 R >>
+endobj
+12 0 obj
+<< /Title (Deep target) /Parent 11 0 R /Dest [5 0 R /FitR 24 24 336 256] >>
+endobj
+13 0 obj
+<< /Title (Appendix) /Parent 6 0 R /Prev 10 0 R /Next 10 0 R /First 11 0 R /Last 11 0 R /Dest /appendix /F 2 >>
+endobj
+14 0 obj
+<< /S /URI /URI (https://example.test/outline-alpha1) >>
+endobj
+15 0 obj
+<< /S /JavaScript /JS (app.alert\(\042inspection only\042\);) /Next 15 0 R >>
+endobj
+16 0 obj
+<< /S /GoTo /D (chapter-two) >>
+endobj
+17 0 obj
+<< /Names [(appendix) [5 0 R /Fit] (chapter-two) [4 0 R /FitH 250]] >>
+endobj
+18 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+19 0 obj
+<< /Length 155 >>
+stream
+0.96 g 0 0 360 280 re f
+0.15 0.35 0.72 rg 24 170 312 64 re f
+1 g
+BT /F1 20 Tf 32 205 Td (Outline Alpha 1) Tj ET
+0.2 g
+BT /F1 12 Tf 32 140 Td (Page 1) Tj ET
+endstream
+endobj
+20 0 obj
+<< /Length 157 >>
+stream
+0.96 g 0 0 360 280 re f
+0.35 0.35 0.72 rg 24 170 312 64 re f
+1 g
+BT /F1 20 Tf 32 205 Td (Named Destination) Tj ET
+0.2 g
+BT /F1 12 Tf 32 140 Td (Page 2) Tj ET
+endstream
+endobj
+21 0 obj
+<< /Length 148 >>
+stream
+0.96 g 0 0 360 280 re f
+0.55 0.35 0.72 rg 24 170 312 64 re f
+1 g
+BT /F1 20 Tf 32 205 Td (Appendix) Tj ET
+0.2 g
+BT /F1 12 Tf 32 140 Td (Page 3) Tj ET
+endstream
+endobj
+xref
+0 22
+0000000000 65535 f 
+0000000015 00000 n 
+0000000130 00000 n 
+0000000199 00000 n 
+0000000327 00000 n 
+0000000455 00000 n 
+0000000583 00000 n 
+0000000655 00000 n 
+0000000811 00000 n 
+0000000980 00000 n 
+0000001070 00000 n 
+0000001218 00000 n 
+0000001333 00000 n 
+0000001425 00000 n 
+0000001553 00000 n 
+0000001626 00000 n 
+0000001720 00000 n 
+0000001768 00000 n 
+0000001855 00000 n 
+0000001926 00000 n 
+0000002133 00000 n 
+0000002342 00000 n 
+trailer
+<< /Size 22 /Root 1 0 R /ID [<10000100100001001000010010000100> <10000100100001001000010010000100>] >>
+startxref
+2542
+%%EOF
