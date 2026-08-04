@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.10.0-alpha.1` reader release is not a complete replacement for
+> This `0.12.0-alpha.1` raster-conformance release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -53,11 +53,19 @@ process invocation, or native NuGet dependency.
 > direct and named navigation targets, style/open-state metadata, bounded
 > cycle-safe traversal and the CLI `outline` command. Bookmark actions remain
 > inspection-only and are never executed.
+> Alpha 1 of the `0.12` line replaces scalar post-CTM stroke coverage with
+> bounded user-space outlines, device-error curve flattening, complete
+> cap/join/dash handling and one common fill/stroke/clip scan converter. It
+> preserves anisotropic transforms, shear and reflection and adds a cumulative
+> raster-geometry limit. The source snapshot is based on the verified
+> `0.10.0-alpha.1` archive; the separately planned `0.11` shaping work is not
+> included.
 > See [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md) for its scope and limits. See
 > [docs/FORMS.md](docs/FORMS.md) for the AcroForm model and
 > [docs/OPTIONAL_CONTENT.md](docs/OPTIONAL_CONTENT.md) for layer behavior. See
 > [docs/ROBUSTNESS.md](docs/ROBUSTNESS.md) for recovery and cache behavior. See
 > [docs/OUTLINES.md](docs/OUTLINES.md) for bookmark traversal and safety limits. See
+> [docs/RENDERING.md](docs/RENDERING.md) for stroke-outline and clipping behavior. See
 > [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
 
 ## Build

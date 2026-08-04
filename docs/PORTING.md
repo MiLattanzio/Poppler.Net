@@ -33,6 +33,10 @@ family after beta 2.
 The `0.10.0-alpha.1` slice begins reader completion with immutable, bounded
 document outlines and bookmark navigation while preserving the `0.9.0`
 rendering output.
+The `0.12.0-alpha.1` slice is derived from that verified archive and ports the
+stroke-expansion responsibilities of `Splash::makeStrokePath` together with a
+shared fill/stroke/clip scan path. The separately planned `0.11` shaping slice
+is not represented in this source snapshot.
 
 ## Implemented sequence
 
@@ -101,6 +105,9 @@ rendering output.
 27. Traverse `/Outlines` sibling/child links without exposing cyclic public
     graphs, resolve direct/named destinations, reuse inspection-only actions
     and bound item count, hierarchy depth and title bytes.
+28. Expand strokes into bounded user-space outlines, choose curve subdivision
+    from device-space error, transform the complete outline, and route fill,
+    stroke and clips through one nonzero/even-odd scanner.
 
 ## Upstream-to-managed map
 
@@ -124,7 +131,7 @@ rendering output.
 | `Gfx`, `GfxState`, `Function` | `PdfGraphicsInterpreter`, graphics model, `PdfFunction`, `PdfShadingReader`, `PdfMeshShadingReader` | Vector slice plus sampled/exponential/stitching/calculator functions and shading types 2–7 |
 | `ImageStream`, `DCTStream`, `JPXStream`, `JBIG2Stream`, `CCITTFaxStream` | `PdfImageDecoder`, `CcittFaxDecoder` | Managed Image XObject decoding |
 | `GfxColorSpace`, common ICC transforms | `PdfColorSpaceDefinition`, `PdfIccProfile` | Device, calibrated, indexed, spot and common matrix/shaper profiles |
-| `SplashOutputDev`, Splash path/composite | `PdfRasterRenderer`, `RasterGeometry`, `PdfBlend`, `RasterSurface` | Initial managed page raster, antialiasing and transparency |
+| `SplashOutputDev`, `Splash::makeStrokePath`, `SplashXPath`, Splash composite | `PdfRasterRenderer`, `RasterStrokeOutliner`, `RasterGeometry`, `PdfBlend`, `RasterSurface` | Managed raster, user-space stroke outlines, shared fill/stroke/clip scanning, antialiasing and transparency |
 | Cairo vector output | `SvgPageRenderer` | Managed SVG preview |
 | FreeType/font rasterization and shaping | managed TrueType/CFF1/CFF2/Type 1 readers plus `PdfOpenTypeLayout`, `PdfFontSubstitutionResolver` and Base-14 metrics | Common outlines, CFF2 default instance, targeted GSUB, canonical advances and ranked file substitution; hinting/full shaping remain planned |
 | JPEG/JPEG2000/JBIG2/CCITT | managed package codecs plus internal CCITT decoder | Image XObjects plus common inline-image data implemented |
@@ -139,9 +146,9 @@ rendering output.
 2. Complete font engine: CFF2 variation-region interpolation, rare Type 1/CFF
    operators, contextual GSUB/GPOS and complex shaping, Type 1 `seac` and
    hinting.
-3. Refine nested knockout/non-isolated group interaction, adaptive patch
-   tessellation and degenerate/anisotropic stroke geometry; add remaining
-   Flate/LZW/CCITT/JBIG2/JPX inline-image boundary cases.
+3. Refine nested knockout/non-isolated group interaction and adaptive patch
+   tessellation; add remaining Flate/LZW/CCITT/JBIG2/JPX inline-image boundary
+   cases.
 4. Add LUT-based ICC profiles, proofing, rendering intents and spot-color
    overprint.
 5. Complete producer-specific annotation appearance behavior, AcroForm

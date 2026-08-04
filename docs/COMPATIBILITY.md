@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.10.0-alpha.1
+## Works in 0.12.0-alpha.1
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -97,8 +97,9 @@
 - Managed full-page RGBA raster output and PNG encoding at configurable DPI,
   Crop/Media/Bleed/Trim/Art page box and PDF page rotation.
 - Supersampled path fill/stroke and clip coverage at 1×, 2×, 4× or 8×,
-  adaptive cubic Bézier flattening, image sampling, gradients and colored
-  tiling patterns.
+  device-error cubic Bézier flattening, transformed user-space stroke
+  outlines, zero-width hairlines, complete cap/join/dash handling, image
+  sampling, gradients and colored tiling patterns.
 - Butt, round and projecting-square caps, miter/round/bevel joins with
   miter-limit fallback, continuous dash phase across path segments and
   PDF-correct repetition of odd dash arrays.
@@ -211,9 +212,8 @@
   corresponding vector brush implementation.
 - Vertical writing supports metrics and non-contextual `vert`/`vrt2`
   alternates; contextual vertical shaping remains unsupported.
-- Degenerate zero-length strokes, extreme anisotropic transforms and uncommon
-  self-intersecting joins are not yet pixel-equivalent to Splash in every
-  case.
+- Raster edge antialiasing may differ from Splash at individual boundary
+  samples, while geometry, winding and clipping remain deterministic.
 - JPEG 2000 Part 2, unusual JPEG color transforms and malformed/extension
   streams outside the managed codec coverage remain unsupported.
 - Annotation actions are never executed. AcroForm support is read-only:

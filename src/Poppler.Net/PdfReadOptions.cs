@@ -21,6 +21,12 @@ public sealed record PdfReadOptions
     public int MaximumGraphicsOperations { get; init; } = 1_000_000;
     public int MaximumGraphicsElements { get; init; } = 250_000;
     public int MaximumPathSegments { get; init; } = 1_000_000;
+    /// <summary>
+    /// Maximum cumulative number of temporary line segments produced by one
+    /// raster render. The budget includes curve flattening, dash fragments,
+    /// stroke outlines and raster clip geometry.
+    /// </summary>
+    public int MaximumRasterGeometrySegments { get; init; } = 4_000_000;
     public int MaximumGraphicsStateDepth { get; init; } = 256;
     public int MaximumXObjectDepth { get; init; } = 32;
     public int MaximumTransparencyGroupDepth { get; init; } = 32;
@@ -97,6 +103,11 @@ public sealed record PdfReadOptions
             throw new ArgumentOutOfRangeException(nameof(MaximumGraphicsElements));
         if (MaximumPathSegments < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumPathSegments));
+        if (MaximumRasterGeometrySegments < 1)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(MaximumRasterGeometrySegments));
+        }
         if (MaximumGraphicsStateDepth < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumGraphicsStateDepth));
         if (MaximumXObjectDepth < 1)

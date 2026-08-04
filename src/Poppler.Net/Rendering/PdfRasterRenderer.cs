@@ -10,7 +10,12 @@ internal sealed class PdfRasterRenderer
     private readonly Dictionary<PdfClipPath, RasterPath> _clipCache = new();
     private readonly Dictionary<PdfSoftMask, RasterSurface> _softMaskCache = new();
     private readonly Dictionary<PdfSoftMask, double[]> _softMaskTransferCache = new();
+    private readonly Dictionary<PdfPathElement, RasterPath> _patternFillCache =
+        new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<PdfPathElement, RasterPath> _patternStrokeCache =
+        new(ReferenceEqualityComparer.Instance);
     private readonly PdfFontSubstitutionResolver _fontSubstitution;
+    private readonly RasterGeometryBudget _geometryBudget;
     private readonly int _samples;
 
     private PdfRasterRenderer(
@@ -27,6 +32,8 @@ internal sealed class PdfRasterRenderer
         Height = height;
         _samples = options.Antialiasing;
         _fontSubstitution = new PdfFontSubstitutionResolver(options);
+        _geometryBudget = new RasterGeometryBudget(
+            page.ReadOptions.MaximumRasterGeometrySegments);
     }
 
     private int Width { get; }
@@ -147,11 +154,12 @@ internal sealed class PdfRasterRenderer
                         0)
                     .Multiply(glyphTransform);
             }
-            RasterPath geometry = RasterGeometry.Flatten(
-                outline,
-                glyphTransform.Multiply(_deviceTransform));
             if (fill)
             {
+                RasterPath geometry = RasterGeometry.Flatten(
+                    outline,
+                    glyphTransform.Multiply(_deviceTransform),
+                    _geometryBudget);
                 Paint(
                     surface,
                     geometry.Bounds,
@@ -174,24 +182,32 @@ internal sealed class PdfRasterRenderer
             {
                 PdfMatrix stateTransform =
                     element.State.Transform.Multiply(_deviceTransform);
-                double scale = RasterGeometry.EffectiveScale(stateTransform);
-                double width = Math.Max(
-                    1.0 / _samples,
-                    element.State.LineWidth * scale);
-                PdfDashPattern dash = ScaleDash(element.State.Dash, scale);
+                if (!RasterGeometry.TryInvert(
+                        element.State.Transform,
+                        out PdfMatrix inverseState))
+                {
+                    continue;
+                }
+                PdfMatrix glyphToUser = glyphTransform.Multiply(inverseState);
+                RasterPath strokeOutline = RasterStrokeOutliner.Create(
+                    outline,
+                    glyphToUser,
+                    stateTransform,
+                    element.State.LineWidth,
+                    element.State.Dash,
+                    element.State.LineCap,
+                    element.State.LineJoin,
+                    element.State.MiterLimit,
+                    _geometryBudget);
                 Paint(
                     surface,
-                    geometry.Bounds.Expand(width / 2 + 1),
+                    strokeOutline.Bounds,
                     element.ClipPaths,
-                    (x, y) => RasterGeometry.StrokeContains(
-                        geometry,
+                    (x, y) => RasterGeometry.Contains(
+                        strokeOutline,
                         x,
                         y,
-                        width,
-                        dash,
-                        element.State.LineCap,
-                        element.State.LineJoin,
-                        element.State.MiterLimit),
+                        PdfFillRule.NonZero),
                     (x, y) => SampleBrush(element.State.Stroke, element.State, x, y, 0),
                     element.State.StrokeAlpha,
                     element.State.BlendMode,
@@ -239,9 +255,14 @@ internal sealed class PdfRasterRenderer
     private void RenderPath(RasterSurface surface, PdfPathElement element)
     {
         PdfMatrix transform = element.State.Transform.Multiply(_deviceTransform);
-        RasterPath path = RasterGeometry.Flatten(element.Path, transform);
         if ((element.PaintMode & PdfPaintMode.Fill) != 0)
         {
+            RasterPath path = RasterGeometry.IsNearSingular(transform)
+                ? RasterPath.Empty
+                : RasterGeometry.Flatten(
+                    element.Path,
+                    transform,
+                    _geometryBudget);
             Paint(
                 surface,
                 path.Bounds,
@@ -258,22 +279,24 @@ internal sealed class PdfRasterRenderer
 
         if ((element.PaintMode & PdfPaintMode.Stroke) != 0)
         {
-            double scale = RasterGeometry.EffectiveScale(transform);
-            double width = Math.Max(1.0 / _samples, element.State.LineWidth * scale);
-            PdfDashPattern dash = ScaleDash(element.State.Dash, scale);
+            RasterPath strokeOutline = RasterStrokeOutliner.Create(
+                element.Path,
+                transform,
+                element.State.LineWidth,
+                element.State.Dash,
+                element.State.LineCap,
+                element.State.LineJoin,
+                element.State.MiterLimit,
+                _geometryBudget);
             Paint(
                 surface,
-                path.Bounds.Expand(width / 2 + 1),
+                strokeOutline.Bounds,
                 element.ClipPaths,
-                (x, y) => RasterGeometry.StrokeContains(
-                    path,
+                (x, y) => RasterGeometry.Contains(
+                    strokeOutline,
                     x,
                     y,
-                    width,
-                    dash,
-                    element.State.LineCap,
-                    element.State.LineJoin,
-                    element.State.MiterLimit),
+                    PdfFillRule.NonZero),
                 (x, y) => SampleBrush(element.State.Stroke, element.State, x, y, 0),
                 element.State.StrokeAlpha,
                 element.State.BlendMode,
@@ -464,6 +487,8 @@ internal sealed class PdfRasterRenderer
         bool overprint = false,
         int overprintMode = 0)
     {
+        if (bounds.IsEmpty)
+            return;
         int left = Math.Max(0, (int)Math.Floor(bounds.Left));
         int top = Math.Max(0, (int)Math.Floor(bounds.Top));
         int right = Math.Min(Width, (int)Math.Ceiling(bounds.Right));
@@ -555,9 +580,14 @@ internal sealed class PdfRasterRenderer
     {
         if (_clipCache.TryGetValue(clip, out RasterPath? cached))
             return cached;
-        RasterPath path = RasterGeometry.Flatten(
-            clip.Path,
-            clip.Transform.Multiply(_deviceTransform));
+        PdfMatrix transform = clip.Transform.Multiply(_deviceTransform);
+        RasterPath path = RasterGeometry.IsNearSingular(transform)
+            ? RasterPath.Empty
+            : RasterGeometry.Flatten(
+                clip.Path,
+                transform,
+                _geometryBudget,
+                temporaryClip: true);
         _clipCache[clip] = path;
         return path;
     }
@@ -662,19 +692,12 @@ internal sealed class PdfRasterRenderer
         {
             if (pattern.Elements[index] is not PdfPathElement path)
                 continue;
-            RasterPath geometry = RasterGeometry.Flatten(
-                path.Path,
-                path.State.Transform);
             if ((path.PaintMode & PdfPaintMode.Stroke) != 0 &&
-                RasterGeometry.StrokeContains(
-                    geometry,
+                RasterGeometry.Contains(
+                    PatternStroke(path),
                     tileX,
                     tileY,
-                    Math.Max(path.State.LineWidth, 0.01),
-                    path.State.Dash,
-                    path.State.LineCap,
-                    path.State.LineJoin,
-                    path.State.MiterLimit))
+                    PdfFillRule.NonZero))
             {
                 RasterColor stroke = !pattern.IsColored && pattern.UnderlyingColor.HasValue
                     ? RasterColor.FromPdf(pattern.UnderlyingColor.Value)
@@ -688,7 +711,11 @@ internal sealed class PdfRasterRenderer
             }
 
             if ((path.PaintMode & PdfPaintMode.Fill) != 0 &&
-                RasterGeometry.Contains(geometry, tileX, tileY, path.FillRule))
+                RasterGeometry.Contains(
+                    PatternFill(path),
+                    tileX,
+                    tileY,
+                    path.FillRule))
             {
                 RasterColor fill = !pattern.IsColored && pattern.UnderlyingColor.HasValue
                     ? RasterColor.FromPdf(pattern.UnderlyingColor.Value)
@@ -703,6 +730,35 @@ internal sealed class PdfRasterRenderer
         }
 
         return RasterColor.Transparent;
+    }
+
+    private RasterPath PatternFill(PdfPathElement path)
+    {
+        if (_patternFillCache.TryGetValue(path, out RasterPath? geometry))
+            return geometry;
+        geometry = RasterGeometry.Flatten(
+            path.Path,
+            path.State.Transform,
+            _geometryBudget);
+        _patternFillCache[path] = geometry;
+        return geometry;
+    }
+
+    private RasterPath PatternStroke(PdfPathElement path)
+    {
+        if (_patternStrokeCache.TryGetValue(path, out RasterPath? geometry))
+            return geometry;
+        geometry = RasterStrokeOutliner.Create(
+            path.Path,
+            path.State.Transform,
+            path.State.LineWidth,
+            path.State.Dash,
+            path.State.LineCap,
+            path.State.LineJoin,
+            path.State.MiterLimit,
+            _geometryBudget);
+        _patternStrokeCache[path] = geometry;
+        return geometry;
     }
 
     private RasterColor SamplePatternBrush(
@@ -1126,13 +1182,6 @@ internal sealed class PdfRasterRenderer
             points.Max(point => point.X),
             points.Max(point => point.Y));
     }
-
-    private static PdfDashPattern ScaleDash(PdfDashPattern dash, double scale) =>
-        dash.Segments.Count == 0
-            ? PdfDashPattern.Solid
-            : new PdfDashPattern(
-                dash.Segments.Select(value => value * scale),
-                dash.Phase * scale);
 
     private static double PositiveModulo(double value, double modulus)
     {

@@ -39,6 +39,7 @@ var options = new PdfReadOptions
     UseSystemCMaps = false,
     MaximumGraphicsElements = 100_000,
     MaximumPathSegments = 250_000,
+    MaximumRasterGeometrySegments = 1_000_000,
     MaximumImagePixels = 25_000_000,
     MaximumImageComponents = 8,
     MaximumIccProfileBytes = 4 * 1024 * 1024,

@@ -426,10 +426,17 @@ def main() -> None:
                 ],
                 "managed_png_sha256": [
                     "b8459dc201c595b58ae81e1a53d3d6bf2dc24428b1289e00368cfe146a2380b8",
-                    "6d0b5ce529734dd9ba7f48508d5ce2b8c1ab8898080522cce1f86828cd243210",
+                    "00380c0e7526af1a69c090abdc5cc73dbebec36a582ff905cecbfc052930dd6a",
                     "6354619df4500aa939c3ebd24849fcd274f95741f470ebba22170bd71797aca2",
                     "80bcdbb957481fc5409b56aaf67af6d93b61750ce25f65b020059afbee6c1017",
                 ],
+                "intentional_raster_changes_0_12_0_alpha_1": {
+                    "page": 2,
+                    "reason": (
+                        "Widget button strokes now use a user-space outline before "
+                        "the CTM and the common fill/stroke/clip scan converter."
+                    ),
+                },
             },
             indent=2,
         )

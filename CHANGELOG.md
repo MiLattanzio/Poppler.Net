@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.12.0-alpha.1 — 2026-08-04
+
+- Replaced scalar post-CTM stroke coverage with closed user-space outlines
+  transformed as complete geometry into device space.
+- Made cubic flattening device-error driven with bounded subdivision.
+- Added correct bounded handling for zero-length strokes, one-pixel hairlines,
+  all cap/join families, miter limits, cusps, reversals, near-collinear paths,
+  closed paths, reflections, shear and anisotropic CTMs.
+- Reworked dash runs for negative phases, odd arrays, zero entries and
+  continuity across source segments and closed seams.
+- Routed fill, stroke outlines and nonzero/even-odd clips through the common
+  raster path scanner and defined singular-transform behavior.
+- Added `MaximumRasterGeometrySegments` as a cumulative per-render protection
+  over flattening, dash, outline and temporary clip geometry.
+- Added an eight-page deterministic geometry corpus and approved 64-output
+  render matrix at 96/300 DPI, AA 1/4 and opaque/transparent backgrounds.
+- Documented the three intentional historical raster changes while retaining
+  all unaffected hashes and leaving parser, text extraction and display-list
+  APIs unchanged.
+
 ## 0.10.0-alpha.1 — 2026-08-01
 
 - Added immutable `Document.OutlineItems` and `PdfOutlineItem` trees with

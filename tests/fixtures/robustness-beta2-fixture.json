@@ -9,10 +9,20 @@
     "miter-round-and-bevel-joins"
   ],
   "managed_png_sha256": [
-    "0ef1ba1189d2ee5556594b9e74b2ac087a0ef663de5d7d1e3c18aab12c233ad1",
+    "970bb5cc1c22475f6b70bf7e6ae7ac4f1326076a1de8ad09770460c327c3a948",
     "b9c85729a4a0cd3f242765221a8f2a8f036a2fb2bfa1012d570f05970125818d",
     "68ea4e8840c19625bbce95a1e7f31b2b072dcb875206af7f85b6186041cae22f",
     "a9a5984fa72cf5733efc2186eed9ca840571de33482a6b0df49739686e5fdeaf",
-    "87a9a6bd772e671de8584659db2d8a86d91e8587dc501a2302f47ca873660e49"
+    "85b2fc31ef8f6483ce736b4ecc7d0959b0a61812f795ccc5570a7e6c4d62c909"
+  ],
+  "intentional_raster_changes_0_12_0_alpha_1": [
+    {
+      "page": 1,
+      "reason": "Butt, round and square caps now come from transformed user-space stroke outlines."
+    },
+    {
+      "page": 5,
+      "reason": "Miter, round and bevel joins now share the outline fill scan converter and enforce the miter limit before the CTM."
+    }
   ]
 }

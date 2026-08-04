@@ -1,6 +1,6 @@
 # Managed graphics engine
 
-Version `0.9.0-alpha.1` retains and extends the backend-neutral slice of Poppler
+Version `0.12.0-alpha.1` retains and extends the backend-neutral slice of Poppler
 26.07.0 `Gfx`, `GfxState`, `Function`, pattern and XObject behavior. It parses
 page content into immutable managed objects; it does not call Poppler, Cairo,
 FreeType or another native renderer.
@@ -61,6 +61,12 @@ Clipping follows PDF delayed semantics: `W`/`W*` records the rule and the
 current path becomes part of the clip only when a path-ending operator is
 processed. Clips are copied by `q` and restored by `Q`.
 
+The raster backend does not change this public display list. It expands
+non-hairline strokes into closed user-space outlines, transforms the complete
+geometry and sends fill paths, stroke outlines and clips through the same
+nonzero/even-odd scanner. Reflections reverse every outline winding together,
+so overlap remains nonzero-correct.
+
 ## XObjects
 
 Form XObjects support:
@@ -114,6 +120,7 @@ is currently raster-only; the SVG preview skips mesh elements.
 | `MaximumGraphicsOperations` | 1,000,000 |
 | `MaximumGraphicsElements` | 250,000 |
 | `MaximumPathSegments` | 1,000,000 |
+| `MaximumRasterGeometrySegments` | 4,000,000 per raster operation |
 | `MaximumGraphicsStateDepth` | 256 |
 | `MaximumXObjectDepth` | 32 |
 | `MaximumTransparencyGroupDepth` | 32 |
@@ -139,7 +146,7 @@ Limit failures throw `PdfLimitException` and are covered by NUnit tests.
 | sampled/exponential/stitching/calculator `Function` | `PdfFunction` |
 | `OutputDev` boundary | `PdfGraphicsElement` display list, including `PdfTextElement` |
 | initial vector output backend | `SvgPageRenderer` |
-| initial Splash output backend | `PdfRasterRenderer` |
+| Splash path/stroke/clip backend | `PdfRasterRenderer`, `RasterStrokeOutliner`, `RasterGeometry` |
 
 The mapping is behavioral rather than a line-for-line transliteration:
 pointer-owned mutable Poppler objects become bounded managed values and

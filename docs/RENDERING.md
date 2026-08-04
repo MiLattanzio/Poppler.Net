@@ -1,6 +1,6 @@
-# Managed raster rendering in 0.9
+# Managed raster rendering in 0.12
 
-Release `0.9.0` retains the pure-C# counterpart of Poppler's
+Release `0.12.0-alpha.1` retains the pure-C# counterpart of Poppler's
 `SplashOutputDev`, path scanner, compositing and font-outline responsibilities.
 It consumes the backend-neutral `Page.Graphics` display list and never loads
 Splash, Cairo, Skia, FreeType, a platform drawing API or another native
@@ -49,12 +49,13 @@ pixels at alpha zero.
 
 1. The selected PDF page box and `/Rotate` value produce a user-to-device
    matrix at the requested DPI.
-2. Cubic Bézier paths are flattened adaptively in device space.
-3. Fill, stroke and clipping coverage are sampled on a configurable 1×, 2×,
-   4× or 8× grid per pixel.
-   Stroke coverage applies explicit butt/round/square caps,
-   miter/round/bevel joins and continuous dash phase, including odd dash-array
-   repetition.
+2. Cubic Bézier subdivision is selected by device-space error. Non-hairline
+   stroke centerlines remain in user space while this error is measured.
+3. Dash fragments and complete cap/join outlines are constructed in user
+   space, then transformed as fill geometry. Zero-width hairlines keep user-
+   space dash positions but expand to one device pixel. Fill, stroke outlines
+   and clipping all use the same nonzero/even-odd scanner on a configurable
+   1×, 2×, 4× or 8× grid per pixel.
 4. Solid colors, axial/radial gradients, colored/uncolored tiling patterns and
    type 4–7 mesh shadings supply straight RGBA source samples.
 5. Decoded Image XObjects use nearest-neighbor or bilinear sampling according
@@ -152,9 +153,11 @@ availability.
 before allocating the output surface. `MaximumTransparencyGroupDepth`
 defaults to 32 and bounds both intermediate groups and soft masks.
 `MaximumMeshTriangles` defaults to 65,536 and bounds decoded/tessellated mesh
-data. Existing
-graphics-operation, path-segment, XObject, image and decoded-stream limits
-remain active.
+data. `MaximumRasterGeometrySegments` defaults to 4,000,000 and cumulatively
+bounds flattening, dash fragments, stroke-outline edges and temporary clip
+geometry for one render. It is charged before temporary collections grow.
+Existing graphics-operation, path-segment, XObject, image and decoded-stream
+limits remain active.
 
 Annotation rendering is additionally bounded by
 `MaximumAnnotationsPerPage`, `MaximumAnnotationPoints` and
@@ -232,14 +235,21 @@ managed pages were inspected at original resolution; structural, strict-mode,
 concurrency and allocation behavior is covered independently. See
 [ROBUSTNESS.md](ROBUSTNESS.md).
 
+The `0.12.0-alpha.1` corpus adds eight deterministic pages for cap/join and
+miter limits, zero-length strokes and hairlines, negative/odd/zero-element
+dash arrays, closed-path seam continuity, anisotropic/sheared/reflected CTMs,
+tight curves and cusps, self-intersections, nested nonzero/even-odd clips,
+CropBox edges and page rotation. Its manifest freezes all 64 combinations of
+96/300 DPI, antialiasing 1/4 and opaque/transparent backgrounds.
+
 This remains a compatibility-focused rasterizer with explicit limits:
 
 - nested knockout shape/opacity and non-isolated groups with non-Normal
   boundary blend modes remain approximations;
 - unsupported calculator operators are rejected and reported rather than
   executed;
-- degenerate zero-length joins, extreme anisotropic transforms and uncommon
-  self-intersecting stroke geometry remain managed approximations;
+- edge antialiasing is deterministic but may differ from Splash at individual
+  boundary samples;
 - CFF2 variation-region interpolation, uncommon Type 1/CFF operators, Type 1
   `seac`, advanced Type 3 behavior and hinting remain unsupported;
 - GSUB is limited to non-contextual `vert`/`vrt2` and exact `liga`/`rlig`;

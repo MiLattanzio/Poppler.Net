@@ -60,13 +60,21 @@ Both values must be positive. They complement the existing decoded-byte,
 graphics-operation, display-list, path, recursion, object and collection
 limits.
 
-## Stroke compatibility
+## Raster geometry protection
 
-The beta 2 raster scanner carries dash state across every segment of a
-subpath, repeats odd-length dash arrays according to the PDF rule and applies
-phase before the first segment. Butt, round and projecting-square caps plus
-miter, round and bevel joins are painted explicitly. A miter beyond `/M`
-falls back to a bevel.
+`MaximumRasterGeometrySegments` defaults to 4,000,000 per raster operation.
+One cumulative counter covers device-error flattening segments, positive and
+zero-length dash fragments, stroke-outline edges and temporary clip geometry.
+The counter is checked before growing each corresponding collection. Separate
+concurrent renders receive separate counters.
 
-Degenerate zero-length geometry and extreme anisotropic transforms remain
-managed approximations rather than pixel-identical Splash behavior.
+The `0.12.0-alpha.1` scanner repeats odd dash arrays, normalizes negative
+phase, preserves state through every source segment and across a closed seam,
+and retains zero-length on-elements for dotted round/square caps. Non-hairline
+caps and joins are completed in user space before anisotropic, sheared or
+reflected CTMs are applied. A miter beyond `/M` falls back to a bevel.
+
+Cubic subdivision has an internal depth cap of 16 and round outlines have an
+internal 4,096-edge cap. Singular/near-singular non-hairline paints are
+skipped deterministically; singular clips are empty. These internal caps are
+not public tuning parameters.

@@ -1,79 +1,97 @@
-# Poppler.Net 0.10.0-alpha.1
+# Poppler.Net 0.12.0-alpha.1
 
-Release date: 2026-08-01
+Release date: 2026-08-04
 
-`0.10.0-alpha.1` begins the document-reader completion line of the
-managed-only Poppler 26.07.0 port. It adds immutable outlines/bookmarks and
-navigation metadata without changing page parsing or rendering behavior.
+`0.12.0-alpha.1` replaces the scalar raster-stroke approximation with a
+bounded managed outline pipeline modeled on Poppler Splash. Stroke geometry is
+now expanded before the current transformation matrix and transformed only
+after cap, join and dash geometry is complete.
+
+This source snapshot is derived from the verified `0.10.0-alpha.1` archive
+because no `0.11.0` implementation exists in the supplied workspace. It does
+not claim to include the separately planned `0.11` shaping work.
 
 ## Highlights
 
-- Adds `Document.OutlineItems` and immutable `PdfOutlineItem` trees.
-- Exposes title, children, direct or named destination, inspection-only action,
-  open state, bold/italic flags and optional RGB color.
-- Preserves `/First` and `/Next` ordering while checking `/Last`, `/Prev` and
-  `/Parent` consistency.
-- Reuses the existing destination resolver and `PdfAnnotationAction` model;
-  URI, JavaScript, Launch and every other action remain data only and are never
-  executed.
-- Truncates circular/repeated outline nodes and circular action chains with
-  stable diagnostics instead of recursing indefinitely.
-- Adds the `outline` CLI command with invariant, hierarchical output.
-- Adds `MaximumOutlineItems`, `MaximumOutlineDepth` and
-  `MaximumOutlineTitleBytes`.
-- Adds a deterministic three-page corpus with seven bookmarks, three hierarchy
-  levels, direct/named destinations, styles, actions and cycles.
+- Builds non-hairline stroke outlines in PDF user space before the CTM.
+- Measures cubic flattening error after the full user-to-device transform.
+- Preserves anisotropic scale, shear and reflection instead of reducing the
+  CTM to one average width.
+- Handles butt, round and projecting-square caps; miter, round and bevel joins;
+  miter limits; zero-length lines; hairlines; cusps; exact reversals; duplicate
+  points; near-collinear segments; and closed subpaths.
+- Applies negative dash phase, odd-pattern repetition, zero-length dash
+  elements and phase continuity across segments and closed-path seams.
+- Uses the same nonzero/even-odd point scanner for fill, stroke outlines and
+  clip geometry.
+- Treats singular and scale-relative near-singular transforms explicitly and
+  deterministically.
+- Adds only `PdfReadOptions.MaximumRasterGeometrySegments` to the public API.
+  The per-render cumulative budget covers flattening segments, dash fragments,
+  stroke-outline edges and temporary raster clip geometry.
+- Keeps `Page.Graphics` and the public display-list model unchanged.
 
 ## Compatibility and upgrading
 
-The release adds public read-only members but does not remove or alter the
-`0.9.0` callable surface. Existing code remains source compatible. Update the
-package reference:
+The release is source compatible with `0.10.0-alpha.1`; the sole new public
+member is an optional protection with a default of 4,000,000 segments.
 
 ```xml
-<PackageReference Include="Poppler.Net" Version="0.10.0-alpha.1" />
+<PackageReference Include="Poppler.Net" Version="0.12.0-alpha.1" />
 ```
 
-Applications should treat `Document`, pages, outlines, annotations, fields and
-optional-content models as immutable inspection objects. Navigation and action
-dispatch remain the responsibility of the host application.
+Raster output intentionally changes where old code used average CTM scale or
+painted caps/joins directly from the transformed centerline. The manifest
+documents all changed historical pages:
 
-## Safety and behavior
+- AcroForm alpha 2 page 2: widget-button stroke outline;
+- robustness beta 2 page 1: cap geometry;
+- robustness beta 2 page 5: join and miter-limit geometry.
 
-- The outline is initialized lazily and published as one immutable snapshot.
-- Traversal and final tree construction are iterative.
-- Top-level items have outline depth 1; exceeding any configured outline limit
-  throws `PdfLimitException`.
-- Direct and named destinations resolve to the existing zero-based
-  `PdfDestination.PageIndex` model.
-- Repeated nodes are skipped globally, so one malformed PDF object cannot be
-  represented under multiple parents or form a cycle in the public tree.
-- Outline state does not participate in page rendering; historical raster
-  output is expected to remain byte-identical.
+Every other historical managed raster hash remains unchanged.
+
+## Corpus and verification
+
+The deterministic eight-page `raster-geometry-alpha1.pdf` corpus covers cap
+and join widths, zero-length lines, hairlines, continuous and discontinuous
+dash patterns, negative phase, odd and zero-length dash entries, anisotropic
+`18×0.22`/`0.22×18` transforms, shear, mirror, tight curves, cusp/reversal,
+self-intersection, nested nonzero/even-odd clips, CropBox boundaries and page
+rotation.
+
+The approved manifest records every page at:
+
+- 96 and 300 DPI;
+- antialiasing 1 and 4;
+- opaque and transparent backgrounds.
+
+The regular suite checks all corpus semantics, manifest completeness,
+representative values across the entire render matrix, cumulative limit
+failure, singular-transform behavior, rotated CropBox dimensions and eight-way
+concurrent rendering of one `Document`. Poppler 26.05.0 was used only as an
+independent QA reference; it is not loaded or invoked by the library.
+
+## Safety and implementation details
+
+- Geometry budgets are local to one raster operation, so concurrent renders
+  do not share mutable counters.
+- The budget is charged before temporary geometry collections grow.
+- Cubic subdivision has an internal hard depth of 16; round geometry has an
+  internal 4,096-edge hard cap.
+- A zero-width hairline resolves dash positions in user space and then expands
+  to one device pixel, the only stroke case expanded after the CTM.
+- A singular non-hairline paint is skipped; a singular clip becomes empty.
+- Parser, text extraction, SVG serialization and the public display list are
+  unchanged.
 
 ## Known limitations
 
-- Bookmark creation, deletion, reordering, mutation and persisted open-state
-  changes are not implemented.
-- Actions and JavaScript are not executed.
-- Tagged PDF structure, alternate optional-content configurations, complex
-  shaping, complete color proofing, signature validation and PDF writing remain
-  planned for later releases.
-- SVG remains a preview backend and does not paint mesh shadings.
+- Pixel-edge antialiasing is deterministic but is not guaranteed byte-for-byte
+  identical to Splash at every boundary sample.
+- Transparency-group shape/alpha refinements, adaptive mesh shading and inline
+  image boundary recovery remain assigned to later `0.12.0` prereleases.
+- The separately planned `0.11` font/shaping work is not present in this
+  source snapshot.
 
-See `docs/OUTLINES.md` and `docs/COMPATIBILITY.md` for the detailed contract.
-
-## Verification
-
-- Release build of all four projects with warnings treated as errors.
-- 218/218 NUnit tests, with every historical regression retained.
-- Outline order, metadata, destinations, actions, cycles, concurrency, limits
-  and deterministic fixture integrity covered by NUnit.
-- Corpus opened, text-extracted and rendered independently with Poppler tools;
-  all three pages were visually inspected.
-- Historical parser, rendering, security, form, annotation and optional-content
-  regressions retained.
-- Managed-only dependency verification, NuGet inspection and offline rebuild
-  from the extracted source ZIP are release gates.
-
-Base revision: `b28458c306c9f4f32107379aa35119ff1a67c52d`.
+Base artifact: `Poppler.Net-26.07.0-0.10.0-alpha.1.zip`, SHA-256
+`6c0bda3766f825693678ac5aa0a91f19e83b553d1bc01e4c7acb7eb2c1842e43`.
