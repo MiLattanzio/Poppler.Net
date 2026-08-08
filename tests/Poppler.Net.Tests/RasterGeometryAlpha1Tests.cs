@@ -77,6 +77,13 @@ public sealed class RasterGeometryAlpha1Tests
             root.GetProperty("file").GetString()!);
         string fixtureHash = Hash(File.ReadAllBytes(fixture));
         JsonElement hashes = root.GetProperty("managed_png_sha256");
+        bool overridesValid =
+            !root.TryGetProperty(
+                "managed_png_sha256_windows_overrides",
+                out JsonElement windowsOverrides) ||
+            windowsOverrides.EnumerateObject().All(item =>
+                RenderKeys.Contains(item.Name, StringComparer.Ordinal) &&
+                item.Value.GetArrayLength() == 8);
 
         Assert.Multiple((Action)(() =>
         {
@@ -89,6 +96,7 @@ public sealed class RasterGeometryAlpha1Tests
                 hashes.EnumerateObject().All(item =>
                     item.Value.GetArrayLength() == 8),
                 Is.True);
+            Assert.That(overridesValid, Is.True);
         }));
     }
 
@@ -98,13 +106,24 @@ public sealed class RasterGeometryAlpha1Tests
         using JsonDocument manifest = Manifest();
         JsonElement hashes = manifest.RootElement
             .GetProperty("managed_png_sha256");
+        JsonElement windowsOverrides = default;
+        bool hasWindowsOverrides = OperatingSystem.IsWindows() &&
+            manifest.RootElement.TryGetProperty(
+                "managed_png_sha256_windows_overrides",
+                out windowsOverrides);
         using Document document = Load();
 
         for (int index = 0; index < RenderKeys.Length; index++)
         {
             string key = RenderKeys[index];
             RasterRenderOptions options = Options(key);
-            string expected = hashes.GetProperty(key)[index].GetString()!;
+            JsonElement expectedHashes = hashes.GetProperty(key);
+            if (hasWindowsOverrides &&
+                windowsOverrides.TryGetProperty(key, out JsonElement overrides))
+            {
+                expectedHashes = overrides;
+            }
+            string expected = expectedHashes[index].GetString()!;
             string actual = Hash(
                 document.CreatePage(index).RenderToPng(options));
             Assert.That(actual, Is.EqualTo(expected), key);
