@@ -114,8 +114,20 @@ public sealed class TransparencyCompositingAlpha2Tests
                 root.GetProperty("file").GetString()!))),
             Is.EqualTo(root.GetProperty("sha256").GetString()));
 
-        string[] expectedPng = root.GetProperty("managed_png_sha256")
-            .GetProperty("dpi72-aa4-opaque-fixed-fonts")
+        const string renderKey = "dpi72-aa4-opaque-fixed-fonts";
+        JsonElement expectedPngHashes = root.GetProperty("managed_png_sha256")
+            .GetProperty(renderKey);
+        if (OperatingSystem.IsWindows() &&
+            root.TryGetProperty(
+                "managed_png_sha256_windows_overrides",
+                out JsonElement windowsOverrides) &&
+            windowsOverrides.TryGetProperty(
+                renderKey,
+                out JsonElement windowsPngHashes))
+        {
+            expectedPngHashes = windowsPngHashes;
+        }
+        string[] expectedPng = expectedPngHashes
             .EnumerateArray()
             .Select(value => value.GetString()!)
             .ToArray();

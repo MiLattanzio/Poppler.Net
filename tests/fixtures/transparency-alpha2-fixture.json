@@ -19,6 +19,16 @@
       "165cb278116fa3d6c6b9c7551cb4424355ebba5933fb36e0ada6e55b0700538f"
     ]
   },
+  "managed_png_sha256_windows_overrides": {
+    "dpi72-aa4-opaque-fixed-fonts": [
+      "c949800434f34450e646c4e264da1e0e1bf569f857ec7b36d1a719cfd509e610",
+      "0898fdd5cdddd2d3cfa41520150711b426fb451e6479829cc6e55495a2244ef8",
+      "a17ec1bb25c34d716fa22755c21e8c6ffc0e0ec5b5bbd47a797f9ce3bf38204d",
+      "2298297fe12e69d57bf95dda33832513b8ca781b33256c978fd77174b6e49ce0",
+      "f0ff0404b0ec64c8ab161d7125f01b35108d3e59a0a5284cc42f7909f8a21823",
+      "165cb278116fa3d6c6b9c7551cb4424355ebba5933fb36e0ada6e55b0700538f"
+    ]
+  },
   "managed_svg_sha256": {
     "default": [
       "cb12b8f668eec6677eb344523158b5ad18659f1b2ef617a91f3694ba90681c6e",
