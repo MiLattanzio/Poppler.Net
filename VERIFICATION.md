@@ -1,17 +1,17 @@
 # Verification record
 
-Verification performed on 2026-08-04 for `0.12.0-alpha.1`. The source was
-derived from the final `Poppler.Net-26.07.0-0.10.0-alpha.1.zip` artifact,
-SHA-256 `6c0bda3766f825693678ac5aa0a91f19e83b553d1bc01e4c7acb7eb2c1842e43`.
-No `0.11.0` implementation was present in the supplied workspace.
+Verification performed on 2026-08-09 for `0.12.0-alpha.2`. The source was
+derived from the final `Poppler.Net-26.07.0-0.12.0-alpha.1.zip` artifact,
+SHA-256 `4c32a590cb1c2c2a868326c5c0ecf62fb5e6f34480bbdfc1919469ad7f58b606`.
+The separately planned `0.11` shaping slice is not present.
 
 - .NET SDK 8.0.423 compiled all four solution projects in Release with
   warnings treated as errors.
-- NUnitLite executed 224 tests: 224 passed, 0 failed, 0 warnings and 0
+- NUnitLite executed 239 tests: 239 passed, 0 failed, 0 warnings and 0
   skipped.
 - The managed-only verifier accepted production source and every asset in the
   restored NuGet graph.
-- `Poppler.Net.0.12.0-alpha.1.nupkg` contains the Release net8.0 DLL/XML,
+- `Poppler.Net.0.12.0-alpha.2.nupkg` contains the Release net8.0 DLL/XML,
   README, release notes, license and notice.
 - NuGet metadata identifies Mi Lattanzio as author and the public repository as
   `https://github.com/MiLattanzio/Poppler.Net`.
@@ -23,94 +23,105 @@ No `0.11.0` implementation was present in the supplied workspace.
 ## Public API and version
 
 The complete public-surface SHA-256 is
-`4c931f2f8458513f1fa7722fa934ecc98245c88c50d6269e806345c54a6aa5f1`.
+`221999f6699cf3963b99f1ce5bfe0474d208a64d3d3e1ba62afe08c4c99ac6b5`.
 The fingerprint that normalizes only `Document.PortVersion` is
-`23300ba9dca5e9bb8557924343035a8ac801c9df3244f3de21e26138387c2ede`.
+`c46d950b23a5b590b4bf0609688e3979e581aaf00b2624f199469be046029b4f`.
 
-The sole added public member relative to `0.10.0-alpha.1` is
-`PdfReadOptions.MaximumRasterGeometrySegments`. `Page.Graphics`, every public
-display-list element and all parser/text APIs are unchanged.
+Relative to alpha 1, the callable surface adds only:
 
-`Document.PortVersion`, library/CLI informational versions and NuGet version
-all report `0.12.0-alpha.1`.
+- `SvgFallbackMode`;
+- `SvgRenderOptions.FallbackMode`;
+- `SvgRenderOptions.RasterFallbackDpi`;
+- `PdfReadOptions.MaximumRenderWorkingBytes`;
+- `PdfReadOptions.MaximumSvgFallbackPixels`.
 
-## Geometry corpus and safety
+`Page.Graphics`, every public display-list element and all parser/text APIs
+are unchanged. `Document.PortVersion`, library/CLI informational versions and
+NuGet version all report `0.12.0-alpha.2`.
 
-The deterministic eight-page `raster-geometry-alpha1.pdf` corpus has SHA-256
-`32fb3960c725637ea4de1a03c27f1f381d57f549a89f12398bab5fd19c6fdf66`.
+## Transparency corpus and numerical gates
+
+The deterministic six-page `transparency-alpha2.pdf` corpus has SHA-256
+`4776510211fc97ec94fce458806952fe2ecd33e14ad62738f70acc5d1c700a7a`.
 Its approved manifest has SHA-256
-`9d3be11ee432c2e0d080729ac39b9a3cb2157f834bf59e96b15a88d12c41e7dc`.
+`11a5e3d18c4c362b9f263bf1d26fe4a44e8f19e2d3a051b29a9e0e1ac9677a1c`.
 The generator reproduces both files byte for byte.
 
 The pages cover:
 
-- cap, join and miter-limit combinations at multiple widths;
-- zero-length lines and zero-width hairlines;
-- negative dash phase, odd patterns, zero-length elements and closed seams;
-- anisotropic scale, shear and reflection;
-- tight cubics, cusps and exact reversals;
-- self-intersection and near-collinearity;
-- nested nonzero/even-odd clips at page boundaries;
-- CropBox-edge clipping combined with page rotation.
+- all four isolated/knockout combinations;
+- three-level group nesting and non-`Normal` boundary blends;
+- all separable and nonseparable standard blend modes;
+- Alpha and Luminosity masks, `/BC`, calculator `/TR` and partial clips;
+- groups inside masks and masks inside groups;
+- text, image, pattern, shading and annotation appearance paint;
+- direct `1x1` and `2x2` formula samples.
 
-The manifest records 64 managed outputs: all eight pages at 96 and 300 DPI,
-antialiasing 1 and 4, and opaque and transparent backgrounds. A repeated
-eight-task render of the same `Document` is byte-identical.
+Numerical tests inspect premultiplied color, composite alpha, shape and source
+contribution independently. They prove that zero-alpha paint and a painted
+color equal to the backdrop still contribute shape; non-isolated recovery and
+knockout merge are tested without relying on screenshots. The `2x2` output is
+frozen at `(191,159,223)`, `(128,128,255)`, `(128,0,128)` and white.
 
-The geometry limit is cumulative across flattening segments, dash fragments,
-stroke-outline edges and temporary clip geometry. The regression forces a
-limit failure only after several individually valid paths, verifies
-`PdfLimitException`, and measures less than 2 MiB of allocation before the
-exception. Cubic subdivision has an internal depth cap of 16; round geometry
-has an internal 4,096-edge cap.
+The manifest freezes managed PNG and default SVG SHA-256 values for all six
+pages. An eight-task raster/SVG render of the same `Document` is byte-identical.
+SVG is parsed as XML, its default complex-page fallback is an embedded PNG data
+URI, `Omit` contains no fallback URI, and the pixel limit is forced before
+allocation.
+
+## Safety and bounded memory
+
+Each high-precision raster surface stores six 32-bit values per pixel:
+premultiplied RGB, composite alpha, shape and contribution alpha. The
+per-render working-set budget reserves bytes before allocating the final
+target, saved backdrops, group/knockout buffers or soft-mask caches and releases
+the reservation with the owning surface. Regressions force both a direct
+pre-allocation failure and a nested-group failure after multiple live surfaces.
+
+`MaximumTransparencyGroupDepth` remains active for groups and soft masks; a
+depth-one render of the three-level corpus fails with `PdfLimitException`.
+Existing output-pixel, geometry, XObject, image and stream limits remain
+unchanged.
 
 ## Independent Poppler comparison
 
 Poppler 26.05.0 `pdfinfo`, `pdftotext` and `pdftoppm` open, extract and render
-all eight pages. Poppler is used only as an independent QA reference. The
-following normalized mean absolute errors compare 96-DPI, antialiasing-4,
-opaque renders with Poppler; page 8 uses its CropBox.
+all six pages. Poppler is used only as an independent QA reference. At 72 DPI,
+antialiasing 4 and an opaque backdrop, the normalized RGB mean absolute errors
+are:
 
-| Page | `0.10.0-alpha.1` | `0.12.0-alpha.1` | Result |
-|---:|---:|---:|---|
-| 1 | 0.00360004 | 0.00320515 | improved |
-| 2 | 0.00321823 | 0.00320826 | improved |
-| 3 | 0.01511370 | 0.01479450 | improved |
-| 4 | 0.10105300 | 0.00320114 | improved |
-| 5 | 0.00162062 | 0.00161236 | improved |
-| 6 | 0.00478453 | 0.00251939 | improved |
-| 7 | 0.00481667 | 0.00481667 | equivalent |
-| 8 | 0.00222807 | 0.00221778 | improved |
+| Page | Error |
+|---:|---:|
+| 1 | 0.000255061 |
+| 2 | 0.007452158 |
+| 3 | 0.001080719 |
+| 4 | 0.000622433 |
+| 5 | 0.002404463 |
+| 6 | 0.000980392 |
 
-The largest improvement is the anisotropic/shear/reflection page, where the
-old average-width approximation is removed. Original-resolution contact sheets
-were inspected for both implementations; no clipping, overlap or stray
-geometry is present.
+Original-resolution managed and Poppler contact sheets were inspected. Group
+boundaries, overlaps, masks, clips, patterns, image samples, annotation paint
+and all blend-grid cells are present without clipping or stray geometry. Page
+4 uses the controlled managed Helvetica fixture; text, image, pattern and
+shading paint all remain inside the transparency group.
 
-## Historical compatibility
+## Historical compatibility and performance
 
-Every historical managed raster hash remains unchanged except the three
-intentional pages recorded in their versioned manifests:
+Every historical manifest regression remains active. The one existing
+isolated-group channel that uses a byte-quantized Poppler intermediate is
+accepted within one unit: retaining high-precision group color rounds it to
+128 instead of 127. No parser, text-extraction or public display-list behavior
+changes.
 
-- AcroForm alpha 2 page 2, whose widget-button stroke uses the new outline;
-- robustness beta 2 page 1, which exercises line caps;
-- robustness beta 2 page 5, which exercises joins and miter limits.
-
-The AcroForm and robustness corpus generators preserve both the updated hashes
-and their reasons while reproducing the PDF bytes exactly. No production file
-under the parser, text extraction, images, color or forms subsystems changed.
-
-## Concurrency and performance
-
-All ownership, culture, option-snapshot, diagnostic-snapshot and
+All input ownership, culture, option-snapshot, diagnostic-snapshot and
 shared-document concurrency gates remain active. The Release smoke workload
-completed in 93.6 ms and allocated 10.5 MiB, inside the 30-second/512-MiB
+completed in 102.3 ms and allocated 13.7 MiB, inside the 30-second/512-MiB
 budgets. The repeated decoded-stream test allocated 78.1 KiB with caching and
-7,768.3 KiB with caching disabled.
+7,773.4 KiB with caching disabled.
 
 ## Distribution
 
-The final source archive contains 206 files selected explicitly beneath one
+The final source archive contains 212 files selected explicitly beneath one
 `Poppler.Net/` root. It excludes repository metadata, build outputs, NuGet
 packages, test results, temporary renders, generated bytecode, executables and
 native assets.
@@ -121,10 +132,10 @@ five approved local managed packages, rebuilt without warnings, tested,
 verified as managed-only, repackaged and exercised through the CLI.
 
 The environment's `dotnet` CLI can intermittently fail while inspecting its
-process namespace. Running MSBuild single-node with node reuse disabled and
-the NUnitLite executable directly avoids `System.Diagnostics.Process.GetStat`;
-this is an execution-environment issue, not a project or package error. The
-normal user entry point remains:
+process namespace. Retrying the command, and using single-node MSBuild with
+node reuse disabled, avoids `System.Diagnostics.Process.GetStat`; this is an
+execution-environment issue, not a project or package error. The normal user
+entry point remains:
 
 ```bash
 ./build.sh Release

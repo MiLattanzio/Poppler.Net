@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.12.0-alpha.1
+## Works in 0.12.0-alpha.2
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -92,8 +92,10 @@
 - Raw and commonly filtered inline images, standard abbreviated dictionary
   keys/names, filter-aware ASCIIHex/ASCII85/RunLength/DCT boundaries and
   content-stream interleaving.
-- Managed SVG vector output for paths, clipping, Form content, tiling patterns,
-  axial/radial gradients, decoded Image XObjects and extracted text.
+- Managed SVG vector output for paths, clipping, representable Form content,
+  tiling patterns, axial/radial gradients, decoded Image XObjects and extracted
+  text, with a default deterministic embedded-PNG fallback for unsupported
+  group/mesh semantics and an explicit historical `Omit` mode.
 - Managed full-page RGBA raster output and PNG encoding at configurable DPI,
   Crop/Media/Bleed/Trim/Art page box and PDF page rotation.
 - Supersampled path fill/stroke and clip coverage at 1×, 2×, 4× or 8×,
@@ -103,12 +105,14 @@
 - Butt, round and projecting-square caps, miter/round/bevel joins with
   miter-limit fallback, continuous dash phase across path segments and
   PDF-correct repetition of odd dash arrays.
-- Straight-alpha compositing for the 16 standard separable/nonseparable PDF
-  blend modes.
-- Preserved Form transparency groups, isolated/non-isolated and knockout
-  intermediate surfaces,
-  graphics-state Alpha/Luminosity soft masks, luminosity backdrop color and
-  sampled/exponential/stitching/calculator soft-mask transfer functions.
+- High-precision premultiplied compositing for the 16 standard
+  separable/nonseparable PDF blend modes, with independent composite alpha,
+  shape and contribution alpha channels.
+- Preserved Form transparency groups with isolated/non-isolated initial
+  backdrops, simple/nested knockout and partial sibling overlap; group alpha,
+  non-Normal boundary blends, internal/external clips, and graphics-state
+  Alpha/Luminosity soft masks with `/BC` and sampled/exponential/stitching/
+  calculator `/TR` functions.
 - `/OP`, `/op` and `/OPM` state plus process-CMYK overprint-mode-1 preview for
   solid DeviceCMYK and DeviceGray paint.
 - Embedded TrueType `glyf` simple/composite outlines, common component
@@ -187,9 +191,9 @@
   release (including ambiguous Flate/LZW/CCITT/JBIG2/JPX cases), unusual
   filter chains or unsupported color spaces may still require more complete
   recovery.
-- Non-isolated groups with non-Normal boundary blend modes and nested knockout
-  shape/opacity interactions remain approximations. SVG remains a preview
-  backend and does not paint mesh shadings.
+- SVG uses a full-page raster fallback when one unsupported construct is
+  present; group-bounds fallback and native SVG mesh painting are not yet
+  implemented. `SvgFallbackMode.Omit` intentionally skips such constructs.
 - Shading type 1 is not painted. Patch meshes use a fixed bounded tessellation
   rather than Poppler's adaptive device-space subdivision.
 - ICC LUT/device-link profiles, rendering intents, black-point compensation,
@@ -242,6 +246,7 @@ objects, 1,000,000 direct collection items, 250,000 CMap mappings,
 segments, 100,000,000 decoded pixels per image, 32 image components, 16 MiB
 per ICC profile, 1,000,000 sampled-function samples, graphics stack depth 256,
 XObject depth 32, transparency-group depth 32, 100,000,000 rendered pixels,
+1 GiB of simultaneously live render surfaces, 25,000,000 SVG fallback pixels,
 33 shading stops, 65,536 mesh triangles, 100,000 annotations per page,
 250,000 annotation geometry points, annotation-appearance depth 16,
 10,000 actions per page, action-chain depth 32, 1 MiB per action script,

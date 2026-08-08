@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.12.0-alpha.2 — 2026-08-09
+
+- Replaced transparency decisions based on finished-pixel comparisons with
+  independent premultiplied color, composite alpha, shape and contribution
+  alpha channels.
+- Saved initial color/alpha backdrops for non-isolated and knockout groups and
+  corrected partial overlap, nesting, group alpha and non-Normal boundary
+  blend behavior.
+- Applied Alpha/Luminosity soft masks, `/BC`, `/TR`, clips and fill/stroke
+  alpha consistently across text, images, patterns, shadings and annotations.
+- Added the default embedded-PNG SVG fallback and the explicit historical
+  `Omit` mode for constructs without faithful SVG semantics.
+- Added cumulative live-surface and SVG fallback-pixel limits checked before
+  allocation.
+- Added a deterministic six-page transparency corpus, direct `1x1`/`2x2`
+  numerical formula tests, PNG/SVG manifests, depth/limit gates and concurrent
+  determinism checks.
+
 ## 0.12.0-alpha.1 — 2026-08-04
 
 - Replaced scalar post-CTM stroke coverage with closed user-space outlines

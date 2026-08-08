@@ -5,6 +5,7 @@ namespace Poppler.Rendering;
 internal sealed class PdfRasterRenderer
 {
     private readonly Page _page;
+    private readonly IReadOnlyList<PdfGraphicsElement> _elements;
     private readonly RasterRenderOptions _options;
     private readonly PdfMatrix _deviceTransform;
     private readonly Dictionary<PdfClipPath, RasterPath> _clipCache = new();
@@ -16,16 +17,20 @@ internal sealed class PdfRasterRenderer
         new(ReferenceEqualityComparer.Instance);
     private readonly PdfFontSubstitutionResolver _fontSubstitution;
     private readonly RasterGeometryBudget _geometryBudget;
+    private readonly RenderWorkingSetBudget _workingSetBudget;
     private readonly int _samples;
+    private int _softMaskRenderDepth;
 
     private PdfRasterRenderer(
         Page page,
+        IReadOnlyList<PdfGraphicsElement> elements,
         RasterRenderOptions options,
         PdfMatrix deviceTransform,
         int width,
         int height)
     {
         _page = page;
+        _elements = elements;
         _options = options;
         _deviceTransform = deviceTransform;
         Width = width;
@@ -34,6 +39,8 @@ internal sealed class PdfRasterRenderer
         _fontSubstitution = new PdfFontSubstitutionResolver(options);
         _geometryBudget = new RasterGeometryBudget(
             page.ReadOptions.MaximumRasterGeometrySegments);
+        _workingSetBudget = new RenderWorkingSetBudget(
+            page.ReadOptions.MaximumRenderWorkingBytes);
     }
 
     private int Width { get; }
@@ -44,6 +51,28 @@ internal sealed class PdfRasterRenderer
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(options);
         options = options.Snapshot();
+        return RenderCore(
+            page,
+            page.GraphicsFor(options.OptionalContentVisibility),
+            options);
+    }
+
+    internal static PdfBitmap RenderSubset(
+        Page page,
+        IReadOnlyList<PdfGraphicsElement> elements,
+        RasterRenderOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+        ArgumentNullException.ThrowIfNull(elements);
+        ArgumentNullException.ThrowIfNull(options);
+        return RenderCore(page, elements, options.Snapshot());
+    }
+
+    private static PdfBitmap RenderCore(
+        Page page,
+        IReadOnlyList<PdfGraphicsElement> elements,
+        RasterRenderOptions options)
+    {
 
         PdfRectangle source = page.PageRect(options.PageBox);
         double left = Math.Min(source.Left, source.Right);
@@ -74,22 +103,40 @@ internal sealed class PdfRasterRenderer
             270 => new PdfMatrix(0, -scale, -scale, 0, top * scale, right * scale),
             _ => new PdfMatrix(scale, 0, 0, -scale, -left * scale, top * scale)
         };
-        var renderer = new PdfRasterRenderer(page, options, device, width, height);
+        var renderer = new PdfRasterRenderer(
+            page,
+            elements,
+            options,
+            device,
+            width,
+            height);
         return renderer.RenderPage();
     }
 
     private PdfBitmap RenderPage()
     {
-        var surface = new RasterSurface(Width, Height);
-        surface.Clear(_options.Transparent
-            ? RasterColor.Transparent
-            : RasterColor.FromPdf(_options.Background));
-        RenderElements(
-            surface,
-            _page.GraphicsFor(_options.OptionalContentVisibility),
-            depth: 0);
-        return new PdfBitmap(Width, Height, surface.Pixels);
+        try
+        {
+            using var surface = CreateSurface(quantizeComposite: true);
+            surface.Clear(_options.Transparent
+                ? RasterColor.Transparent
+                : RasterColor.FromPdf(_options.Background));
+            RenderElements(
+                surface,
+                _elements,
+                depth: 0);
+            return new PdfBitmap(Width, Height, surface.ToRgbaBytes());
+        }
+        finally
+        {
+            foreach (RasterSurface mask in _softMaskCache.Values)
+                mask.Dispose();
+            _softMaskCache.Clear();
+        }
     }
+
+    private RasterSurface CreateSurface(bool quantizeComposite = false) =>
+        new(Width, Height, _workingSetBudget, quantizeComposite);
 
     private void RenderText(RasterSurface surface, PdfTextElement element)
     {
@@ -404,74 +451,79 @@ internal sealed class PdfRasterRenderer
         PdfTransparencyGroupElement group,
         int depth)
     {
-        RasterSurface backdrop = surface.Clone();
-        RasterSurface layer = RenderTransparencySurface(
-            backdrop,
+        using TransparencyResult result = RenderTransparencySurface(
+            surface,
             group.Elements,
             group.Isolated,
             group.Knockout,
             depth);
-        if (group.Isolated)
-        {
-            surface.CompositeSurface(
-                layer,
-                group.State.BlendMode,
-                group.State.FillAlpha,
-                (x, y) => ClipCoverage(group.ClipPaths, x, y) *
-                          SoftMaskValue(group.State.SoftMask, x, y));
-            return;
-        }
-
         for (int y = 0; y < Height; y++)
         {
             for (int x = 0; x < Width; x++)
             {
-                RasterColor before = backdrop.GetPixel(x, y);
-                RasterColor after = layer.GetPixel(x, y);
-                if (before == after)
+                double groupShape = result.Surface.GetShape(x, y);
+                if (groupShape <= 0)
                     continue;
-                double amount =
-                    RasterColor.Clamp(group.State.FillAlpha) *
-                    ClipCoverage(group.ClipPaths, x, y) *
+                double clip = ClipCoverage(group.ClipPaths, x, y);
+                if (clip <= 0)
+                    continue;
+                double opacity = RasterColor.Clamp(group.State.FillAlpha) *
                     SoftMaskValue(group.State.SoftMask, x, y);
-                surface.SetPixel(x, y, Interpolate(before, after, amount));
+                RasterColor source = result.Surface.RecoverGroupSource(
+                    result.InitialBackdrop,
+                    x,
+                    y);
+                surface.CompositePixel(
+                    x,
+                    y,
+                    source.WithAlpha(source.Alpha * opacity * clip),
+                    group.State.BlendMode,
+                    sourceShape: groupShape * clip);
             }
         }
     }
 
-    private RasterSurface RenderTransparencySurface(
+    private TransparencyResult RenderTransparencySurface(
         RasterSurface backdrop,
         IReadOnlyList<PdfGraphicsElement> elements,
         bool isolated,
         bool knockout,
         int depth)
     {
-        var empty = new RasterSurface(Width, Height);
-        empty.Clear(RasterColor.Transparent);
-        RasterSurface initial = isolated ? empty : backdrop;
-        RasterSurface layer = initial.Clone();
-        if (!knockout)
+        RasterSurface? initial = null;
+        RasterSurface? layer = null;
+        try
         {
-            RenderElements(layer, elements, depth);
-            return layer;
-        }
-
-        foreach (PdfGraphicsElement element in elements)
-        {
-            RasterSurface child = initial.Clone();
-            RenderElements(child, new[] { element }, depth);
-            for (int y = 0; y < Height; y++)
+            if (isolated)
             {
-                for (int x = 0; x < Width; x++)
-                {
-                    RasterColor original = initial.GetPixel(x, y);
-                    RasterColor painted = child.GetPixel(x, y);
-                    if (painted != original)
-                        layer.SetPixel(x, y, painted);
-                }
+                initial = CreateSurface();
+                initial.Clear(RasterColor.Transparent);
             }
+            else
+            {
+                initial = backdrop.CloneActual();
+            }
+            layer = initial.CloneActual();
+            if (!knockout)
+            {
+                RenderElements(layer, elements, depth);
+                return new TransparencyResult(initial, layer);
+            }
+
+            foreach (PdfGraphicsElement element in elements)
+            {
+                using RasterSurface child = initial.CloneActual();
+                RenderElements(child, new[] { element }, depth);
+                layer.MergeKnockoutChild(initial, child);
+            }
+            return new TransparencyResult(initial, layer);
         }
-        return layer;
+        catch
+        {
+            layer?.Dispose();
+            initial?.Dispose();
+            throw;
+        }
     }
 
     private void Paint(
@@ -523,13 +575,15 @@ internal sealed class PdfRasterRenderer
                                RasterColor.Clamp(opacity) *
                                covered / totalSamples *
                                SoftMaskValue(softMask, x, y);
-                if (alpha > 0)
+                double shape = covered / (double)totalSamples;
+                if (alpha > 0 || shape > 0)
                 {
                     surface.CompositePixel(
                         x,
                         y,
                         color.WithAlpha(alpha),
                         blendMode,
+                        shape,
                         sourcePdfColor,
                         overprint,
                         overprintMode);
@@ -886,18 +940,32 @@ internal sealed class PdfRasterRenderer
             return 1;
         if (!_softMaskCache.TryGetValue(mask, out RasterSurface? surface))
         {
-            var backdrop = new RasterSurface(Width, Height);
-            backdrop.Clear(
-                mask.Mode == PdfSoftMaskMode.Luminosity && !mask.Isolated
+            if (_softMaskRenderDepth >=
+                _page.ReadOptions.MaximumTransparencyGroupDepth)
+            {
+                throw new PdfLimitException(
+                    "Soft-mask nesting exceeds the configured limit.");
+            }
+            _softMaskRenderDepth++;
+            try
+            {
+                using RasterSurface backdrop = CreateSurface();
+                backdrop.Clear(mask.Mode == PdfSoftMaskMode.Luminosity
                     ? RasterColor.FromPdf(mask.Backdrop)
                     : RasterColor.Transparent);
-            surface = RenderTransparencySurface(
-                backdrop,
-                mask.Elements,
-                mask.Isolated,
-                mask.Knockout,
-                depth: 1);
-            _softMaskCache[mask] = surface;
+                using TransparencyResult result = RenderTransparencySurface(
+                    backdrop,
+                    mask.Elements,
+                    mask.Isolated,
+                    mask.Knockout,
+                    depth: _softMaskRenderDepth);
+                surface = result.DetachSurface();
+                _softMaskCache[mask] = surface;
+            }
+            finally
+            {
+                _softMaskRenderDepth--;
+            }
         }
 
         RasterColor pixel = surface.GetPixel(x, y);
@@ -917,6 +985,37 @@ internal sealed class PdfRasterRenderer
         }
 
         return ApplySoftMaskTransfer(mask, value);
+    }
+
+    private sealed class TransparencyResult : IDisposable
+    {
+        private bool _ownsSurface = true;
+
+        public TransparencyResult(
+            RasterSurface initialBackdrop,
+            RasterSurface surface)
+        {
+            InitialBackdrop = initialBackdrop;
+            Surface = surface;
+        }
+
+        public RasterSurface InitialBackdrop { get; }
+        public RasterSurface Surface { get; }
+
+        public RasterSurface DetachSurface()
+        {
+            if (!_ownsSurface)
+                throw new InvalidOperationException("Surface ownership was already transferred.");
+            _ownsSurface = false;
+            return Surface;
+        }
+
+        public void Dispose()
+        {
+            if (_ownsSurface)
+                Surface.Dispose();
+            InitialBackdrop.Dispose();
+        }
     }
 
     private double ApplySoftMaskTransfer(PdfSoftMask mask, double value)

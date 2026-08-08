@@ -40,6 +40,8 @@ var options = new PdfReadOptions
     MaximumGraphicsElements = 100_000,
     MaximumPathSegments = 250_000,
     MaximumRasterGeometrySegments = 1_000_000,
+    MaximumRenderWorkingBytes = 256L * 1024 * 1024,
+    MaximumSvgFallbackPixels = 8_000_000,
     MaximumImagePixels = 25_000_000,
     MaximumImageComponents = 8,
     MaximumIccProfileBytes = 4 * 1024 * 1024,
@@ -325,9 +327,23 @@ plus extracted text. `SvgRenderOptions` can independently disable vector
 graphics, decoded images or text, draw extraction bounds and draw Image
 XObject unit-square bounds.
 
-The SVG backend covers paths, clipping, Form content, colored tiling patterns,
-axial/radial gradients and decoded Image XObjects embedded as managed PNG.
-It remains a preview backend rather than the visual-conformance target.
+The SVG backend covers paths, clipping, faithfully representable Form content,
+colored tiling patterns, axial/radial gradients and decoded Image XObjects
+embedded as managed PNG. Constructs without equivalent SVG group semantics
+use a deterministic managed PNG data-URI fallback by default:
+
+```csharp
+page.SaveSvg("page.svg", new SvgRenderOptions
+{
+    FallbackMode = SvgFallbackMode.Rasterize,
+    RasterFallbackDpi = 144
+});
+```
+
+`SvgFallbackMode.Omit` explicitly retains the former behavior of skipping
+unsupported constructs. Fallbacks never reference external resources and are
+bounded by `PdfReadOptions.MaximumSvgFallbackPixels`. Alpha 2 falls back for
+the complete page when any unsupported group or mesh is present.
 
 ## Managed page raster
 
@@ -361,3 +377,9 @@ display-list position from embedded TrueType, CFF1/CFF2 Type 2 or Type 1 outline
 Type 3 CharProcs, or optional managed font-file substitution. See
 [RENDERING.md](RENDERING.md) for the current text, stroke, group and color
 limits.
+
+Internally, raster surfaces retain high-precision premultiplied color,
+composite alpha, shape and contribution alpha separately. Saved non-isolated
+backdrops, knockout child buffers and soft-mask surfaces all count against
+`PdfReadOptions.MaximumRenderWorkingBytes`; the reservation happens before an
+allocation is made.

@@ -36,11 +36,13 @@ internal static class SvgPageRenderer
 
         public string Render()
         {
-            IReadOnlyList<PdfGraphicsElement> graphics =
-                _options.IncludeVectorGraphics || _options.IncludeText
-                ? _page.GraphicsFor(_options.OptionalContentVisibility)
-                : Array.Empty<PdfGraphicsElement>();
-            RegisterElements(graphics);
+            IReadOnlyList<PdfGraphicsElement> graphics = FilterElements(
+                _page.GraphicsFor(_options.OptionalContentVisibility));
+            bool rasterFallback =
+                _options.FallbackMode == SvgFallbackMode.Rasterize &&
+                graphics.Any(RequiresRasterFallback);
+            if (!rasterFallback)
+                RegisterElements(graphics);
 
             _svg.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
             _svg.Append("<svg xmlns=\"http://www.w3.org/2000/svg\" role=\"img\" ");
@@ -60,16 +62,155 @@ internal static class SvgPageRenderer
             _svg.AppendLine("\"/>");
             WriteDefinitions();
 
-            _svg.Append("  <g transform=\"matrix(1 0 0 -1 ");
-            _svg.Append(Format(-Math.Min(_crop.Left, _crop.Right)));
-            _svg.Append(' ');
-            _svg.Append(Format(Math.Max(_crop.Bottom, _crop.Top)));
-            _svg.AppendLine(")\">");
-            WriteElements(graphics, indent: 2);
-            _svg.AppendLine("  </g>");
+            if (rasterFallback)
+            {
+                WriteRasterFallback(graphics);
+            }
+            else
+            {
+                _svg.Append("  <g transform=\"matrix(1 0 0 -1 ");
+                _svg.Append(Format(-Math.Min(_crop.Left, _crop.Right)));
+                _svg.Append(' ');
+                _svg.Append(Format(Math.Max(_crop.Bottom, _crop.Top)));
+                _svg.AppendLine(")\">");
+                WriteElements(graphics, indent: 2);
+                _svg.AppendLine("  </g>");
+            }
 
             _svg.AppendLine("</svg>");
             return _svg.ToString();
+        }
+
+        private IReadOnlyList<PdfGraphicsElement> FilterElements(
+            IEnumerable<PdfGraphicsElement> elements)
+        {
+            var result = new List<PdfGraphicsElement>();
+            foreach (PdfGraphicsElement element in elements)
+            {
+                switch (element)
+                {
+                    case PdfTextElement when _options.IncludeText:
+                        result.Add(element);
+                        break;
+                    case PdfImageElement when
+                        _options.IncludeVectorGraphics && _options.IncludeImages:
+                    case PdfPathElement when _options.IncludeVectorGraphics:
+                    case PdfShadingElement when _options.IncludeVectorGraphics:
+                    case PdfMeshShadingElement when _options.IncludeVectorGraphics:
+                        result.Add(element);
+                        break;
+                    case PdfTransparencyGroupElement group:
+                    {
+                        IReadOnlyList<PdfGraphicsElement> children =
+                            FilterElements(group.Elements);
+                        if (children.Count > 0)
+                            result.Add(group with { Elements = children });
+                        break;
+                    }
+                }
+            }
+            return result;
+        }
+
+        private static bool RequiresRasterFallback(PdfGraphicsElement element)
+        {
+            if (element.State.SoftMask is not null)
+                return true;
+            return element switch
+            {
+                PdfMeshShadingElement => true,
+                PdfPathElement path =>
+                    BrushRequiresRasterFallback(path.State.Fill) ||
+                    BrushRequiresRasterFallback(path.State.Stroke),
+                PdfTextElement text =>
+                    BrushRequiresRasterFallback(text.State.Fill) ||
+                    BrushRequiresRasterFallback(text.State.Stroke),
+                PdfTransparencyGroupElement group =>
+                    !group.Isolated ||
+                    group.Knockout ||
+                    group.Elements.Any(RequiresRasterFallback),
+                _ => false
+            };
+        }
+
+        private static bool BrushRequiresRasterFallback(PdfBrush brush) =>
+            brush switch
+            {
+                PdfMeshShadingBrush => true,
+                PdfTilingPatternBrush pattern =>
+                    pattern.Elements.Any(RequiresRasterFallback),
+                _ => false
+            };
+
+        private void WriteRasterFallback(
+            IReadOnlyList<PdfGraphicsElement> graphics)
+        {
+            double scale = _options.RasterFallbackDpi / 72.0;
+            int width = Math.Max(1, checked((int)Math.Ceiling(_crop.Width * scale)));
+            int height = Math.Max(1, checked((int)Math.Ceiling(_crop.Height * scale)));
+            long pixels = checked((long)width * height);
+            if (pixels > _page.ReadOptions.MaximumSvgFallbackPixels)
+            {
+                throw new PdfLimitException(
+                    $"SVG raster fallback contains {pixels} pixels, exceeding the configured limit.");
+            }
+
+            bool hasBackground = TryParseBackground(
+                _options.Background,
+                out PdfColor background);
+            PdfBitmap bitmap = PdfRasterRenderer.RenderSubset(
+                _page,
+                graphics,
+                new RasterRenderOptions
+                {
+                    Dpi = _options.RasterFallbackDpi,
+                    PageBox = PageBox.CropBox,
+                    Antialiasing = 4,
+                    Background = background,
+                    Transparent = !hasBackground,
+                    IncludeText = _options.IncludeText,
+                    OptionalContentVisibility = _options.OptionalContentVisibility
+                });
+            _svg.Append("  <image x=\"0\" y=\"0\" width=\"");
+            _svg.Append(Format(_crop.Width));
+            _svg.Append("\" height=\"");
+            _svg.Append(Format(_crop.Height));
+            _svg.Append("\" preserveAspectRatio=\"none\" href=\"data:image/png;base64,");
+            _svg.Append(Convert.ToBase64String(bitmap.ToPngBytes()));
+            _svg.AppendLine("\"/>");
+        }
+
+        private static bool TryParseBackground(
+            string value,
+            out PdfColor color)
+        {
+            color = PdfColor.Rgb(1, 1, 1);
+            if (string.Equals(value, "transparent", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(value, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            if (string.Equals(value, "white", StringComparison.OrdinalIgnoreCase))
+                return true;
+            if (string.Equals(value, "black", StringComparison.OrdinalIgnoreCase))
+            {
+                color = PdfColor.Black;
+                return true;
+            }
+            if (!value.StartsWith('#'))
+                return false;
+            string hex = value[1..];
+            if (hex.Length == 3)
+                hex = string.Concat(hex.Select(character => $"{character}{character}"));
+            if (hex.Length != 6 ||
+                !int.TryParse(hex[0..2], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int red) ||
+                !int.TryParse(hex[2..4], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int green) ||
+                !int.TryParse(hex[4..6], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out int blue))
+            {
+                return false;
+            }
+            color = PdfColor.Rgb(red / 255.0, green / 255.0, blue / 255.0);
+            return true;
         }
 
         private void RegisterElements(IEnumerable<PdfGraphicsElement> elements)
@@ -239,6 +380,11 @@ internal static class SvgPageRenderer
         {
             foreach (PdfGraphicsElement element in elements)
             {
+                if (_options.FallbackMode == SvgFallbackMode.Omit &&
+                    RequiresRasterFallback(element))
+                {
+                    continue;
+                }
                 int openGroups = 0;
                 foreach (PdfClipPath clip in element.ClipPaths)
                 {
@@ -396,10 +542,17 @@ internal static class SvgPageRenderer
             Indent(indent);
             _svg.Append("<g");
             Attribute("opacity", group.State.FillAlpha);
+            var styles = new List<string>();
             if (group.Isolated)
-                _svg.Append(" style=\"isolation:isolate\"");
-            else
-                WriteBlendMode(group.State.BlendMode);
+                styles.Add("isolation:isolate");
+            if (CssBlendMode(group.State.BlendMode) is { } blendMode)
+                styles.Add($"mix-blend-mode:{blendMode}");
+            if (styles.Count > 0)
+            {
+                _svg.Append(" style=\"");
+                _svg.Append(string.Join(';', styles));
+                _svg.Append('"');
+            }
             _svg.AppendLine(">");
             WriteElements(group.Elements, indent + 1);
             Indent(indent);
@@ -532,7 +685,17 @@ internal static class SvgPageRenderer
 
         private void WriteBlendMode(string blendMode)
         {
-            string? css = blendMode switch
+            string? css = CssBlendMode(blendMode);
+            if (css is not null)
+            {
+                _svg.Append(" style=\"mix-blend-mode:");
+                _svg.Append(css);
+                _svg.Append('"');
+            }
+        }
+
+        private static string? CssBlendMode(string blendMode) =>
+            blendMode switch
             {
                 "Multiply" => "multiply",
                 "Screen" => "screen",
@@ -545,15 +708,12 @@ internal static class SvgPageRenderer
                 "SoftLight" => "soft-light",
                 "Difference" => "difference",
                 "Exclusion" => "exclusion",
+                "Hue" => "hue",
+                "Saturation" => "saturation",
+                "Color" => "color",
+                "Luminosity" => "luminosity",
                 _ => null
             };
-            if (css is not null)
-            {
-                _svg.Append(" style=\"mix-blend-mode:");
-                _svg.Append(css);
-                _svg.Append('"');
-            }
-        }
 
         private void Indent(int count) => _svg.Append(' ', count * 2);
 

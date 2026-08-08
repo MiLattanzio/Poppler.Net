@@ -2,7 +2,7 @@ namespace Poppler.Rendering;
 
 internal static class PdfBlend
 {
-    public static RasterColor Composite(
+    public static PremultipliedRasterColor Composite(
         RasterColor backdrop,
         RasterColor source,
         string mode)
@@ -12,47 +12,42 @@ internal static class PdfBlend
         double resultAlpha =
             sourceAlpha + backdropAlpha * (1 - sourceAlpha);
         if (resultAlpha <= 0)
-            return RasterColor.Transparent;
+            return PremultipliedRasterColor.Transparent;
 
         (double blendRed, double blendGreen, double blendBlue) =
             Blend(backdrop, source, mode);
-        double red = CompositeChannel(
+        double red = CompositePremultipliedChannel(
             backdrop.Red,
             source.Red,
             blendRed,
             backdropAlpha,
-            sourceAlpha,
-            resultAlpha);
-        double green = CompositeChannel(
+            sourceAlpha);
+        double green = CompositePremultipliedChannel(
             backdrop.Green,
             source.Green,
             blendGreen,
             backdropAlpha,
-            sourceAlpha,
-            resultAlpha);
-        double blue = CompositeChannel(
+            sourceAlpha);
+        double blue = CompositePremultipliedChannel(
             backdrop.Blue,
             source.Blue,
             blendBlue,
             backdropAlpha,
-            sourceAlpha,
-            resultAlpha);
-        return new RasterColor(red, green, blue, resultAlpha);
+            sourceAlpha);
+        return new PremultipliedRasterColor(red, green, blue, resultAlpha);
     }
 
-    private static double CompositeChannel(
+    private static double CompositePremultipliedChannel(
         double backdrop,
         double source,
         double blended,
         double backdropAlpha,
-        double sourceAlpha,
-        double resultAlpha)
+        double sourceAlpha)
     {
-        double premultiplied =
+        return
             (1 - sourceAlpha) * backdrop * backdropAlpha +
             (1 - backdropAlpha) * source * sourceAlpha +
             sourceAlpha * backdropAlpha * blended;
-        return RasterColor.Clamp(premultiplied / resultAlpha);
     }
 
     private static (double Red, double Green, double Blue) Blend(

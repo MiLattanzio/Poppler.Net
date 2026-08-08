@@ -78,3 +78,19 @@ Cubic subdivision has an internal depth cap of 16 and round outlines have an
 internal 4,096-edge cap. Singular/near-singular non-hairline paints are
 skipped deterministically; singular clips are empty. These internal caps are
 not public tuning parameters.
+
+## Transparency working set and SVG fallback
+
+`MaximumRenderWorkingBytes` defaults to 1 GiB per raster operation. It counts
+every simultaneously live high-precision pixel surface: the final target,
+group content, initial non-isolated/knockout backdrops, temporary knockout
+children and cached soft masks. Each allocation reserves its full checked byte
+size first and disposal releases it, so deeply nested groups fail with
+`PdfLimitException` before unbounded surface growth. The existing
+`MaximumTransparencyGroupDepth` of 32 remains authoritative for both group and
+soft-mask recursion.
+
+`MaximumSvgFallbackPixels` defaults to 25,000,000 and is checked before the
+managed full-page fallback is allocated. Raster fallback surfaces also remain
+subject to `MaximumRenderPixels`, `MaximumRenderWorkingBytes` and all ordinary
+raster limits.

@@ -51,6 +51,16 @@ public sealed record PdfReadOptions
     public int MaximumOptionalContentExpressionNodes { get; init; } = 250_000;
     public long MaximumImagePixels { get; init; } = 100_000_000;
     public long MaximumRenderPixels { get; init; } = 100_000_000;
+    /// <summary>
+    /// Maximum bytes simultaneously reserved by high-precision raster
+    /// surfaces, including transparency backdrops, knockout buffers and soft
+    /// masks. The final encoded bitmap is not part of this working budget.
+    /// </summary>
+    public long MaximumRenderWorkingBytes { get; init; } = 1024L * 1024 * 1024;
+    /// <summary>
+    /// Maximum pixels in an SVG raster fallback generated for one page.
+    /// </summary>
+    public long MaximumSvgFallbackPixels { get; init; } = 25_000_000;
     public int MaximumImageComponents { get; init; } = 32;
     public int MaximumIccProfileBytes { get; init; } = 16 * 1024 * 1024;
     public int MaximumFunctionSamples { get; init; } = 1_000_000;
@@ -165,6 +175,10 @@ public sealed record PdfReadOptions
             throw new ArgumentOutOfRangeException(nameof(MaximumImagePixels));
         if (MaximumRenderPixels < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumRenderPixels));
+        if (MaximumRenderWorkingBytes < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumRenderWorkingBytes));
+        if (MaximumSvgFallbackPixels < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumSvgFallbackPixels));
         if (MaximumImageComponents is < 1 or > 64)
             throw new ArgumentOutOfRangeException(nameof(MaximumImageComponents));
         if (MaximumIccProfileBytes < 128)

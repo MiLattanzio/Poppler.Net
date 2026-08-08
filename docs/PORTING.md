@@ -37,6 +37,11 @@ The `0.12.0-alpha.1` slice is derived from that verified archive and ports the
 stroke-expansion responsibilities of `Splash::makeStrokePath` together with a
 shared fill/stroke/clip scan path. The separately planned `0.11` shaping slice
 is not represented in this source snapshot.
+The `0.12.0-alpha.2` slice is derived from the verified alpha 1 archive. It
+ports explicit premultiplied color/alpha/shape surface state, saved
+non-isolated backdrops, nested knockout recovery, complete group-boundary
+compositing and bounded SVG raster fallback policy without changing the public
+display list.
 
 ## Implemented sequence
 
@@ -108,6 +113,10 @@ is not represented in this source snapshot.
 28. Expand strokes into bounded user-space outlines, choose curve subdivision
     from device-space error, transform the complete outline, and route fill,
     stroke and clips through one nonzero/even-odd scanner.
+29. Preserve premultiplied color, composite alpha, shape, source contribution
+    and group initial backdrops independently; recover non-isolated and nested
+    knockout group results at their boundary and provide a bounded embedded-PNG
+    SVG fallback for semantics that SVG cannot reproduce.
 
 ## Upstream-to-managed map
 
@@ -131,8 +140,8 @@ is not represented in this source snapshot.
 | `Gfx`, `GfxState`, `Function` | `PdfGraphicsInterpreter`, graphics model, `PdfFunction`, `PdfShadingReader`, `PdfMeshShadingReader` | Vector slice plus sampled/exponential/stitching/calculator functions and shading types 2–7 |
 | `ImageStream`, `DCTStream`, `JPXStream`, `JBIG2Stream`, `CCITTFaxStream` | `PdfImageDecoder`, `CcittFaxDecoder` | Managed Image XObject decoding |
 | `GfxColorSpace`, common ICC transforms | `PdfColorSpaceDefinition`, `PdfIccProfile` | Device, calibrated, indexed, spot and common matrix/shaper profiles |
-| `SplashOutputDev`, `Splash::makeStrokePath`, `SplashXPath`, Splash composite | `PdfRasterRenderer`, `RasterStrokeOutliner`, `RasterGeometry`, `PdfBlend`, `RasterSurface` | Managed raster, user-space stroke outlines, shared fill/stroke/clip scanning, antialiasing and transparency |
-| Cairo vector output | `SvgPageRenderer` | Managed SVG preview |
+| `SplashOutputDev`, `Splash::makeStrokePath`, `SplashXPath`, Splash composite | `PdfRasterRenderer`, `RasterStrokeOutliner`, `RasterGeometry`, `PdfBlend`, `RasterSurface` | Managed raster, user-space stroke outlines, shared fill/stroke/clip scanning, antialiasing and explicit premultiplied color/alpha/shape transparency |
+| Cairo vector output | `SvgPageRenderer` | Managed SVG plus bounded embedded-PNG fallback |
 | FreeType/font rasterization and shaping | managed TrueType/CFF1/CFF2/Type 1 readers plus `PdfOpenTypeLayout`, `PdfFontSubstitutionResolver` and Base-14 metrics | Common outlines, CFF2 default instance, targeted GSUB, canonical advances and ranked file substitution; hinting/full shaping remain planned |
 | JPEG/JPEG2000/JBIG2/CCITT | managed package codecs plus internal CCITT decoder | Image XObjects plus common inline-image data implemented |
 | color management/overprint | managed common color conversions and process overprint preview | No LUT ICC, proofing or spot-color overprint |
@@ -146,9 +155,8 @@ is not represented in this source snapshot.
 2. Complete font engine: CFF2 variation-region interpolation, rare Type 1/CFF
    operators, contextual GSUB/GPOS and complex shaping, Type 1 `seac` and
    hinting.
-3. Refine nested knockout/non-isolated group interaction and adaptive patch
-   tessellation; add remaining Flate/LZW/CCITT/JBIG2/JPX inline-image boundary
-   cases.
+3. Add group-bounds SVG fallback and adaptive patch tessellation; add remaining
+   Flate/LZW/CCITT/JBIG2/JPX inline-image boundary cases.
 4. Add LUT-based ICC profiles, proofing, rendering intents and spot-color
    overprint.
 5. Complete producer-specific annotation appearance behavior, AcroForm

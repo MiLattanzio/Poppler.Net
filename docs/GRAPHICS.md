@@ -1,6 +1,6 @@
 # Managed graphics engine
 
-Version `0.12.0-alpha.1` retains and extends the backend-neutral slice of Poppler
+Version `0.12.0-alpha.2` retains and extends the backend-neutral slice of Poppler
 26.07.0 `Gfx`, `GfxState`, `Function`, pattern and XObject behavior. It parses
 page content into immutable managed objects; it does not call Poppler, Cairo,
 FreeType or another native renderer.
@@ -109,7 +109,8 @@ Shading patterns and direct `sh` painting support:
   deterministic triangle list.
 
 Function-based shading type 1 remains an explicit limitation. Mesh rendering
-is currently raster-only; the SVG preview skips mesh elements.
+is raster-only; SVG uses its configured embedded-PNG fallback or explicitly
+omits the page in `SvgFallbackMode.Omit`.
 
 ## Resource limits
 
@@ -121,6 +122,8 @@ is currently raster-only; the SVG preview skips mesh elements.
 | `MaximumGraphicsElements` | 250,000 |
 | `MaximumPathSegments` | 1,000,000 |
 | `MaximumRasterGeometrySegments` | 4,000,000 per raster operation |
+| `MaximumRenderWorkingBytes` | 1 GiB per raster operation |
+| `MaximumSvgFallbackPixels` | 25,000,000 per SVG operation |
 | `MaximumGraphicsStateDepth` | 256 |
 | `MaximumXObjectDepth` | 32 |
 | `MaximumTransparencyGroupDepth` | 32 |

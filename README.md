@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.12.0-alpha.1` raster-conformance release is not a complete replacement for
+> This `0.12.0-alpha.2` transparency-conformance release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -60,6 +60,12 @@ process invocation, or native NuGet dependency.
 > raster-geometry limit. The source snapshot is based on the verified
 > `0.10.0-alpha.1` archive; the separately planned `0.11` shaping work is not
 > included.
+> Alpha 2 replaces pixel-comparison transparency heuristics with separate
+> premultiplied color, alpha and shape channels, saved non-isolated backdrops,
+> correct nested knockout/group boundaries and bounded high-precision working
+> surfaces. SVG now rasterizes constructs without equivalent SVG semantics to
+> an embedded PNG by default; `SvgFallbackMode.Omit` explicitly retains the
+> historical skip behavior.
 > See [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md) for its scope and limits. See
 > [docs/FORMS.md](docs/FORMS.md) for the AcroForm model and
 > [docs/OPTIONAL_CONTENT.md](docs/OPTIONAL_CONTENT.md) for layer behavior. See
@@ -173,6 +179,11 @@ page.SavePng("page.png", new RasterRenderOptions
     {
         ["17:0"] = false
     }
+});
+page.SaveSvg("page.svg", new SvgRenderOptions
+{
+    FallbackMode = SvgFallbackMode.Rasterize,
+    RasterFallbackDpi = 144
 });
 ```
 
@@ -302,6 +313,13 @@ and reuses the inspection-only action model. Repeated or circular nodes are
 truncated with stable diagnostics; item, depth and title-byte limits bound
 hostile structures. Outline editing and persistence remain outside this
 release. See [docs/OUTLINES.md](docs/OUTLINES.md).
+
+The `0.12` alpha 1 slice constructs bounded user-space stroke outlines before
+the CTM and routes fill, stroke and clip geometry through one scanner. Alpha 2
+adds explicit premultiplied color/alpha/shape compositing for isolated,
+non-isolated and nested knockout groups, full soft-mask boundary handling and
+bounded live-surface accounting. Unsupported SVG group semantics use an
+embedded PNG fallback by default. See [docs/RENDERING.md](docs/RENDERING.md).
 
 ## License and provenance
 

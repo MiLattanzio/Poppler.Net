@@ -78,7 +78,10 @@ public sealed class RenderingTests
 
         AssertPixel(bitmap, 30, 160, 255, 0, 0, 255);
         AssertPixel(bitmap, 70, 160, 128, 0, 128, 255, tolerance: 1);
-        AssertPixel(bitmap, 120, 160, 127, 127, 255, 255);
+        // The alpha.2 compositor quantizes the high-precision isolated group
+        // only at its boundary. Poppler's 8-bit pipeline rounds this sample
+        // down while the exact formula rounds it up.
+        AssertPixel(bitmap, 120, 160, 127, 127, 255, 255, tolerance: 1);
     }
 
     [Test]

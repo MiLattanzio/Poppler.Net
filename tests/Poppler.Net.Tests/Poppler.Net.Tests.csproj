@@ -64,6 +64,9 @@
     <None Include="..\fixtures\raster-geometry-alpha1-fixture.json"
           Link="Fixtures\raster-geometry-alpha1-fixture.json"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\transparency-alpha2-fixture.json"
+          Link="Fixtures\transparency-alpha2-fixture.json"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\robustness-beta2-fixture.json"
           Link="Fixtures\robustness-beta2-fixture.json"
           CopyToOutputDirectory="PreserveNewest" />

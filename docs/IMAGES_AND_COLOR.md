@@ -61,9 +61,10 @@ nearest-neighbor sampling.
   are not guaranteed by the selected managed codecs.
 - Raw and common ASCIIHex/ASCII85/RunLength/DCT inline images are decoded;
   ambiguous Flate/LZW/CCITT/JBIG2/JPX boundaries remain incomplete.
-- Graphics-state Alpha/Luminosity soft masks support sampled, exponential,
-  stitching and calculator transfer functions. Nested knockout opacity and
-  full color-managed overprint remain incomplete.
+- Graphics-state Alpha/Luminosity soft masks support backdrop colors and
+  sampled, exponential, stitching and calculator transfer functions inside or
+  outside isolated, non-isolated and knockout groups. Full color-managed
+  overprint remains incomplete.
 - Release `0.7` adds full-page RGBA/PNG output; visual conformance remains
   limited by the raster and font restrictions in
   [RENDERING.md](RENDERING.md).

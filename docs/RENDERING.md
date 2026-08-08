@@ -1,6 +1,6 @@
 # Managed raster rendering in 0.12
 
-Release `0.12.0-alpha.1` retains the pure-C# counterpart of Poppler's
+Release `0.12.0-alpha.2` retains the pure-C# counterpart of Poppler's
 `SplashOutputDev`, path scanner, compositing and font-outline responsibilities.
 It consumes the backend-neutral `Page.Graphics` display list and never loads
 Splash, Cairo, Skia, FreeType, a platform drawing API or another native
@@ -60,11 +60,14 @@ pixels at alpha zero.
    type 4–7 mesh shadings supply straight RGBA source samples.
 5. Decoded Image XObjects use nearest-neighbor or bilinear sampling according
    to `/Interpolate`; existing image/mask alpha remains straight.
-6. Source samples are composited with the active constant alpha, blend mode,
-   clip and optional graphics-state soft mask. Sampled, exponential and
-   stitching or calculator `/TR` functions transform the resulting mask value.
-7. Transparency Form XObjects render to intermediate RGBA surfaces before
-   their result is composited into the parent.
+6. Source samples become premultiplied color plus independent alpha and shape
+   values, then composite with the active constant alpha, blend mode, clip and
+   optional graphics-state soft mask. Sampled, exponential, stitching or
+   calculator `/TR` functions transform the resulting mask value.
+7. Transparency Form XObjects render to high-precision intermediate surfaces.
+   Non-isolated and knockout groups retain their initial color/alpha backdrop;
+   the group contribution is recovered before group alpha, mask and boundary
+   blend mode are applied to the parent.
 8. Text-showing operations are consumed at their exact display-list position,
    including nested Forms and transparency groups.
 9. Embedded TrueType, CFF1/CFF2 Type 2 and Type 1 outlines are selected from
@@ -82,7 +85,7 @@ pixels at alpha zero.
 
 The blend implementation covers Normal, Multiply, Screen, Overlay, Darken,
 Lighten, ColorDodge, ColorBurn, HardLight, SoftLight, Difference, Exclusion,
-Hue, Saturation, Color and Luminosity. Its straight-alpha equation includes
+Hue, Saturation, Color and Luminosity. Its premultiplied internal equation includes
 both source-only and backdrop-only contributions, matching the PDF
 transparency model rather than applying an RGB-only CSS approximation.
 
@@ -90,9 +93,20 @@ transparency model rather than applying an RGB-only CSS approximation.
 
 `PdfGraphicsInterpreter` retains transparency Form XObjects as
 `PdfTransparencyGroupElement` instead of flattening them. `/I` and `/K` are
-reported through `Isolated` and `Knockout`; isolated groups start with a
-transparent backdrop, non-isolated groups retain the parent backdrop and
-knockout groups evaluate children against their initial group backdrop.
+reported through `Isolated` and `Knockout`. Each raster surface keeps
+premultiplied color, composite alpha, accumulated shape and contribution alpha
+as separate channels. Isolated groups start from transparent color and alpha;
+non-isolated groups clone the parent as their saved initial backdrop. Knockout
+children evaluate against that initial group backdrop and merge by child shape,
+not by comparing before/after pixels. This remains correct when a child paints
+zero alpha, produces the same visible color as the backdrop or overlaps only
+part of a sibling.
+
+At the group boundary, the renderer mathematically recovers the group's source
+contribution from its final composite and initial backdrop. Group alpha,
+Alpha/Luminosity mask, exterior clip and any non-`Normal` boundary blend mode
+then apply once. The same path handles nested groups, groups inside soft masks
+and soft masks inside groups.
 
 Extended graphics-state `/SMask` dictionaries become `PdfSoftMask` values.
 Both `/S /Alpha` and `/S /Luminosity` are rendered, including `/BC` backdrop
@@ -152,6 +166,10 @@ availability.
 `PdfReadOptions.MaximumRenderPixels` defaults to 100,000,000 and is checked
 before allocating the output surface. `MaximumTransparencyGroupDepth`
 defaults to 32 and bounds both intermediate groups and soft masks.
+`MaximumRenderWorkingBytes` defaults to 1 GiB and counts all simultaneously
+live high-precision surfaces, including saved initial backdrops, knockout
+children and cached soft masks. A reservation is made before each allocation
+and released deterministically when its surface is disposed.
 `MaximumMeshTriangles` defaults to 65,536 and bounds decoded/tessellated mesh
 data. `MaximumRasterGeometrySegments` defaults to 4,000,000 and cumulatively
 bounds flattening, dash fragments, stroke-outline edges and temporary clip
@@ -242,10 +260,18 @@ tight curves and cusps, self-intersections, nested nonzero/even-odd clips,
 CropBox edges and page rotation. Its manifest freezes all 64 combinations of
 96/300 DPI, antialiasing 1/4 and opaque/transparent backgrounds.
 
+The `0.12.0-alpha.2` corpus adds six deterministic pages for the complete
+isolated/knockout grid, three-level nesting, separable and nonseparable blend
+modes, Alpha/Luminosity masks with `/BC` and `/TR`, internal/external partial
+clips, groups inside masks, masks inside groups, and transparency around text,
+images, patterns, shadings and annotation appearances. Its final page exposes
+minimal `1x1` and `2x2` cases whose color, alpha and shape equations are
+asserted numerically rather than only through screenshots. Managed PNG and
+default SVG output have frozen per-page hashes and remain byte-identical under
+eight concurrent renders of one document.
+
 This remains a compatibility-focused rasterizer with explicit limits:
 
-- nested knockout shape/opacity and non-isolated groups with non-Normal
-  boundary blend modes remain approximations;
 - unsupported calculator operators are rejected and reported rather than
   executed;
 - edge antialiasing is deterministic but may differ from Splash at individual
