@@ -40,6 +40,35 @@ internal sealed class PdfMeshPatchEdge
         return _controlPoints[index];
     }
 
+    internal PdfPoint EvaluatePoint(double parameter)
+    {
+        double inverse = 1 - parameter;
+        double first = inverse * inverse * inverse;
+        double second = 3 * parameter * inverse * inverse;
+        double third = 3 * parameter * parameter * inverse;
+        double fourth = parameter * parameter * parameter;
+        return new PdfPoint(
+            _controlPoints[0].X * first +
+            _controlPoints[1].X * second +
+            _controlPoints[2].X * third +
+            _controlPoints[3].X * fourth,
+            _controlPoints[0].Y * first +
+            _controlPoints[1].Y * second +
+            _controlPoints[2].Y * third +
+            _controlPoints[3].Y * fourth);
+    }
+
+    internal PdfColor EvaluateColor(double parameter)
+    {
+        (double startRed, double startGreen, double startBlue) =
+            StartColor.ToRgb();
+        (double endRed, double endGreen, double endBlue) = EndColor.ToRgb();
+        return PdfColor.Rgb(
+            Lerp(startRed, endRed, parameter),
+            Lerp(startGreen, endGreen, parameter),
+            Lerp(startBlue, endBlue, parameter));
+    }
+
     internal bool Matches(
         IReadOnlyList<PdfPoint> controlPoints,
         PdfColor startColor,
@@ -58,6 +87,9 @@ internal sealed class PdfMeshPatchEdge
         }
         return true;
     }
+
+    private static double Lerp(double first, double second, double amount) =>
+        first + (second - first) * amount;
 }
 
 /// <summary>
