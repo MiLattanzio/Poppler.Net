@@ -42,6 +42,90 @@ internal static class PdfFixtures
         return BuildClassic(objects);
     }
 
+    public static byte[] CreateFunctionShadingFixture()
+    {
+        byte[] sampledRgb =
+        {
+            0, 0, 0,
+            255, 0, 0,
+            0, 255, 0,
+            255, 255, 0
+        };
+        byte[] sampledRed = { 0, 255, 0, 255 };
+        byte[] sampledGreen = { 0, 0, 255, 255 };
+        byte[] sampledBlue = { 128, 128, 128, 128 };
+        byte[] calculator = Ascii("{ 0 }");
+        var objects = new[]
+        {
+            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+            Ascii("<< /Type /Pages /Kids [3 0 R 7 0 R 11 0 R 17 0 R 20 0 R] /Count 5 >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] " +
+                "/Resources << /Shading << /S 5 0 R >> >> /Contents 4 0 R >>"),
+            ContentStream("/S sh"),
+            Ascii(
+                "<< /ShadingType 1 /ColorSpace /DeviceRGB /Domain [2 4 10 20] " +
+                "/Matrix [50 0 0 10 -100 -100] /BBox [25 0 75 100] /Function 6 0 R >>"),
+            Stream(
+                $"<< /FunctionType 0 /Domain [2 4 10 20] /Range [0 1 0 1 0 1] " +
+                $"/Size [2 2] /BitsPerSample 8 /Decode [0 1 0 1 0 1] " +
+                $"/Length {sampledRgb.Length} >>",
+                sampledRgb),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] " +
+                "/Resources << /Shading << /S 9 0 R >> >> /Contents 8 0 R >>"),
+            ContentStream("0 0 50 100 re W n /S sh"),
+            Ascii(
+                "<< /ShadingType 1 /ColorSpace /DeviceRGB /Domain [0 1 0 1] " +
+                "/Matrix [100 0 0 100 0 0] /Function 10 0 R >>"),
+            Stream(
+                $"<< /FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1 0 1] " +
+                $"/Length {calculator.Length} >>",
+                calculator),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] " +
+                "/Resources << /Shading << /S 13 0 R >> >> /Contents 12 0 R >>"),
+            ContentStream("/S sh"),
+            Ascii(
+                "<< /ShadingType 1 /ColorSpace /DeviceRGB " +
+                "/Matrix [100 0 0 100 0 0] /Function [14 0 R 15 0 R 16 0 R] >>"),
+            SampledComponent(sampledRed),
+            SampledComponent(sampledGreen),
+            SampledComponent(sampledBlue),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] " +
+                "/Resources << /Shading << /S 19 0 R >> >> /Contents 18 0 R >>"),
+            ContentStream("/S sh"),
+            Ascii(
+                "<< /ShadingType 1 /ColorSpace /DeviceRGB /Domain [0 1 0 1] " +
+                "/Matrix [0 0 0 0 50 50] /Function 10 0 R >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] " +
+                "/Resources << /Pattern << /P 22 0 R >> >> /Contents 21 0 R >>"),
+            ContentStream("/Pattern cs /P scn 0 0 100 100 re f"),
+            Ascii(
+                "<< /Type /Pattern /PatternType 2 /Matrix [100 0 0 100 0 0] " +
+                "/Shading 23 0 R >>"),
+            Ascii(
+                "<< /ShadingType 1 /ColorSpace /DeviceRGB /Domain [0 1 0 1] " +
+                "/Matrix [1 0 0 1 0 0] /Function 10 0 R >>")
+        };
+        return BuildClassic(objects, infoObject: null);
+    }
+
+    private static byte[] SampledComponent(byte[] samples) =>
+        Stream(
+            $"<< /FunctionType 0 /Domain [0 1 0 1] /Range [0 1] " +
+            $"/Size [2 2] /BitsPerSample 8 /Decode [0 1] " +
+            $"/Length {samples.Length} >>",
+            samples);
+
+    private static byte[] ContentStream(string source)
+    {
+        byte[] bytes = Ascii(source);
+        return Stream($"<< /Length {bytes.Length} >>", bytes);
+    }
+
     public static byte[] CreateWithXrefStream()
     {
         byte[] content = Ascii("BT /F1 16 Tf 50 700 Td (Compressed font object) Tj ET");

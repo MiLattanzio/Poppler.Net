@@ -292,6 +292,9 @@ internal sealed class PdfRasterRenderer
                 case PdfShadingElement shading:
                     RenderShading(surface, shading);
                     break;
+                case PdfFunctionShadingElement function:
+                    RenderFunctionShading(surface, function);
+                    break;
                 case PdfMeshShadingElement mesh:
                     RenderMeshShading(surface, mesh);
                     break;
@@ -392,6 +395,56 @@ internal sealed class PdfRasterRenderer
             element.ClipPaths,
             static (_, _) => true,
             (x, y) => SampleGradient(element.Shading, element.State, x, y),
+            element.State.FillAlpha,
+            element.State.BlendMode,
+            element.State.SoftMask);
+    }
+
+    private void RenderFunctionShading(
+        RasterSurface surface,
+        PdfFunctionShadingElement element)
+    {
+        PdfFunctionShadingBrush shading = element.Shading;
+        PdfMatrix functionTransform = shading.Matrix
+            .Multiply(element.State.Transform)
+            .Multiply(_deviceTransform);
+        if (!RasterGeometry.TryInvert(functionTransform, out PdfMatrix functionInverse))
+            return;
+
+        RasterBounds bounds = BoundsOfRectangle(shading.Domain, functionTransform);
+        PdfMatrix boundingBoxInverse = PdfMatrix.Identity;
+        if (shading.BoundingBox is { } boundingBox)
+        {
+            PdfMatrix boundingBoxTransform = shading.BoundingBoxMatrix
+                .Multiply(element.State.Transform)
+                .Multiply(_deviceTransform);
+            if (!RasterGeometry.TryInvert(boundingBoxTransform, out boundingBoxInverse))
+                return;
+            bounds = Intersect(bounds, BoundsOfRectangle(boundingBox, boundingBoxTransform));
+        }
+        if (bounds.IsEmpty)
+            return;
+
+        Paint(
+            surface,
+            bounds,
+            element.ClipPaths,
+            (x, y) => ContainsFunctionPoint(
+                shading,
+                functionInverse,
+                boundingBoxInverse,
+                x,
+                y,
+                out _),
+            (x, y) => ContainsFunctionPoint(
+                shading,
+                functionInverse,
+                boundingBoxInverse,
+                x,
+                y,
+                out PdfPoint point)
+                    ? RasterColor.FromPdf(shading.Evaluate(point.X, point.Y))
+                    : RasterColor.Transparent,
             element.State.FillAlpha,
             element.State.BlendMode,
             element.State.SoftMask);
@@ -663,10 +716,74 @@ internal sealed class PdfRasterRenderer
         {
             PdfSolidBrush solid => RasterColor.FromPdf(solid.Color),
             PdfGradientBrush gradient => SampleGradient(gradient, state, x, y),
+            PdfFunctionShadingBrush function => SampleFunction(function, state, x, y),
             PdfMeshShadingBrush mesh => SampleMesh(mesh, state, x, y),
             PdfTilingPatternBrush pattern => SamplePattern(pattern, state, x, y, depth + 1),
             _ => RasterColor.Transparent
         };
+    }
+
+    private RasterColor SampleFunction(
+        PdfFunctionShadingBrush shading,
+        PdfGraphicsState state,
+        double x,
+        double y) =>
+        SampleFunction(
+            shading,
+            state,
+            x,
+            y,
+            _deviceTransform);
+
+    private static RasterColor SampleFunction(
+        PdfFunctionShadingBrush shading,
+        PdfGraphicsState state,
+        double x,
+        double y,
+        PdfMatrix deviceTransform)
+    {
+        PdfMatrix functionTransform = shading.Matrix
+            .Multiply(state.Transform)
+            .Multiply(deviceTransform);
+        if (!RasterGeometry.TryInvert(functionTransform, out PdfMatrix functionInverse))
+            return RasterColor.Transparent;
+
+        PdfMatrix boundingBoxInverse = PdfMatrix.Identity;
+        if (shading.BoundingBox is not null)
+        {
+            PdfMatrix boundingBoxTransform = shading.BoundingBoxMatrix
+                .Multiply(state.Transform)
+                .Multiply(deviceTransform);
+            if (!RasterGeometry.TryInvert(boundingBoxTransform, out boundingBoxInverse))
+                return RasterColor.Transparent;
+        }
+
+        return ContainsFunctionPoint(
+            shading,
+            functionInverse,
+            boundingBoxInverse,
+            x,
+            y,
+            out PdfPoint point)
+            ? RasterColor.FromPdf(shading.Evaluate(point.X, point.Y))
+            : RasterColor.Transparent;
+    }
+
+    private static bool ContainsFunctionPoint(
+        PdfFunctionShadingBrush shading,
+        PdfMatrix functionInverse,
+        PdfMatrix boundingBoxInverse,
+        double x,
+        double y,
+        out PdfPoint functionPoint)
+    {
+        functionPoint = functionInverse.Transform(x, y);
+        if (!shading.Domain.Contains(functionPoint.X, functionPoint.Y))
+            return false;
+        if (shading.BoundingBox is not { } boundingBox)
+            return true;
+        PdfPoint boundingBoxPoint = boundingBoxInverse.Transform(x, y);
+        return boundingBox.Contains(boundingBoxPoint.X, boundingBoxPoint.Y);
     }
 
     private RasterColor SampleGradient(
@@ -835,6 +952,16 @@ internal sealed class PdfRasterRenderer
         {
             PdfGraphicsState local = state with { Transform = PdfMatrix.Identity };
             return SampleGradientInUserSpace(gradient, local, x, y);
+        }
+        if (brush is PdfFunctionShadingBrush function)
+        {
+            PdfGraphicsState local = state with { Transform = PdfMatrix.Identity };
+            return SampleFunction(
+                function,
+                local,
+                x,
+                y,
+                PdfMatrix.Identity);
         }
         if (brush is PdfMeshShadingBrush mesh)
         {
@@ -1475,13 +1602,18 @@ internal sealed class PdfRasterRenderer
     }
 
     private static RasterBounds BoundsOfUnitSquare(PdfMatrix matrix)
+        => BoundsOfRectangle(new PdfRectangle(0, 0, 1, 1), matrix);
+
+    private static RasterBounds BoundsOfRectangle(
+        PdfRectangle rectangle,
+        PdfMatrix matrix)
     {
         PdfPoint[] points =
         {
-            matrix.Transform(0, 0),
-            matrix.Transform(1, 0),
-            matrix.Transform(0, 1),
-            matrix.Transform(1, 1)
+            matrix.Transform(rectangle.Left, rectangle.Bottom),
+            matrix.Transform(rectangle.Right, rectangle.Bottom),
+            matrix.Transform(rectangle.Left, rectangle.Top),
+            matrix.Transform(rectangle.Right, rectangle.Top)
         };
         return new RasterBounds(
             points.Min(point => point.X),
@@ -1489,6 +1621,13 @@ internal sealed class PdfRasterRenderer
             points.Max(point => point.X),
             points.Max(point => point.Y));
     }
+
+    private static RasterBounds Intersect(RasterBounds first, RasterBounds second) =>
+        new(
+            Math.Max(first.Left, second.Left),
+            Math.Max(first.Top, second.Top),
+            Math.Min(first.Right, second.Right),
+            Math.Min(first.Bottom, second.Bottom));
 
     private static double PositiveModulo(double value, double modulus)
     {

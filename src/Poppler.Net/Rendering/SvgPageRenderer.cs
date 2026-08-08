@@ -102,6 +102,7 @@ internal static class SvgPageRenderer
                         _options.IncludeVectorGraphics && _options.IncludeImages:
                     case PdfPathElement when _options.IncludeVectorGraphics:
                     case PdfShadingElement when _options.IncludeVectorGraphics:
+                    case PdfFunctionShadingElement when _options.IncludeVectorGraphics:
                     case PdfMeshShadingElement when _options.IncludeVectorGraphics:
                         result.Add(element);
                         break;
@@ -124,6 +125,7 @@ internal static class SvgPageRenderer
                 return true;
             return element switch
             {
+                PdfFunctionShadingElement => true,
                 PdfMeshShadingElement => true,
                 PdfPathElement path =>
                     BrushRequiresRasterFallback(path.State.Fill) ||
@@ -142,6 +144,7 @@ internal static class SvgPageRenderer
         private static bool BrushRequiresRasterFallback(PdfBrush brush) =>
             brush switch
             {
+                PdfFunctionShadingBrush => true,
                 PdfMeshShadingBrush => true,
                 PdfTilingPatternBrush pattern =>
                     pattern.Elements.Any(RequiresRasterFallback),

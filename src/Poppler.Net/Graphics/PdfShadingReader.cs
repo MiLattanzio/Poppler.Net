@@ -11,6 +11,11 @@ internal static class PdfShadingReader
         PdfMatrix matrix,
         out PdfBrush? brush)
     {
+        if (TryReadFunction(value, document, matrix, out PdfFunctionShadingBrush? function))
+        {
+            brush = function;
+            return true;
+        }
         if (TryRead(value, document, matrix, out PdfGradientBrush? gradient))
         {
             brush = gradient;
@@ -28,6 +33,146 @@ internal static class PdfShadingReader
 
         brush = null;
         return false;
+    }
+
+    private static bool TryReadFunction(
+        PdfObject? value,
+        PdfDocumentCore document,
+        PdfMatrix matrix,
+        out PdfFunctionShadingBrush? brush)
+    {
+        brush = null;
+        PdfDictionary? dictionary = value.AsDictionary(document);
+        if (dictionary is null ||
+            dictionary.GetValueOrNull("ShadingType").AsInteger(document) != 1)
+        {
+            return false;
+        }
+
+        PdfColorSpaceDefinition? colorSpace = PdfColorSpaceDefinition.Parse(
+            dictionary.GetValueOrNull("ColorSpace"),
+            resources: null,
+            document);
+        if (colorSpace is null)
+            return false;
+
+        if (!TryReadOptionalExactNumbers(
+                dictionary.GetValueOrNull("Domain"),
+                document,
+                4,
+                out double[]? domainNumbers))
+        {
+            return false;
+        }
+        double[] domainValues = domainNumbers ?? new[] { 0d, 1d, 0d, 1d };
+        var domain = new PdfRectangle(
+            domainValues[0],
+            domainValues[2],
+            domainValues[1],
+            domainValues[3]);
+
+        double[]? boxValues = ReadExactNumbers(
+            dictionary.GetValueOrNull("BBox"),
+            document,
+            4);
+        PdfRectangle? boundingBox = boxValues is null
+            ? null
+            : new PdfRectangle(boxValues[0], boxValues[1], boxValues[2], boxValues[3]);
+
+        if (!TryReadFunctionMatrix(
+                dictionary.GetValueOrNull("Matrix"),
+                document,
+                out PdfMatrix localMatrix))
+        {
+            return false;
+        }
+        PdfFunction[]? functions = ReadFunctionSet(
+            dictionary.GetValueOrNull("Function"),
+            colorSpace.Components,
+            document);
+        if (functions is null)
+            return false;
+
+        brush = new PdfFunctionShadingBrush(
+            domain,
+            boundingBox,
+            localMatrix.Multiply(matrix),
+            matrix,
+            functions,
+            colorSpace);
+        return true;
+    }
+
+    private static PdfFunction[]? ReadFunctionSet(
+        PdfObject? value,
+        int componentCount,
+        PdfDocumentCore document)
+    {
+        if (value is null)
+            return null;
+        PdfObject resolved = value.Resolve(document);
+        if (resolved is PdfArray array)
+        {
+            if (array.Count != componentCount)
+                return null;
+            if (array.Count > document.Options.MaximumImageComponents ||
+                array.Count > document.Options.MaximumCollectionItems)
+            {
+                throw new PdfLimitException(
+                    "Function shading component count exceeds the configured limit.");
+            }
+
+            var functions = new PdfFunction[array.Count];
+            for (int index = 0; index < functions.Length; index++)
+            {
+                PdfFunction? function = PdfFunction.Create(
+                    array[index],
+                    document,
+                    expectedInputCount: 2,
+                    expectedOutputCount: 1);
+                if (function is null ||
+                    function.InputCount != 2 ||
+                    function.OutputCount != 1)
+                {
+                    return null;
+                }
+                functions[index] = function;
+            }
+            return functions;
+        }
+
+        PdfFunction? combined = PdfFunction.Create(
+            resolved,
+            document,
+            expectedInputCount: 2,
+            expectedOutputCount: componentCount);
+        return combined is not null &&
+               combined.InputCount == 2 &&
+               combined.OutputCount == componentCount
+            ? new[] { combined }
+            : null;
+    }
+
+    private static bool TryReadFunctionMatrix(
+        PdfObject? value,
+        PdfDocumentCore document,
+        out PdfMatrix matrix)
+    {
+        matrix = PdfMatrix.Identity;
+        PdfArray? array = value.AsArray(document);
+        if (array is null || array.Count != 6)
+            return true;
+        double[]? numbers = ReadNumbers(value, document, 6);
+        if (numbers is null)
+            return false;
+        matrix = new PdfMatrix(
+            numbers[0],
+            numbers[1],
+            numbers[2],
+            numbers[3],
+            numbers[4],
+            numbers[5]);
+        return matrix.IsFinite;
     }
 
     public static bool TryRead(
@@ -277,6 +422,31 @@ internal static class PdfShadingReader
         }
 
         return result;
+    }
+
+    private static double[]? ReadExactNumbers(
+        PdfObject? value,
+        PdfDocumentCore document,
+        int count)
+    {
+        PdfArray? array = value.AsArray(document);
+        return array is { Count: var actual } && actual == count
+            ? ReadNumbers(value, document, count)
+            : null;
+    }
+
+    private static bool TryReadOptionalExactNumbers(
+        PdfObject? value,
+        PdfDocumentCore document,
+        int count,
+        out double[]? numbers)
+    {
+        numbers = null;
+        PdfArray? array = value.AsArray(document);
+        if (array is null || array.Count != count)
+            return true;
+        numbers = ReadNumbers(value, document, count);
+        return numbers is not null;
     }
 
     private static double[]? ReadVariableNumbers(

@@ -2309,6 +2309,17 @@ internal sealed class PdfGraphicsInterpreter
                     context.Clips.ToArray(),
                     sourceResource));
         }
+        else if (brush is PdfFunctionShadingBrush function)
+        {
+            Emit(
+                output,
+                new PdfFunctionShadingElement(
+                    resourceName,
+                    function,
+                    context.Graphics,
+                    context.Clips.ToArray(),
+                    sourceResource));
+        }
         else if (brush is PdfMeshShadingBrush mesh)
         {
             Emit(

@@ -43,11 +43,18 @@ internal abstract class PdfFunction
         if (dictionary is null)
             return null;
 
-        double[] domain = ReadNumbers(dictionary.GetValueOrNull("Domain"), document) ??
+        int maximumPairs = checked(document.Options.MaximumImageComponents * 2);
+        double[] domain = ReadNumbers(
+                              dictionary.GetValueOrNull("Domain"),
+                              document,
+                              maximumPairs) ??
                           DefaultPairs(expectedInputCount, 0, 1);
         if (domain.Length < 2 || domain.Length % 2 != 0)
             return null;
-        double[]? range = ReadNumbers(dictionary.GetValueOrNull("Range"), document);
+        double[]? range = ReadNumbers(
+            dictionary.GetValueOrNull("Range"),
+            document,
+            maximumPairs);
         if (range is { Length: > 0 } && range.Length % 2 != 0)
             return null;
 
@@ -144,11 +151,17 @@ internal abstract class PdfFunction
             .SelectMany(_ => new[] { minimum, maximum })
             .ToArray();
 
-    internal static double[]? ReadNumbers(PdfObject? value, PdfDocumentCore document)
+    internal static double[]? ReadNumbers(
+        PdfObject? value,
+        PdfDocumentCore document,
+        int? maximumCount = null)
     {
         PdfArray? array = value.AsArray(document);
         if (array is null || array.Count == 0)
             return null;
+        int limit = maximumCount ?? document.Options.MaximumCollectionItems;
+        if (array.Count > limit)
+            throw new PdfLimitException("PDF function array exceeds the configured limit.");
         var result = new double[array.Count];
         for (int index = 0; index < result.Length; index++)
         {
@@ -189,9 +202,15 @@ internal abstract class PdfFunction
         {
             if (domain.Length != 2)
                 return null;
-            double[] c0 = ReadNumbers(dictionary.GetValueOrNull("C0"), document) ??
+            double[] c0 = ReadNumbers(
+                              dictionary.GetValueOrNull("C0"),
+                              document,
+                              document.Options.MaximumImageComponents) ??
                           Enumerable.Repeat(0d, Math.Max(1, expectedOutputCount)).ToArray();
-            double[] c1 = ReadNumbers(dictionary.GetValueOrNull("C1"), document) ??
+            double[] c1 = ReadNumbers(
+                              dictionary.GetValueOrNull("C1"),
+                              document,
+                              document.Options.MaximumImageComponents) ??
                           Enumerable.Repeat(1d, Math.Max(1, expectedOutputCount)).ToArray();
             int count = Math.Max(c0.Length, c1.Length);
             if (count > document.Options.MaximumImageComponents)
@@ -350,7 +369,10 @@ internal abstract class PdfFunction
             double[] domain,
             double[]? range)
         {
-            double[]? sizeValues = ReadNumbers(dictionary.GetValueOrNull("Size"), document);
+            double[]? sizeValues = ReadNumbers(
+                dictionary.GetValueOrNull("Size"),
+                document,
+                document.Options.MaximumImageComponents);
             if (sizeValues is null || sizeValues.Length != domain.Length / 2)
                 return null;
             var sizes = new int[sizeValues.Length];
@@ -369,14 +391,22 @@ internal abstract class PdfFunction
             int bits = dictionary.GetValueOrNull("BitsPerSample").AsInteger(document) ?? 0;
             if (bits is not (1 or 2 or 4 or 8 or 12 or 16 or 24 or 32))
                 return null;
-            double[]? decode = ReadNumbers(dictionary.GetValueOrNull("Decode"), document) ?? range;
+            int maximumPairs = checked(document.Options.MaximumImageComponents * 2);
+            double[]? decode = ReadNumbers(
+                                   dictionary.GetValueOrNull("Decode"),
+                                   document,
+                                   maximumPairs) ??
+                               range;
             if (decode is null || decode.Length == 0 || decode.Length % 2 != 0)
                 return null;
             int outputs = decode.Length / 2;
             if (outputs > document.Options.MaximumImageComponents)
                 throw new PdfLimitException("Function output component count exceeds the configured limit.");
 
-            double[] encode = ReadNumbers(dictionary.GetValueOrNull("Encode"), document) ??
+            double[] encode = ReadNumbers(
+                                  dictionary.GetValueOrNull("Encode"),
+                                  document,
+                                  maximumPairs) ??
                               sizes.SelectMany(size => new[] { 0d, size - 1d }).ToArray();
             if (encode.Length != sizes.Length * 2)
                 return null;
