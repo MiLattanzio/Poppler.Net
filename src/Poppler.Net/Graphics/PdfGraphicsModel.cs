@@ -224,8 +224,8 @@ public readonly record struct PdfMeshTriangle(
     PdfMeshVertex Third);
 
 /// <summary>
-/// A type 4-7 PDF mesh shading. Patch meshes are adaptively represented by a
-/// bounded triangle tessellation so rendering remains backend-neutral.
+/// A type 4-7 PDF mesh shading. Triangles expose a deterministic representation
+/// for inspection while patch meshes retain their parametric source internally.
 /// </summary>
 public sealed record PdfMeshShadingBrush : PdfBrush
 {
@@ -240,11 +240,24 @@ public sealed record PdfMeshShadingBrush : PdfBrush
         Kind = kind;
         Triangles = Array.AsReadOnly(triangles.ToArray());
         Matrix = matrix;
+        Patches = Array.Empty<PdfMeshPatch>();
+    }
+
+    internal PdfMeshShadingBrush(
+        PdfShadingKind kind,
+        IEnumerable<PdfMeshTriangle> triangles,
+        PdfMatrix matrix,
+        IEnumerable<PdfMeshPatch> patches)
+        : this(kind, triangles, matrix)
+    {
+        ArgumentNullException.ThrowIfNull(patches);
+        Patches = Array.AsReadOnly(patches.ToArray());
     }
 
     public PdfShadingKind Kind { get; }
     public IReadOnlyList<PdfMeshTriangle> Triangles { get; }
     public PdfMatrix Matrix { get; }
+    internal IReadOnlyList<PdfMeshPatch> Patches { get; }
 }
 
 public abstract record PdfPathSegment

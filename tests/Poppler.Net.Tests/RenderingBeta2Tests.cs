@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Poppler;
+using Poppler.Graphics;
 using Poppler.Rendering;
 
 namespace Poppler.Net.Tests;
@@ -41,6 +42,87 @@ public sealed class RenderingBeta2Tests
         Assert.That(
             patches.Select(element => element.Shading.Triangles.Count),
             Is.EqualTo(new[] { 288, 288 }));
+        Assert.That(
+            patches.Select(element => element.Shading.Patches.Count),
+            Is.EqualTo(new[] { 1, 1 }));
+    }
+
+    [Test]
+    public void RetainsParametricPatchDataBehindInspectionTriangles()
+    {
+        using Document document = Load();
+        PdfMeshShadingElement[] elements = document.CreatePage(1).Graphics
+            .OfType<PdfMeshShadingElement>()
+            .ToArray();
+
+        foreach (PdfMeshShadingElement element in elements)
+        {
+            PdfMeshPatch patch = element.Shading.Patches.Single();
+            PdfMeshTriangle triangle = element.Shading.Triangles[0];
+            Assert.Multiple((Action)(() =>
+            {
+                Assert.That(
+                    patch.EvaluatePoint(0, 0),
+                    Is.EqualTo(triangle.First.Point));
+                Assert.That(
+                    patch.EvaluatePoint(0, 1d / 12),
+                    Is.EqualTo(triangle.Second.Point));
+                Assert.That(
+                    patch.EvaluatePoint(1d / 12, 0),
+                    Is.EqualTo(triangle.Third.Point));
+                Assert.That(
+                    patch.EvaluateColor(0, 0),
+                    Is.EqualTo(triangle.First.Color));
+                Assert.That(
+                    patch.GetControlPoint(0, 0),
+                    Is.EqualTo(patch.EvaluatePoint(0, 0)));
+                Assert.That(
+                    patch.GetCornerColor(0),
+                    Is.EqualTo(patch.EvaluateColor(0, 0)));
+            }));
+        }
+    }
+
+    [Test]
+    public void ParametricPatchesCopyInputsAndShareEdgesByIdentity()
+    {
+        PdfPoint[,] firstPoints = PatchGrid(0);
+        var firstColors = new[]
+        {
+            PdfColor.Rgb(1, 0, 0),
+            PdfColor.Rgb(0, 1, 0),
+            PdfColor.Rgb(0, 0, 1),
+            PdfColor.Rgb(1, 1, 1)
+        };
+        var first = new PdfMeshPatch(firstPoints, firstColors);
+        PdfMeshPatchEdge shared = first.GetEdge(PdfMeshPatchEdgeSide.Right);
+
+        PdfPoint[,] secondPoints = PatchGrid(3);
+        for (int index = 0; index < 4; index++)
+            secondPoints[0, index] = shared.GetControlPoint(index);
+        var secondColors = new[]
+        {
+            shared.StartColor,
+            shared.EndColor,
+            PdfColor.Rgb(1, 1, 0),
+            PdfColor.Rgb(0, 1, 1)
+        };
+        var second = new PdfMeshPatch(secondPoints, secondColors, shared);
+
+        firstPoints[0, 0] = new PdfPoint(100, 100);
+        firstColors[0] = PdfColor.Black;
+        secondPoints[0, 0] = new PdfPoint(200, 200);
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(
+                second.GetEdge(PdfMeshPatchEdgeSide.Top),
+                Is.SameAs(shared));
+            Assert.That(first.GetControlPoint(0, 0), Is.EqualTo(new PdfPoint(0, 0)));
+            Assert.That(first.GetCornerColor(0), Is.EqualTo(PdfColor.Rgb(1, 0, 0)));
+            Assert.That(
+                second.GetControlPoint(0, 0),
+                Is.EqualTo(shared.GetControlPoint(0)));
+        }));
     }
 
     [Test]
@@ -173,6 +255,17 @@ public sealed class RenderingBeta2Tests
             Antialiasing = 2,
             UseFontSubstitution = false
         });
+
+    private static PdfPoint[,] PatchGrid(double xOffset)
+    {
+        var points = new PdfPoint[4, 4];
+        for (int row = 0; row < 4; row++)
+        {
+            for (int column = 0; column < 4; column++)
+                points[row, column] = new PdfPoint(xOffset + column, row);
+        }
+        return points;
+    }
 
     private static void AssertPixel(
         PdfBitmap bitmap,
