@@ -256,9 +256,13 @@ internal so subset-font selection cannot be corrupted by a Unicode round trip.
 `PdfImageElement` exposes Image XObject metadata and its optional decoded
 `PdfImage`.
 `PdfShadingElement` exposes an axial or radial gradient.
+`PdfFunctionShadingElement` exposes a function-based type 1 shading through
+its two-dimensional `Domain`, optional `BoundingBox` and effective `Matrix`.
 `PdfMeshShadingElement` exposes free-form/lattice Gouraud or Coons/tensor
-patch data through a bounded `PdfMeshShadingBrush` triangle list. Paint is
-represented by `PdfSolidBrush`, `PdfTilingPatternBrush`, `PdfGradientBrush` or
+patch data through a bounded `PdfMeshShadingBrush` triangle list. Coons and
+tensor source patches and shared edges are retained internally for adaptive
+rendering without expanding the callable API. Paint is represented by `PdfSolidBrush`,
+`PdfTilingPatternBrush`, `PdfGradientBrush`, `PdfFunctionShadingBrush` or
 `PdfMeshShadingBrush`; each element also retains the active clipping paths and
 source Form resource. Uncolored tiling brushes expose their per-use
 `UnderlyingColor`.
@@ -342,8 +346,9 @@ page.SaveSvg("page.svg", new SvgRenderOptions
 
 `SvgFallbackMode.Omit` explicitly retains the former behavior of skipping
 unsupported constructs. Fallbacks never reference external resources and are
-bounded by `PdfReadOptions.MaximumSvgFallbackPixels`. Alpha 2 falls back for
-the complete page when any unsupported group or mesh is present.
+bounded by `PdfReadOptions.MaximumSvgFallbackPixels`. Alpha 3 computes a
+conservative effective support for the graphics being flattened, aligns it to
+the full-page raster pixel grid and embeds only that cropped region.
 
 ## Managed page raster
 

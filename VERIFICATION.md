@@ -1,142 +1,119 @@
 # Verification record
 
-Verification performed on 2026-08-09 for `0.12.0-alpha.2`. The source was
-derived from the final `Poppler.Net-26.07.0-0.12.0-alpha.1.zip` artifact,
-SHA-256 `4c32a590cb1c2c2a868326c5c0ecf62fb5e6f34480bbdfc1919469ad7f58b606`.
-The separately planned `0.11` shaping slice is not present.
+Verification performed on 2026-08-09 for `0.12.0-alpha.3`. This source builds
+on the verified `0.12.0-alpha.2` transparency compositor and retains the
+`0.12.0-alpha.1` stroke-outline work. The separately planned `0.11` shaping
+slice is not present.
 
-- .NET SDK 8.0.423 compiled all four solution projects in Release with
-  warnings treated as errors.
-- NUnitLite executed 239 tests: 239 passed, 0 failed, 0 warnings and 0
-  skipped.
+- .NET SDK 8.0.423 restored and compiled all four solution projects in Release
+  with warnings treated as errors.
+- NUnitLite executed 262 tests: 262 passed, 0 failed, 0 warnings and 0 skipped.
 - The managed-only verifier accepted production source and every asset in the
   restored NuGet graph.
-- `Poppler.Net.0.12.0-alpha.2.nupkg` contains the Release net8.0 DLL/XML,
-  README, release notes, license and notice.
-- NuGet metadata identifies Mi Lattanzio as author and the public repository as
+- `Poppler.Net.0.12.0-alpha.3.nupkg` is 421,302 bytes with SHA-256
+  `87bfbff9cf3f615db468e586bb24d03de5cad044e48c0475bc605d0def077a4e`.
+- The package contains only the Release net8.0 DLL/XML, README, release notes,
+  license, notice and NuGet metadata. No unexpected binary/native entry is
+  present.
+- NuGet metadata reports version `0.12.0-alpha.3`, author Mi Lattanzio,
+  GPL-2.0-or-later and repository/project URL
   `https://github.com/MiLattanzio/Poppler.Net`.
-- The runtime graph contains only CoreJ2K 2.3.3.91,
+- The runtime graph remains CoreJ2K 2.3.3.91,
   JBig2Decoder.NETStandard 1.5.2 and StbImageSharp 2.30.15.
-- The Linux, Windows and macOS workflow parses as YAML, and `build.sh` passes
-  shell syntax validation.
+- `build.sh` passes shell syntax validation.
 
 ## Public API and version
 
 The complete public-surface SHA-256 is
-`221999f6699cf3963b99f1ce5bfe0474d208a64d3d3e1ba62afe08c4c99ac6b5`.
+`31d77bb8f4659f9d4d32c1f5a1675e1f832d0c0e5ccf67e58241414a266236fa`.
 The fingerprint that normalizes only `Document.PortVersion` is
-`c46d950b23a5b590b4bf0609688e3979e581aaf00b2624f199469be046029b4f`.
+`cd82599822b9d301c9236b56a22cacb45a284d40498ce4b42a0c72e75a07af46`.
 
-Relative to alpha 1, the callable surface adds only:
+Relative to alpha 2, the callable surface adds only:
 
-- `SvgFallbackMode`;
-- `SvgRenderOptions.FallbackMode`;
-- `SvgRenderOptions.RasterFallbackDpi`;
-- `PdfReadOptions.MaximumRenderWorkingBytes`;
-- `PdfReadOptions.MaximumSvgFallbackPixels`.
+- `PdfShadingKind.FunctionBased`;
+- `PdfFunctionShadingBrush` with `Kind`, `Domain`, `BoundingBox` and `Matrix`;
+- `PdfFunctionShadingElement`.
 
-`Page.Graphics`, every public display-list element and all parser/text APIs
-are unchanged. `Document.PortVersion`, library/CLI informational versions and
-NuGet version all report `0.12.0-alpha.2`.
+Parametric mesh patches, shared edge objects and the adaptive tessellator are
+internal. `PdfMeshShadingBrush.Triangles` remains the deterministic public
+inspection representation. Parser, text-extraction and shaping APIs are
+unchanged. `Document.PortVersion`, library/CLI informational versions and the
+NuGet version all report `0.12.0-alpha.3`.
 
-## Transparency corpus and numerical gates
+## Shading and mesh corpus
 
-The deterministic six-page `transparency-alpha2.pdf` corpus has SHA-256
-`4776510211fc97ec94fce458806952fe2ecd33e14ad62738f70acc5d1c700a7a`.
-Its approved manifest has SHA-256
-`11a5e3d18c4c362b9f263bf1d26fe4a44e8f19e2d3a051b29a9e0e1ac9677a1c`.
-The generator reproduces both files byte for byte.
+The deterministic five-page `shading-alpha3.pdf` corpus is 6,153 bytes with
+SHA-256
+`82634dc1ccc914125c0a26ae67144d6d95471edda4e77c1fd70e78c256135321`.
+Its manifest is 2,847 bytes with SHA-256
+`c2f638333dd63322750a981bc874972c78bc1f7aa2af8d91a84854180616b924`.
+The generator reproduces both files byte for byte on Windows.
 
 The pages cover:
 
-- all four isolated/knockout combinations;
-- three-level group nesting and non-`Normal` boundary blends;
-- all separable and nonseparable standard blend modes;
-- Alpha and Luminosity masks, `/BC`, calculator `/TR` and partial clips;
-- groups inside masks and masks inside groups;
-- text, image, pattern, shading and annotation appearance paint;
-- direct `1x1` and `2x2` formula samples.
+- valid two-input type 1 sampled/calculator functions and component arrays;
+- `/Domain`, `/Matrix`, `/BBox`, clipping and a singular matrix;
+- type 2 exponential and type 3 stitching functions in valid one-input axial
+  shadings;
+- transformed/clipped thin and degenerate type 4/5 Gouraud meshes;
+- adjacent high-curvature Coons patches and a tensor-product patch;
+- meshes inside an isolated transparency group and a luminosity soft mask.
 
-Numerical tests inspect premultiplied color, composite alpha, shape and source
-contribution independently. They prove that zero-alpha paint and a painted
-color equal to the backdrop still contribute shape; non-isolated recovery and
-knockout merge are tested without relying on screenshots. The `2x2` output is
-frozen at `(191,159,223)`, `(128,128,255)`, `(128,0,128)` and white.
+The manifest freezes all five opaque pages at 72, 96, 144 and 300 DPI with
+antialiasing 4. Transparent output for the patch page and SVG fallback output
+are frozen separately. Eight concurrent raster/SVG renders of one page from
+one `Document` are byte-identical.
 
-The manifest freezes managed PNG and default SVG SHA-256 values for all six
-pages. An eight-task raster/SVG render of the same `Document` is byte-identical.
-SVG is parsed as XML, its default complex-page fallback is an embedded PNG data
-URI, `Omit` contains no fallback URI, and the pixel limit is forced before
-allocation.
-
-## Safety and bounded memory
-
-Each high-precision raster surface stores six 32-bit values per pixel:
-premultiplied RGB, composite alpha, shape and contribution alpha. The
-per-render working-set budget reserves bytes before allocating the final
-target, saved backdrops, group/knockout buffers or soft-mask caches and releases
-the reservation with the owning surface. Regressions force both a direct
-pre-allocation failure and a nested-group failure after multiple live surfaces.
-
-`MaximumTransparencyGroupDepth` remains active for groups and soft masks; a
-depth-one render of the three-level corpus fails with `PdfLimitException`.
-Existing output-pixel, geometry, XObject, image and stream limits remain
-unchanged.
+The historical `rendering-beta2.pdf` and `transparency-alpha2.pdf` generators
+also reproduce their PDFs and manifests byte for byte. The alpha 2 manifest
+retains its original full-page SVG hashes under `default` and attributes the
+new bounded output to `alpha3-bounded-fallback`.
 
 ## Independent Poppler comparison
 
-Poppler 26.05.0 `pdfinfo`, `pdftotext` and `pdftoppm` open, extract and render
-all six pages. Poppler is used only as an independent QA reference. At 72 DPI,
-antialiasing 4 and an opaque backdrop, the normalized RGB mean absolute errors
-are:
+Poppler 26.05.0 `pdfinfo` and `pdftoppm` independently open and render all five
+pages. The source-port semantic reference remains Poppler 26.07.0. At 72 DPI,
+the normalized RGB mean absolute errors are:
 
 | Page | Error |
 |---:|---:|
-| 1 | 0.000255061 |
-| 2 | 0.007452158 |
-| 3 | 0.001080719 |
-| 4 | 0.000622433 |
-| 5 | 0.002404463 |
-| 6 | 0.000980392 |
+| 1 | 0.002847324 |
+| 2 | 0.004553343 |
+| 3 | 0.003421773 |
+| 4 | 0.004763651 |
+| 5 | 0.003388957 |
 
-Original-resolution managed and Poppler contact sheets were inspected. Group
-boundaries, overlaps, masks, clips, patterns, image samples, annotation paint
-and all blend-grid cells are present without clipping or stray geometry. Page
-4 uses the controlled managed Helvetica fixture; text, image, pattern and
-shading paint all remain inside the transparency group.
+Managed and Poppler output show the same gradients, clips, patch boundaries,
+group paint and luminosity mask. The visible page-three difference is confined
+to antialiasing of the intentionally thin/degenerate Gouraud construction.
 
-## Historical compatibility and performance
+## Safety, determinism and performance
 
-Every historical manifest regression remains active. The one existing
-isolated-group channel that uses a byte-quantized Poppler intermediate is
-accepted within one unit: retaining high-precision group color rounds it to
-128 instead of 127. No parser, text-extraction or public display-list behavior
-changes.
+Adaptive tessellation measures geometric error in device space and color
+error separately. Connected patches share edge refinement decisions. The
+triangle limit is checked before output growth, and the raster spatial index
+prevents an every-triangle-per-pixel scan.
 
-All input ownership, culture, option-snapshot, diagnostic-snapshot and
-shared-document concurrency gates remain active. The Release smoke workload
-completed in 102.3 ms and allocated 13.7 MiB, inside the 30-second/512-MiB
-budgets. The repeated decoded-stream test allocated 78.1 KiB with caching and
-7,773.4 KiB with caching disabled.
+SVG fallback bounds conservatively include paths/strokes, text, images, clips,
+function domains/BBoxes, mesh vertices/control hulls and nested groups. Bounds
+are aligned to the full-page raster grid before pixel and working-set limits
+are checked. Nonzero page rotation keeps the complete CropBox conservatively.
+
+The Release smoke workload completed in 44.6 ms and allocated 10.1 MiB. The
+repeated decoded-stream test allocated 78.1 KiB with caching and 8,175.6 KiB
+with caching disabled. All ownership, option/diagnostic snapshot, culture and
+historical manifest gates remain active.
 
 ## Distribution
 
-The final source archive contains 212 files selected explicitly beneath one
-`Poppler.Net/` root. It excludes repository metadata, build outputs, NuGet
-packages, test results, temporary renders, generated bytecode, executables and
-native assets.
+The source archive is selected explicitly from 221 files beneath one
+`Poppler.Net/` root. Repository metadata, IDE state, `bin`, `obj`, NuGet/build
+artifacts, test results, temporary renders, generated bytecode, executables and
+native assets are excluded.
 
-The final ZIP is extracted into a new directory and compared byte for byte
-with the selected source set. From that copy the solution is restored from the
-five approved local managed packages, rebuilt without warnings, tested,
-verified as managed-only, repackaged and exercised through the CLI.
-
-The environment's `dotnet` CLI can intermittently fail while inspecting its
-process namespace. Retrying the command, and using single-node MSBuild with
-node reuse disabled, avoids `System.Diagnostics.Process.GetStat`; this is an
-execution-environment issue, not a project or package error. The normal user
-entry point remains:
-
-```bash
-./build.sh Release
-```
+The archive is extracted into a new temporary directory and compared byte for
+byte with the selected source set. That extracted copy is restored from the
+approved managed package cache, rebuilt without warnings, tested, verified as
+managed-only, repackaged and exercised through the CLI. No push, tag, GitHub
+release or NuGet publication is part of this verification.

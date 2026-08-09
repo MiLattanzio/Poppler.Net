@@ -1,6 +1,6 @@
 # Managed raster rendering in 0.12
 
-Release `0.12.0-alpha.2` retains the pure-C# counterpart of Poppler's
+Release `0.12.0-alpha.3` retains the pure-C# counterpart of Poppler's
 `SplashOutputDev`, path scanner, compositing and font-outline responsibilities.
 It consumes the backend-neutral `Page.Graphics` display list and never loads
 Splash, Cairo, Skia, FreeType, a platform drawing API or another native
@@ -56,8 +56,11 @@ pixels at alpha zero.
    space dash positions but expand to one device pixel. Fill, stroke outlines
    and clipping all use the same nonzero/even-odd scanner on a configurable
    1×, 2×, 4× or 8× grid per pixel.
-4. Solid colors, axial/radial gradients, colored/uncolored tiling patterns and
-   type 4–7 mesh shadings supply straight RGBA source samples.
+4. Solid colors, axial/radial gradients, function-based type 1 shadings,
+   colored/uncolored tiling patterns and type 4–7 mesh shadings supply straight
+   RGBA source samples. Coons/tensor patches are subdivided deterministically
+   from device-space geometry and color error while adjacent patches share one
+   edge decision.
 5. Decoded Image XObjects use nearest-neighbor or bilinear sampling according
    to `/Interpolate`; existing image/mask alpha remains straight.
 6. Source samples become premultiplied color plus independent alpha and shape
@@ -171,7 +174,8 @@ live high-precision surfaces, including saved initial backdrops, knockout
 children and cached soft masks. A reservation is made before each allocation
 and released deterministically when its surface is disposed.
 `MaximumMeshTriangles` defaults to 65,536 and bounds decoded/tessellated mesh
-data. `MaximumRasterGeometrySegments` defaults to 4,000,000 and cumulatively
+data before adaptive output growth. `MaximumRasterGeometrySegments` defaults
+to 4,000,000 and cumulatively
 bounds flattening, dash fragments, stroke-outline edges and temporary clip
 geometry for one render. It is charged before temporary collections grow.
 Existing graphics-operation, path-segment, XObject, image and decoded-stream
@@ -270,6 +274,15 @@ asserted numerically rather than only through screenshots. Managed PNG and
 default SVG output have frozen per-page hashes and remain byte-identical under
 eight concurrent renders of one document.
 
+The `0.12.0-alpha.3` shading corpus adds five deterministic pages for valid
+two-input type 1 functions and component arrays, `/Domain`, `/Matrix`, `/BBox`,
+clips and a singular matrix; thin/degenerate Gouraud triangles; adjacent
+high-curvature Coons patches and a tensor patch; and meshes inside an isolated
+group and a luminosity mask. Managed PNG hashes are frozen at 72, 96, 144 and
+300 DPI, with transparent patch output and cropped SVG hashes checked
+separately. Poppler 26.05 opens and renders all pages; normalized RGB mean
+absolute error at 72 DPI is 0.00285, 0.00455, 0.00342, 0.00476 and 0.00339.
+
 This remains a compatibility-focused rasterizer with explicit limits:
 
 - unsupported calculator operators are rejected and reported rather than
@@ -285,8 +298,11 @@ This remains a compatibility-focused rasterizer with explicit limits:
 - inline images whose first filter has no deterministic boundary in this
   release, unusual filter chains or unsupported color spaces may not
   decode;
-- function-based shading type 1, adaptive patch subdivision, spot-color
-  overprint and full ICC LUT/device-link behavior remain unsupported.
+- spot-color overprint and full ICC LUT/device-link behavior remain
+  unsupported. Exponential and stitching functions are one-input function
+  families by PDF definition and are therefore invalid as the two-input
+  function of a type 1 shading; they remain supported in gradients, masks and
+  tint transforms.
 
 These limits are narrower than the `0.6` absence of page rasterization, but
 the output is not yet a general visual-conformance replacement for Splash.

@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.12.0-alpha.3 — 2026-08-09
+
+- Added public function-based shading type 1 display-list values with
+  `/Domain`, `/Matrix`, `/BBox`, two-input sampled/calculator functions,
+  multicomponent function arrays, clipping and singular-transform handling.
+- Retained parametric type 6/7 patch control grids and shared edge identity,
+  then moved raster tessellation to a deterministic device-space adaptive path
+  with independent geometric/color error and pre-growth triangle limits.
+- Added a bounded mesh spatial index so adaptive triangle growth does not
+  become an every-triangle-per-pixel scan.
+- Cropped complex SVG fallbacks to conservative pixel-aligned painted bounds,
+  preserving clips, groups, masks, OCG visibility, embedded PNG-only output,
+  `SvgFallbackMode.Omit` and pre-allocation pixel/working-set budgets.
+- Added a deterministic five-page shading corpus, four-DPI raster manifests,
+  transparent and SVG hashes, shared-document concurrency checks and
+  independent Poppler 26.07 visual comparison.
+
 ## 0.12.0-alpha.2 — 2026-08-09
 
 - Replaced transparency decisions based on finished-pixel comparisons with

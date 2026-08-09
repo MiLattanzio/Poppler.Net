@@ -42,6 +42,10 @@ ports explicit premultiplied color/alpha/shape surface state, saved
 non-isolated backdrops, nested knockout recovery, complete group-boundary
 compositing and bounded SVG raster fallback policy without changing the public
 display list.
+The `0.12.0-alpha.3` slice adds `GfxFunctionShading` parity for valid
+two-input sampled/calculator functions, retains parametric Coons/tensor patch
+data and shared edges for device-space adaptive tessellation, and crops SVG
+raster fallbacks to pixel-aligned conservative support.
 
 ## Implemented sequence
 
@@ -137,7 +141,7 @@ display list.
 | `Annot` | `PdfAnnotationReader`, appearance reuse of `PdfGraphicsInterpreter` | Read-only basic/advanced annotations, relationships, attachments, actions and normal appearances |
 | `Form` | `PdfFormReader`, `PdfFormField`, `PdfFormWidget`, appearance reuse of `PdfGraphicsInterpreter` | Read-only AcroForm tree, values, options, widgets and fallbacks |
 | `OptionalContent` | `PdfOptionalContentModel`, `PdfOptionalContentGroup`, shared visibility evaluator | Default configuration, View usage, OCG/OCMD policies and bounded `/VE` expressions |
-| `Gfx`, `GfxState`, `Function` | `PdfGraphicsInterpreter`, graphics model, `PdfFunction`, `PdfShadingReader`, `PdfMeshShadingReader` | Vector slice plus sampled/exponential/stitching/calculator functions and shading types 2–7 |
+| `Gfx`, `GfxState`, `Function` | `PdfGraphicsInterpreter`, graphics model, `PdfFunction`, `PdfShadingReader`, `PdfMeshShadingReader` | Vector slice plus sampled/exponential/stitching/calculator functions and shading types 1–7 |
 | `ImageStream`, `DCTStream`, `JPXStream`, `JBIG2Stream`, `CCITTFaxStream` | `PdfImageDecoder`, `CcittFaxDecoder` | Managed Image XObject decoding |
 | `GfxColorSpace`, common ICC transforms | `PdfColorSpaceDefinition`, `PdfIccProfile` | Device, calibrated, indexed, spot and common matrix/shaper profiles |
 | `SplashOutputDev`, `Splash::makeStrokePath`, `SplashXPath`, Splash composite | `PdfRasterRenderer`, `RasterStrokeOutliner`, `RasterGeometry`, `PdfBlend`, `RasterSurface` | Managed raster, user-space stroke outlines, shared fill/stroke/clip scanning, antialiasing and explicit premultiplied color/alpha/shape transparency |
@@ -155,8 +159,8 @@ display list.
 2. Complete font engine: CFF2 variation-region interpolation, rare Type 1/CFF
    operators, contextual GSUB/GPOS and complex shaping, Type 1 `seac` and
    hinting.
-3. Add group-bounds SVG fallback and adaptive patch tessellation; add remaining
-   Flate/LZW/CCITT/JBIG2/JPX inline-image boundary cases.
+3. Add remaining Flate/LZW/CCITT/JBIG2/JPX inline-image boundary cases and
+   broaden real-world shading/mesh differential coverage.
 4. Add LUT-based ICC profiles, proofing, rendering intents and spot-color
    overprint.
 5. Complete producer-specific annotation appearance behavior, AcroForm
