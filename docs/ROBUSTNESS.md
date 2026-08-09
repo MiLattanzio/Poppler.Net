@@ -90,7 +90,10 @@ size first and disposal releases it, so deeply nested groups fail with
 `MaximumTransparencyGroupDepth` of 32 remains authoritative for both group and
 soft-mask recursion.
 
-`MaximumSvgFallbackPixels` defaults to 25,000,000 and is checked before the
-managed full-page fallback is allocated. Raster fallback surfaces also remain
-subject to `MaximumRenderPixels`, `MaximumRenderWorkingBytes` and all ordinary
-raster limits.
+`MaximumSvgFallbackPixels` defaults to 25,000,000 and is checked against the
+pixel-aligned conservative fallback bounds before a raster surface is
+allocated. Paths, strokes, text, images, clips, function domains/BBoxes, mesh
+vertices/control hulls and nested groups contribute to those bounds. Nonzero
+page rotation retains the complete CropBox conservatively. Raster fallback
+surfaces also remain subject to `MaximumRenderPixels`,
+`MaximumRenderWorkingBytes` and all ordinary raster limits.

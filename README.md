@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.12.0-alpha.2` transparency-conformance release is not a complete replacement for
+> This `0.12.0-alpha.3` shading-conformance release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -66,6 +66,12 @@ process invocation, or native NuGet dependency.
 > surfaces. SVG now rasterizes constructs without equivalent SVG semantics to
 > an embedded PNG by default; `SvgFallbackMode.Omit` explicitly retains the
 > historical skip behavior.
+> Alpha 3 adds function-based shading type 1 with two-input sampled and
+> calculator functions, retains parametric Coons/tensor patches for
+> deterministic device-space adaptive tessellation, and restricts embedded
+> SVG raster fallbacks to conservative painted bounds aligned to the page
+> pixel grid. Type 4–7 meshes and complex type 1 shadings remain raster-backed
+> in SVG; no external image resource is emitted.
 > See [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md) for its scope and limits. See
 > [docs/FORMS.md](docs/FORMS.md) for the AcroForm model and
 > [docs/OPTIONAL_CONTENT.md](docs/OPTIONAL_CONTENT.md) for layer behavior. See

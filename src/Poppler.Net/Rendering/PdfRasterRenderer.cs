@@ -19,6 +19,9 @@ internal sealed class PdfRasterRenderer
     private readonly RasterGeometryBudget _geometryBudget;
     private readonly RenderWorkingSetBudget _workingSetBudget;
     private readonly int _samples;
+    private PdfMeshShadingBrush? _sampleMeshCacheBrush;
+    private PdfMatrix _sampleMeshCacheTransform;
+    private IReadOnlyList<PdfMeshTriangle>? _sampleMeshCacheTriangles;
     private int _softMaskRenderDepth;
 
     private PdfRasterRenderer(
@@ -60,21 +63,22 @@ internal sealed class PdfRasterRenderer
     internal static PdfBitmap RenderSubset(
         Page page,
         IReadOnlyList<PdfGraphicsElement> elements,
-        RasterRenderOptions options)
+        RasterRenderOptions options,
+        PdfRectangle source)
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(elements);
         ArgumentNullException.ThrowIfNull(options);
-        return RenderCore(page, elements, options.Snapshot());
+        return RenderCore(page, elements, options.Snapshot(), source);
     }
 
     private static PdfBitmap RenderCore(
         Page page,
         IReadOnlyList<PdfGraphicsElement> elements,
-        RasterRenderOptions options)
+        RasterRenderOptions options,
+        PdfRectangle? sourceOverride = null)
     {
-
-        PdfRectangle source = page.PageRect(options.PageBox);
+        PdfRectangle source = sourceOverride ?? page.PageRect(options.PageBox);
         double left = Math.Min(source.Left, source.Right);
         double right = Math.Max(source.Left, source.Right);
         double bottom = Math.Min(source.Bottom, source.Top);
@@ -289,6 +293,9 @@ internal sealed class PdfRasterRenderer
                 case PdfShadingElement shading:
                     RenderShading(surface, shading);
                     break;
+                case PdfFunctionShadingElement function:
+                    RenderFunctionShading(surface, function);
+                    break;
                 case PdfMeshShadingElement mesh:
                     RenderMeshShading(surface, mesh);
                     break;
@@ -394,6 +401,56 @@ internal sealed class PdfRasterRenderer
             element.State.SoftMask);
     }
 
+    private void RenderFunctionShading(
+        RasterSurface surface,
+        PdfFunctionShadingElement element)
+    {
+        PdfFunctionShadingBrush shading = element.Shading;
+        PdfMatrix functionTransform = shading.Matrix
+            .Multiply(element.State.Transform)
+            .Multiply(_deviceTransform);
+        if (!RasterGeometry.TryInvert(functionTransform, out PdfMatrix functionInverse))
+            return;
+
+        RasterBounds bounds = BoundsOfRectangle(shading.Domain, functionTransform);
+        PdfMatrix boundingBoxInverse = PdfMatrix.Identity;
+        if (shading.BoundingBox is { } boundingBox)
+        {
+            PdfMatrix boundingBoxTransform = shading.BoundingBoxMatrix
+                .Multiply(element.State.Transform)
+                .Multiply(_deviceTransform);
+            if (!RasterGeometry.TryInvert(boundingBoxTransform, out boundingBoxInverse))
+                return;
+            bounds = Intersect(bounds, BoundsOfRectangle(boundingBox, boundingBoxTransform));
+        }
+        if (bounds.IsEmpty)
+            return;
+
+        Paint(
+            surface,
+            bounds,
+            element.ClipPaths,
+            (x, y) => ContainsFunctionPoint(
+                shading,
+                functionInverse,
+                boundingBoxInverse,
+                x,
+                y,
+                out _),
+            (x, y) => ContainsFunctionPoint(
+                shading,
+                functionInverse,
+                boundingBoxInverse,
+                x,
+                y,
+                out PdfPoint point)
+                    ? RasterColor.FromPdf(shading.Evaluate(point.X, point.Y))
+                    : RasterColor.Transparent,
+            element.State.FillAlpha,
+            element.State.BlendMode,
+            element.State.SoftMask);
+    }
+
     private void RenderMeshShading(
         RasterSurface surface,
         PdfMeshShadingElement element)
@@ -401,10 +458,15 @@ internal sealed class PdfRasterRenderer
         PdfMatrix transform = element.Shading.Matrix
             .Multiply(element.State.Transform)
             .Multiply(_deviceTransform);
-        var triangles = new List<RasterMeshTriangle>(
-            element.Shading.Triangles.Count);
-        foreach (PdfMeshTriangle triangle in element.Shading.Triangles)
+        IReadOnlyList<PdfMeshTriangle> sourceTriangles =
+            PdfMeshTessellator.Tessellate(
+                element.Shading,
+                transform,
+                _page.ReadOptions.MaximumMeshTriangles);
+        var triangles = new RasterMeshTriangle[sourceTriangles.Count];
+        for (int index = 0; index < sourceTriangles.Count; index++)
         {
+            PdfMeshTriangle triangle = sourceTriangles[index];
             PdfPoint first = transform.Transform(
                 triangle.First.Point.X,
                 triangle.First.Point.Y);
@@ -419,26 +481,22 @@ internal sealed class PdfRasterRenderer
                 Math.Min(first.Y, Math.Min(second.Y, third.Y)),
                 Math.Max(first.X, Math.Max(second.X, third.X)),
                 Math.Max(first.Y, Math.Max(second.Y, third.Y)));
-            triangles.Add(new RasterMeshTriangle(
+            triangles[index] = new RasterMeshTriangle(
                 triangle,
                 first,
                 second,
                 third,
-                bounds));
+                bounds);
         }
-        if (triangles.Count == 0)
+        if (triangles.Length == 0)
             return;
-        RasterBounds combined = new(
-            triangles.Min(triangle => triangle.Bounds.Left),
-            triangles.Min(triangle => triangle.Bounds.Top),
-            triangles.Max(triangle => triangle.Bounds.Right),
-            triangles.Max(triangle => triangle.Bounds.Bottom));
+        var meshIndex = new RasterMeshIndex(triangles);
         Paint(
             surface,
-            combined,
+            meshIndex.Bounds,
             element.ClipPaths,
-            (x, y) => TrySampleMesh(triangles, x, y, out _),
-            (x, y) => TrySampleMesh(triangles, x, y, out RasterColor color)
+            (x, y) => meshIndex.TrySample(x, y, out _),
+            (x, y) => meshIndex.TrySample(x, y, out RasterColor color)
                 ? color
                 : RasterColor.Transparent,
             element.State.FillAlpha,
@@ -659,10 +717,74 @@ internal sealed class PdfRasterRenderer
         {
             PdfSolidBrush solid => RasterColor.FromPdf(solid.Color),
             PdfGradientBrush gradient => SampleGradient(gradient, state, x, y),
+            PdfFunctionShadingBrush function => SampleFunction(function, state, x, y),
             PdfMeshShadingBrush mesh => SampleMesh(mesh, state, x, y),
             PdfTilingPatternBrush pattern => SamplePattern(pattern, state, x, y, depth + 1),
             _ => RasterColor.Transparent
         };
+    }
+
+    private RasterColor SampleFunction(
+        PdfFunctionShadingBrush shading,
+        PdfGraphicsState state,
+        double x,
+        double y) =>
+        SampleFunction(
+            shading,
+            state,
+            x,
+            y,
+            _deviceTransform);
+
+    private static RasterColor SampleFunction(
+        PdfFunctionShadingBrush shading,
+        PdfGraphicsState state,
+        double x,
+        double y,
+        PdfMatrix deviceTransform)
+    {
+        PdfMatrix functionTransform = shading.Matrix
+            .Multiply(state.Transform)
+            .Multiply(deviceTransform);
+        if (!RasterGeometry.TryInvert(functionTransform, out PdfMatrix functionInverse))
+            return RasterColor.Transparent;
+
+        PdfMatrix boundingBoxInverse = PdfMatrix.Identity;
+        if (shading.BoundingBox is not null)
+        {
+            PdfMatrix boundingBoxTransform = shading.BoundingBoxMatrix
+                .Multiply(state.Transform)
+                .Multiply(deviceTransform);
+            if (!RasterGeometry.TryInvert(boundingBoxTransform, out boundingBoxInverse))
+                return RasterColor.Transparent;
+        }
+
+        return ContainsFunctionPoint(
+            shading,
+            functionInverse,
+            boundingBoxInverse,
+            x,
+            y,
+            out PdfPoint point)
+            ? RasterColor.FromPdf(shading.Evaluate(point.X, point.Y))
+            : RasterColor.Transparent;
+    }
+
+    private static bool ContainsFunctionPoint(
+        PdfFunctionShadingBrush shading,
+        PdfMatrix functionInverse,
+        PdfMatrix boundingBoxInverse,
+        double x,
+        double y,
+        out PdfPoint functionPoint)
+    {
+        functionPoint = functionInverse.Transform(x, y);
+        if (!shading.Domain.Contains(functionPoint.X, functionPoint.Y))
+            return false;
+        if (shading.BoundingBox is not { } boundingBox)
+            return true;
+        PdfPoint boundingBoxPoint = boundingBoxInverse.Transform(x, y);
+        return boundingBox.Contains(boundingBoxPoint.X, boundingBoxPoint.Y);
     }
 
     private RasterColor SampleGradient(
@@ -760,7 +882,8 @@ internal sealed class PdfRasterRenderer
                         path.State,
                         tileX,
                         tileY,
-                        depth);
+                        depth,
+                        transform);
                 return stroke.WithAlpha(stroke.Alpha * path.State.StrokeAlpha);
             }
 
@@ -778,7 +901,8 @@ internal sealed class PdfRasterRenderer
                         path.State,
                         tileX,
                         tileY,
-                        depth);
+                        depth,
+                        transform);
                 return fill.WithAlpha(fill.Alpha * path.State.FillAlpha);
             }
         }
@@ -820,7 +944,8 @@ internal sealed class PdfRasterRenderer
         PdfGraphicsState state,
         double x,
         double y,
-        int depth)
+        int depth,
+        PdfMatrix patternDeviceTransform)
     {
         if (brush is PdfSolidBrush solid)
             return RasterColor.FromPdf(solid.Color);
@@ -829,10 +954,25 @@ internal sealed class PdfRasterRenderer
             PdfGraphicsState local = state with { Transform = PdfMatrix.Identity };
             return SampleGradientInUserSpace(gradient, local, x, y);
         }
+        if (brush is PdfFunctionShadingBrush function)
+        {
+            PdfGraphicsState local = state with { Transform = PdfMatrix.Identity };
+            return SampleFunction(
+                function,
+                local,
+                x,
+                y,
+                PdfMatrix.Identity);
+        }
         if (brush is PdfMeshShadingBrush mesh)
         {
             PdfGraphicsState local = state with { Transform = PdfMatrix.Identity };
-            return SampleMeshInUserSpace(mesh, local, x, y);
+            return SampleMeshInUserSpace(
+                mesh,
+                local,
+                x,
+                y,
+                patternDeviceTransform);
         }
 
         return depth > _page.ReadOptions.MaximumTransparencyGroupDepth
@@ -852,28 +992,36 @@ internal sealed class PdfRasterRenderer
         if (!RasterGeometry.TryInvert(transform, out PdfMatrix inverse))
             return RasterColor.Transparent;
         PdfPoint point = inverse.Transform(x, y);
-        return SampleMeshPoint(mesh, point.X, point.Y);
+        return SampleMeshPoint(
+            MeshTriangles(mesh, transform),
+            point.X,
+            point.Y);
     }
 
-    private static RasterColor SampleMeshInUserSpace(
+    private RasterColor SampleMeshInUserSpace(
         PdfMeshShadingBrush mesh,
         PdfGraphicsState state,
         double x,
-        double y)
+        double y,
+        PdfMatrix patternDeviceTransform)
     {
         PdfMatrix transform = mesh.Matrix.Multiply(state.Transform);
         if (!RasterGeometry.TryInvert(transform, out PdfMatrix inverse))
             return RasterColor.Transparent;
         PdfPoint point = inverse.Transform(x, y);
-        return SampleMeshPoint(mesh, point.X, point.Y);
+        PdfMatrix sourceToDevice = transform.Multiply(patternDeviceTransform);
+        return SampleMeshPoint(
+            MeshTriangles(mesh, sourceToDevice),
+            point.X,
+            point.Y);
     }
 
     private static RasterColor SampleMeshPoint(
-        PdfMeshShadingBrush mesh,
+        IReadOnlyList<PdfMeshTriangle> triangles,
         double x,
         double y)
     {
-        foreach (PdfMeshTriangle triangle in mesh.Triangles)
+        foreach (PdfMeshTriangle triangle in triangles)
         {
             if (!TryBarycentric(
                     triangle.First.Point,
@@ -890,6 +1038,27 @@ internal sealed class PdfRasterRenderer
             return InterpolateTriangleColors(triangle, first, second, third);
         }
         return RasterColor.Transparent;
+    }
+
+    private IReadOnlyList<PdfMeshTriangle> MeshTriangles(
+        PdfMeshShadingBrush mesh,
+        PdfMatrix sourceToDevice)
+    {
+        if (ReferenceEquals(mesh, _sampleMeshCacheBrush) &&
+            sourceToDevice == _sampleMeshCacheTransform &&
+            _sampleMeshCacheTriangles is not null)
+        {
+            return _sampleMeshCacheTriangles;
+        }
+
+        IReadOnlyList<PdfMeshTriangle> triangles = PdfMeshTessellator.Tessellate(
+            mesh,
+            sourceToDevice,
+            _page.ReadOptions.MaximumMeshTriangles);
+        _sampleMeshCacheBrush = mesh;
+        _sampleMeshCacheTransform = sourceToDevice;
+        _sampleMeshCacheTriangles = triangles;
+        return triangles;
     }
 
     private RasterColor SampleGradientInUserSpace(
@@ -1113,41 +1282,6 @@ internal sealed class PdfRasterRenderer
             Lerp(first.Blue, second.Blue, amount),
             Lerp(first.Alpha, second.Alpha, amount));
 
-    private static bool TrySampleMesh(
-        IReadOnlyList<RasterMeshTriangle> triangles,
-        double x,
-        double y,
-        out RasterColor color)
-    {
-        foreach (RasterMeshTriangle triangle in triangles)
-        {
-            if (x < triangle.Bounds.Left ||
-                x > triangle.Bounds.Right ||
-                y < triangle.Bounds.Top ||
-                y > triangle.Bounds.Bottom ||
-                !TryBarycentric(
-                    triangle.First,
-                    triangle.Second,
-                    triangle.Third,
-                    x,
-                    y,
-                    out double first,
-                    out double second,
-                    out double third))
-            {
-                continue;
-            }
-            color = InterpolateTriangleColors(
-                triangle.Source,
-                first,
-                second,
-                third);
-            return true;
-        }
-        color = RasterColor.Transparent;
-        return false;
-    }
-
     private static RasterColor InterpolateTriangleColors(
         PdfMeshTriangle triangle,
         double first,
@@ -1210,6 +1344,208 @@ internal sealed class PdfRasterRenderer
         PdfPoint Third,
         RasterBounds Bounds);
 
+    private sealed class RasterMeshIndex
+    {
+        private const int LeafSize = 8;
+        private readonly RasterMeshTriangle[] _triangles;
+        private readonly int[] _indices;
+        private readonly RasterMeshNode[] _nodes;
+        private int _nodeCount;
+
+        public RasterMeshIndex(RasterMeshTriangle[] triangles)
+        {
+            ArgumentNullException.ThrowIfNull(triangles);
+            if (triangles.Length == 0)
+                throw new ArgumentException("A mesh index requires triangles.", nameof(triangles));
+            _triangles = triangles;
+            _indices = Enumerable.Range(0, triangles.Length).ToArray();
+            _nodes = new RasterMeshNode[checked(triangles.Length * 2)];
+            int root = Build(start: 0, triangles.Length);
+            Bounds = _nodes[root].Bounds;
+        }
+
+        public RasterBounds Bounds { get; }
+
+        public bool TrySample(double x, double y, out RasterColor color)
+        {
+            int bestIndex = int.MaxValue;
+            double first = 0;
+            double second = 0;
+            double third = 0;
+            Search(
+                nodeIndex: 0,
+                x,
+                y,
+                ref bestIndex,
+                ref first,
+                ref second,
+                ref third);
+            if (bestIndex == int.MaxValue)
+            {
+                color = RasterColor.Transparent;
+                return false;
+            }
+            color = InterpolateTriangleColors(
+                _triangles[bestIndex].Source,
+                first,
+                second,
+                third);
+            return true;
+        }
+
+        private int Build(int start, int count)
+        {
+            RasterBounds bounds = BoundsFor(start, count);
+            int nodeIndex = _nodeCount++;
+            if (count <= LeafSize)
+            {
+                _nodes[nodeIndex] = new RasterMeshNode(
+                    bounds,
+                    start,
+                    count,
+                    -1,
+                    -1);
+                return nodeIndex;
+            }
+
+            bool splitX = bounds.Right - bounds.Left >=
+                          bounds.Bottom - bounds.Top;
+            Array.Sort(
+                _indices,
+                start,
+                count,
+                new RasterMeshTriangleIndexComparer(_triangles, splitX));
+            int leftCount = count / 2;
+            int left = Build(start, leftCount);
+            int right = Build(start + leftCount, count - leftCount);
+            _nodes[nodeIndex] = new RasterMeshNode(
+                bounds,
+                start,
+                count,
+                left,
+                right);
+            return nodeIndex;
+        }
+
+        private RasterBounds BoundsFor(int start, int count)
+        {
+            RasterBounds first = _triangles[_indices[start]].Bounds;
+            double left = first.Left;
+            double top = first.Top;
+            double right = first.Right;
+            double bottom = first.Bottom;
+            for (int offset = 1; offset < count; offset++)
+            {
+                RasterBounds bounds = _triangles[_indices[start + offset]].Bounds;
+                left = Math.Min(left, bounds.Left);
+                top = Math.Min(top, bounds.Top);
+                right = Math.Max(right, bounds.Right);
+                bottom = Math.Max(bottom, bounds.Bottom);
+            }
+            return new RasterBounds(left, top, right, bottom);
+        }
+
+        private void Search(
+            int nodeIndex,
+            double x,
+            double y,
+            ref int bestIndex,
+            ref double bestFirst,
+            ref double bestSecond,
+            ref double bestThird)
+        {
+            RasterMeshNode node = _nodes[nodeIndex];
+            if (!Contains(node.Bounds, x, y))
+                return;
+            if (node.Left >= 0)
+            {
+                Search(
+                    node.Left,
+                    x,
+                    y,
+                    ref bestIndex,
+                    ref bestFirst,
+                    ref bestSecond,
+                    ref bestThird);
+                Search(
+                    node.Right,
+                    x,
+                    y,
+                    ref bestIndex,
+                    ref bestFirst,
+                    ref bestSecond,
+                    ref bestThird);
+                return;
+            }
+
+            for (int offset = 0; offset < node.Count; offset++)
+            {
+                int triangleIndex = _indices[node.Start + offset];
+                if (triangleIndex >= bestIndex)
+                    continue;
+                RasterMeshTriangle triangle = _triangles[triangleIndex];
+                if (!Contains(triangle.Bounds, x, y) ||
+                    !TryBarycentric(
+                        triangle.First,
+                        triangle.Second,
+                        triangle.Third,
+                        x,
+                        y,
+                        out double first,
+                        out double second,
+                        out double third))
+                {
+                    continue;
+                }
+                bestIndex = triangleIndex;
+                bestFirst = first;
+                bestSecond = second;
+                bestThird = third;
+            }
+        }
+
+        private static bool Contains(RasterBounds bounds, double x, double y) =>
+            x >= bounds.Left &&
+            x <= bounds.Right &&
+            y >= bounds.Top &&
+            y <= bounds.Bottom;
+
+        private readonly record struct RasterMeshNode(
+            RasterBounds Bounds,
+            int Start,
+            int Count,
+            int Left,
+            int Right);
+
+        private sealed class RasterMeshTriangleIndexComparer : IComparer<int>
+        {
+            private readonly RasterMeshTriangle[] _triangles;
+            private readonly bool _xAxis;
+
+            public RasterMeshTriangleIndexComparer(
+                RasterMeshTriangle[] triangles,
+                bool xAxis)
+            {
+                _triangles = triangles;
+                _xAxis = xAxis;
+            }
+
+            public int Compare(int first, int second)
+            {
+                RasterBounds firstBounds = _triangles[first].Bounds;
+                RasterBounds secondBounds = _triangles[second].Bounds;
+                double firstCenter = _xAxis
+                    ? firstBounds.Left + firstBounds.Right
+                    : firstBounds.Top + firstBounds.Bottom;
+                double secondCenter = _xAxis
+                    ? secondBounds.Left + secondBounds.Right
+                    : secondBounds.Top + secondBounds.Bottom;
+                int comparison = firstCenter.CompareTo(secondCenter);
+                return comparison != 0 ? comparison : first.CompareTo(second);
+            }
+        }
+    }
+
     private static double? AxialParameter(
         IReadOnlyList<double> coordinates,
         PdfPoint point)
@@ -1267,13 +1603,18 @@ internal sealed class PdfRasterRenderer
     }
 
     private static RasterBounds BoundsOfUnitSquare(PdfMatrix matrix)
+        => BoundsOfRectangle(new PdfRectangle(0, 0, 1, 1), matrix);
+
+    private static RasterBounds BoundsOfRectangle(
+        PdfRectangle rectangle,
+        PdfMatrix matrix)
     {
         PdfPoint[] points =
         {
-            matrix.Transform(0, 0),
-            matrix.Transform(1, 0),
-            matrix.Transform(0, 1),
-            matrix.Transform(1, 1)
+            matrix.Transform(rectangle.Left, rectangle.Bottom),
+            matrix.Transform(rectangle.Right, rectangle.Bottom),
+            matrix.Transform(rectangle.Left, rectangle.Top),
+            matrix.Transform(rectangle.Right, rectangle.Top)
         };
         return new RasterBounds(
             points.Min(point => point.X),
@@ -1281,6 +1622,13 @@ internal sealed class PdfRasterRenderer
             points.Max(point => point.X),
             points.Max(point => point.Y));
     }
+
+    private static RasterBounds Intersect(RasterBounds first, RasterBounds second) =>
+        new(
+            Math.Max(first.Left, second.Left),
+            Math.Max(first.Top, second.Top),
+            Math.Min(first.Right, second.Right),
+            Math.Min(first.Bottom, second.Bottom));
 
     private static double PositiveModulo(double value, double modulus)
     {

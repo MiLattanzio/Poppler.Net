@@ -34,6 +34,12 @@ internal static class SvgPageRenderer
             _crop = page.CropBox;
         }
 
+        private void AppendLine(string value)
+        {
+            _svg.Append(value);
+            _svg.Append('\n');
+        }
+
         public string Render()
         {
             IReadOnlyList<PdfGraphicsElement> graphics = FilterElements(
@@ -44,7 +50,7 @@ internal static class SvgPageRenderer
             if (!rasterFallback)
                 RegisterElements(graphics);
 
-            _svg.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+            AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
             _svg.Append("<svg xmlns=\"http://www.w3.org/2000/svg\" role=\"img\" ");
             _svg.Append("aria-label=\"PDF page ");
             _svg.Append(_page.Number.ToString(CultureInfo.InvariantCulture));
@@ -56,10 +62,10 @@ internal static class SvgPageRenderer
             _svg.Append(Format(_crop.Width));
             _svg.Append(' ');
             _svg.Append(Format(_crop.Height));
-            _svg.AppendLine("\">");
+            AppendLine("\">");
             _svg.Append("  <rect width=\"100%\" height=\"100%\" fill=\"");
             _svg.Append(Escape(_options.Background));
-            _svg.AppendLine("\"/>");
+            AppendLine("\"/>");
             WriteDefinitions();
 
             if (rasterFallback)
@@ -72,12 +78,12 @@ internal static class SvgPageRenderer
                 _svg.Append(Format(-Math.Min(_crop.Left, _crop.Right)));
                 _svg.Append(' ');
                 _svg.Append(Format(Math.Max(_crop.Bottom, _crop.Top)));
-                _svg.AppendLine(")\">");
+                AppendLine(")\">");
                 WriteElements(graphics, indent: 2);
-                _svg.AppendLine("  </g>");
+                AppendLine("  </g>");
             }
 
-            _svg.AppendLine("</svg>");
+            AppendLine("</svg>");
             return _svg.ToString();
         }
 
@@ -96,6 +102,7 @@ internal static class SvgPageRenderer
                         _options.IncludeVectorGraphics && _options.IncludeImages:
                     case PdfPathElement when _options.IncludeVectorGraphics:
                     case PdfShadingElement when _options.IncludeVectorGraphics:
+                    case PdfFunctionShadingElement when _options.IncludeVectorGraphics:
                     case PdfMeshShadingElement when _options.IncludeVectorGraphics:
                         result.Add(element);
                         break;
@@ -118,6 +125,7 @@ internal static class SvgPageRenderer
                 return true;
             return element switch
             {
+                PdfFunctionShadingElement => true,
                 PdfMeshShadingElement => true,
                 PdfPathElement path =>
                     BrushRequiresRasterFallback(path.State.Fill) ||
@@ -136,6 +144,7 @@ internal static class SvgPageRenderer
         private static bool BrushRequiresRasterFallback(PdfBrush brush) =>
             brush switch
             {
+                PdfFunctionShadingBrush => true,
                 PdfMeshShadingBrush => true,
                 PdfTilingPatternBrush pattern =>
                     pattern.Elements.Any(RequiresRasterFallback),
@@ -145,9 +154,30 @@ internal static class SvgPageRenderer
         private void WriteRasterFallback(
             IReadOnlyList<PdfGraphicsElement> graphics)
         {
+            bool hasBackground = TryParseBackground(
+                _options.Background,
+                out PdfColor background);
+            var rasterOptions = new RasterRenderOptions
+            {
+                Dpi = _options.RasterFallbackDpi,
+                PageBox = PageBox.CropBox,
+                Antialiasing = 4,
+                Background = background,
+                Transparent = !hasBackground,
+                IncludeText = _options.IncludeText,
+                OptionalContentVisibility = _options.OptionalContentVisibility
+            };
+            PdfRectangle? fallback = SvgRasterFallbackBounds.Calculate(
+                _page,
+                graphics,
+                rasterOptions);
+            if (fallback is null)
+                return;
+
+            PdfRectangle source = fallback.Value;
             double scale = _options.RasterFallbackDpi / 72.0;
-            int width = Math.Max(1, checked((int)Math.Ceiling(_crop.Width * scale)));
-            int height = Math.Max(1, checked((int)Math.Ceiling(_crop.Height * scale)));
+            int width = Math.Max(1, checked((int)Math.Ceiling(source.Width * scale)));
+            int height = Math.Max(1, checked((int)Math.Ceiling(source.Height * scale)));
             long pixels = checked((long)width * height);
             if (pixels > _page.ReadOptions.MaximumSvgFallbackPixels)
             {
@@ -155,29 +185,24 @@ internal static class SvgPageRenderer
                     $"SVG raster fallback contains {pixels} pixels, exceeding the configured limit.");
             }
 
-            bool hasBackground = TryParseBackground(
-                _options.Background,
-                out PdfColor background);
             PdfBitmap bitmap = PdfRasterRenderer.RenderSubset(
                 _page,
                 graphics,
-                new RasterRenderOptions
-                {
-                    Dpi = _options.RasterFallbackDpi,
-                    PageBox = PageBox.CropBox,
-                    Antialiasing = 4,
-                    Background = background,
-                    Transparent = !hasBackground,
-                    IncludeText = _options.IncludeText,
-                    OptionalContentVisibility = _options.OptionalContentVisibility
-                });
-            _svg.Append("  <image x=\"0\" y=\"0\" width=\"");
-            _svg.Append(Format(_crop.Width));
+                rasterOptions,
+                source);
+            double cropLeft = Math.Min(_crop.Left, _crop.Right);
+            double cropTop = Math.Max(_crop.Bottom, _crop.Top);
+            _svg.Append("  <image x=\"");
+            _svg.Append(Format(source.Left - cropLeft));
+            _svg.Append("\" y=\"");
+            _svg.Append(Format(cropTop - source.Top));
+            _svg.Append("\" width=\"");
+            _svg.Append(Format(source.Width));
             _svg.Append("\" height=\"");
-            _svg.Append(Format(_crop.Height));
+            _svg.Append(Format(source.Height));
             _svg.Append("\" preserveAspectRatio=\"none\" href=\"data:image/png;base64,");
             _svg.Append(Convert.ToBase64String(bitmap.ToPngBytes()));
-            _svg.AppendLine("\"/>");
+            AppendLine("\"/>");
         }
 
         private static bool TryParseBackground(
@@ -266,20 +291,20 @@ internal static class SvgPageRenderer
         {
             if (_clips.Count == 0 && _brushes.Count == 0)
                 return;
-            _svg.AppendLine("  <defs>");
+            AppendLine("  <defs>");
             foreach (PdfClipPath clip in _clips)
             {
                 _svg.Append("    <clipPath id=\"");
                 _svg.Append(_clipIds[clip]);
-                _svg.AppendLine("\" clipPathUnits=\"userSpaceOnUse\">");
+                AppendLine("\" clipPathUnits=\"userSpaceOnUse\">");
                 _svg.Append("      <path d=\"");
                 _svg.Append(PathData(clip.Path));
                 _svg.Append("\" transform=\"");
                 _svg.Append(Matrix(clip.Transform));
                 _svg.Append("\" clip-rule=\"");
                 _svg.Append(clip.FillRule == PdfFillRule.EvenOdd ? "evenodd" : "nonzero");
-                _svg.AppendLine("\"/>");
-                _svg.AppendLine("    </clipPath>");
+                AppendLine("\"/>");
+                AppendLine("    </clipPath>");
             }
 
             foreach (BrushKey key in _brushes)
@@ -296,7 +321,7 @@ internal static class SvgPageRenderer
                 }
             }
 
-            _svg.AppendLine("  </defs>");
+            AppendLine("  </defs>");
         }
 
         private void WriteGradient(
@@ -338,19 +363,19 @@ internal static class SvgPageRenderer
                 _svg.Append('"');
             }
 
-            _svg.AppendLine(">");
+            AppendLine(">");
             foreach (PdfGradientStop stop in gradient.Stops)
             {
                 _svg.Append("      <stop offset=\"");
                 _svg.Append(Format(Math.Clamp(stop.Offset, 0, 1) * 100));
                 _svg.Append("%\" stop-color=\"");
                 _svg.Append(Color(stop.Color));
-                _svg.AppendLine("\"/>");
+                AppendLine("\"/>");
             }
 
             _svg.Append("    </");
             _svg.Append(tag);
-            _svg.AppendLine(">");
+            AppendLine(">");
         }
 
         private void WritePattern(string id, PdfTilingPatternBrush pattern)
@@ -369,9 +394,9 @@ internal static class SvgPageRenderer
                 _svg.Append('"');
             }
 
-            _svg.AppendLine(">");
+            AppendLine(">");
             WriteElements(pattern.Elements, indent: 3);
-            _svg.AppendLine("    </pattern>");
+            AppendLine("    </pattern>");
         }
 
         private void WriteElements(
@@ -391,7 +416,7 @@ internal static class SvgPageRenderer
                     Indent(indent + openGroups);
                     _svg.Append("<g clip-path=\"url(#");
                     _svg.Append(_clipIds[clip]);
-                    _svg.AppendLine(")\">");
+                    AppendLine(")\">");
                     openGroups++;
                 }
 
@@ -422,7 +447,7 @@ internal static class SvgPageRenderer
                 for (int index = openGroups - 1; index >= 0; index--)
                 {
                     Indent(indent + index);
-                    _svg.AppendLine("</g>");
+                    AppendLine("</g>");
                 }
             }
         }
@@ -437,7 +462,7 @@ internal static class SvgPageRenderer
             _svg.Append('"');
             WritePaint(element);
             WriteBlendMode(element.State.BlendMode);
-            _svg.AppendLine("/>");
+            AppendLine("/>");
         }
 
         private void WritePaint(PdfPathElement element)
@@ -500,7 +525,7 @@ internal static class SvgPageRenderer
                 _svg.Append(" matrix(1 0 0 -1 0 1)\"");
                 Attribute("opacity", image.State.FillAlpha);
                 WriteBlendMode(image.State.BlendMode);
-                _svg.AppendLine("/>");
+                AppendLine("/>");
             }
 
             if (_options.DrawImageBounds)
@@ -512,7 +537,7 @@ internal static class SvgPageRenderer
                 _svg.Append("\"><title>");
                 _svg.Append(Escape(
                     $"Image /{image.ResourceName}: {image.Width}x{image.Height}, {image.ColorSpace}"));
-                _svg.AppendLine("</title></rect>");
+                AppendLine("</title></rect>");
             }
         }
 
@@ -532,7 +557,7 @@ internal static class SvgPageRenderer
             _svg.Append('"');
             Attribute("fill-opacity", shading.State.FillAlpha);
             WriteBlendMode(shading.State.BlendMode);
-            _svg.AppendLine("/>");
+            AppendLine("/>");
         }
 
         private void WriteTransparencyGroup(
@@ -553,10 +578,10 @@ internal static class SvgPageRenderer
                 _svg.Append(string.Join(';', styles));
                 _svg.Append('"');
             }
-            _svg.AppendLine(">");
+            AppendLine(">");
             WriteElements(group.Elements, indent + 1);
             Indent(indent);
-            _svg.AppendLine("</g>");
+            AppendLine("</g>");
         }
 
         private void WriteTextElement(PdfTextElement element, int indent)
@@ -609,7 +634,7 @@ internal static class SvgPageRenderer
                 WriteBlendMode(element.State.BlendMode);
                 _svg.Append(" xml:space=\"preserve\">");
                 _svg.Append(Escape(placement.Glyph.Text));
-                _svg.AppendLine("</text>");
+                AppendLine("</text>");
             }
         }
 

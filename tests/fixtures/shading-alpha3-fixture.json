@@ -1,0 +1,56 @@
+{
+  "file": "shading-alpha3.pdf",
+  "sha256": "82634dc1ccc914125c0a26ae67144d6d95471edda4e77c1fd70e78c256135321",
+  "pages": [
+    "type1-sampled-and-component-functions",
+    "type1-calculator-type2-type3-and-singular-matrix",
+    "transformed-clipped-thin-and-degenerate-gouraud-meshes",
+    "adaptive-adjacent-coons-and-curved-tensor-patches",
+    "mesh-transparency-group-and-mesh-luminosity-mask"
+  ],
+  "managed_png_hash_mode": "canonical-png-content-v1",
+  "managed_png_sha256": {
+    "dpi72-aa4-opaque": [
+      "df0bebb34a70e2e7a4b52b04188a2a7abab2589a3febf030e95e93f68fad684f",
+      "8c617e610172f72e1da3dd97b34dab73841a2d2accba249f5d12c286387ab232",
+      "b25a263c060f51964fbb72de49c8e06e8fad8da98ca665a92c88a109ef865536",
+      "e867fa17b6b2e20862f9d6814df0984586b7243d7993a5149b1ccdddff0d7f6f",
+      "ba0228eb33b475b3e163f251d8777792ce792be707086249ae822c47573f221d"
+    ],
+    "dpi96-aa4-opaque": [
+      "a4dfb5c9d8aca51d855c61f813972690f477946bc059f4a3d1ed8c8cfc91eebc",
+      "7df8039bd2f4bbafe329c2ff1b9184fe73dc1befd0bfeaf7c9997da5030a3b90",
+      "0ef84f8970c50c37ca17680ceb59e198d16c6251f30c61afe0f054658ecd5cc0",
+      "4e92cd086f130379ad743e8ed6d7a2baccdce73cfb9a28097695df7ff43a4e60",
+      "b703918e94fa9190849e0fd1f88bc745bd5667cb138dd2e159f76f8e30fcc55f"
+    ],
+    "dpi144-aa4-opaque": [
+      "1bbc2c1340f5136cdd17ea5331812a15136544ea8f55b81ca5dabc25863d520e",
+      "f6b360d7a27d217dccfb96d82c34a1f85f11f1dfe15687b4a5b997b4cbff2f3c",
+      "4c9a87bf8984ae69614a938febed4b2f1680d4af2755bff53fe92e5deccb2dad",
+      "d27422404d2409aa1f83be2d8307dc983db64f960dcdce73ea73f30764ce08c2",
+      "13eb4b35be3076ae64240f3984c0f7945b2b92ecf2b66fe88b34dca235c31444"
+    ],
+    "dpi300-aa4-opaque": [
+      "f9f7d3e6fd2b4392dacf1f1489d7e67181e58a32e295bd2b12083854fe8b8bec",
+      "e3d1835df3d729d3c1bae3b526095d98874027fdd29efeb74c3cea44960c122a",
+      "9e6fff91b4150b589c6f538ca8c3e5930d2e7086ec57ffd239c574a3f23f3377",
+      "7d60b87099c55e06ebc04b6efd41c2c95292e9034e5ac2c49f356f15bd76e83f",
+      "3f0993d7ad4f591fbffa2d5876fc3ea0446d6d5c3af464a06e8f3febae7f7d08"
+    ]
+  },
+  "managed_transparent_page_sha256": {
+    "dpi72-aa4-page4": "5a6ce1a56129d3632a06d1068b44225754d92cd1d5696b2ed92538c93065b27e",
+    "dpi96-aa4-page4": "4aa2bee749065a7d271283c27fd05991021941daaffe72e3b1d6bb7651f79562",
+    "dpi144-aa4-page4": "bc5e2f4f0b3d9933849f8dd58195e175005693f35ab569eb45b55eea8ae32127",
+    "dpi300-aa4-page4": "debeb2168dd684c22d80289456314781813325001616ebe065e828f6f002ff10"
+  },
+  "managed_svg_hash_mode": "canonical-svg-content-v1",
+  "managed_svg_sha256": [
+    "4148f1f19848b532f527d6e6ef0b8a77fc168b1eca0920b2071ac5c16c15ae85",
+    "39c921c307a3062243ff3ad13aceae6a3dd5b319a365370e9b5b74dc45403616",
+    "90f8f63c60bbbea836bc4c2d8db063444eab7fd8401a9832320579c53fe3c20e",
+    "6a9d836c2ee807a0f457a204519f88b67b774b00acc47332d3162bc28b0fd751",
+    "b5d9d513dea5d3df16c27ec8e654516a206057bcb0c41f97427db606c4da642d"
+  ]
+}

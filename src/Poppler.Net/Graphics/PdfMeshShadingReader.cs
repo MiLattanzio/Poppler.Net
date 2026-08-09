@@ -53,6 +53,7 @@ internal static class PdfMeshShadingReader
         byte[] bytes = document.Decode(stream);
         var reader = new MeshBitReader(bytes);
         var triangles = new List<PdfMeshTriangle>();
+        var patches = new List<PdfMeshPatch>();
         bool success = type switch
         {
             4 => ReadFreeForm(
@@ -85,7 +86,8 @@ internal static class PdfMeshShadingReader
                 decode,
                 function,
                 colorSpace,
-                triangles),
+                triangles,
+                patches),
             _ => false
         };
         if (!success || triangles.Count == 0)
@@ -102,7 +104,8 @@ internal static class PdfMeshShadingReader
                 _ => PdfShadingKind.TensorProductPatch
             },
             triangles,
-            matrix);
+            matrix,
+            patches);
         return true;
     }
 
@@ -258,13 +261,14 @@ internal static class PdfMeshShadingReader
         double[] decode,
         PdfObject? function,
         PdfColorSpaceDefinition colorSpace,
-        List<PdfMeshTriangle> triangles)
+        List<PdfMeshTriangle> triangles,
+        List<PdfMeshPatch> patches)
     {
         int flagBits = dictionary.GetValueOrNull("BitsPerFlag").AsInteger(document) ?? 0;
         if (flagBits is < 1 or > 8)
             return false;
 
-        MeshPatch? previous = null;
+        PdfMeshPatch? previous = null;
         while (reader.TryRead(flagBits, out uint rawFlag))
         {
             int flag = (int)rawFlag;
@@ -304,22 +308,29 @@ internal static class PdfMeshShadingReader
             }
             reader.Align();
 
-            MeshPatch patch = CreatePatch(type, flag, points, colors, previous);
+            if (patches.Count >= document.Options.MaximumCollectionItems)
+            {
+                throw new PdfLimitException(
+                    "Mesh patch count exceeds the configured collection limit.");
+            }
+            PdfMeshPatch patch = CreatePatch(type, flag, points, colors, previous);
             Tessellate(patch, triangles, document);
+            patches.Add(patch);
             previous = patch;
         }
 
         return triangles.Count > 0;
     }
 
-    private static MeshPatch CreatePatch(
+    private static PdfMeshPatch CreatePatch(
         int type,
         int flag,
         IReadOnlyList<PdfPoint> points,
         IReadOnlyList<PdfColor> colors,
-        MeshPatch? previous)
+        PdfMeshPatch? previous)
     {
-        var patch = new MeshPatch();
+        var patch = new MeshPatchBuilder();
+        PdfMeshPatchEdge? sharedTopEdge = null;
         int offset = 0;
         if (flag == 0)
         {
@@ -331,9 +342,16 @@ internal static class PdfMeshShadingReader
         }
         else
         {
-            CopySharedEdge(patch, previous!, flag);
+            sharedTopEdge = previous!.GetEdge(flag switch
+            {
+                1 => PdfMeshPatchEdgeSide.Right,
+                2 => PdfMeshPatchEdgeSide.Bottom,
+                _ => PdfMeshPatchEdgeSide.Left
+            });
+            CopySharedEdge(patch, sharedTopEdge);
             SetRemainingBoundary(patch, points, ref offset);
-            CopySharedColors(patch, previous!, flag);
+            patch.Colors[0] = sharedTopEdge.StartColor;
+            patch.Colors[1] = sharedTopEdge.EndColor;
             patch.Colors[2] = colors[0];
             patch.Colors[3] = colors[1];
         }
@@ -349,11 +367,11 @@ internal static class PdfMeshShadingReader
         {
             CompleteCoonsInterior(patch);
         }
-        return patch;
+        return new PdfMeshPatch(patch.Points, patch.Colors, sharedTopEdge);
     }
 
     private static void SetBoundary(
-        MeshPatch patch,
+        MeshPatchBuilder patch,
         IReadOnlyList<PdfPoint> points,
         ref int offset)
     {
@@ -368,7 +386,7 @@ internal static class PdfMeshShadingReader
     }
 
     private static void SetRemainingBoundary(
-        MeshPatch patch,
+        MeshPatchBuilder patch,
         IReadOnlyList<PdfPoint> points,
         ref int offset)
     {
@@ -380,30 +398,15 @@ internal static class PdfMeshShadingReader
             patch.Points[row, 0] = points[offset++];
     }
 
-    private static void CopySharedEdge(MeshPatch patch, MeshPatch previous, int flag)
+    private static void CopySharedEdge(
+        MeshPatchBuilder patch,
+        PdfMeshPatchEdge sharedEdge)
     {
         for (int index = 0; index < 4; index++)
-        {
-            patch.Points[0, index] = flag switch
-            {
-                1 => previous.Points[index, 3],
-                2 => previous.Points[3, 3 - index],
-                _ => previous.Points[3 - index, 0]
-            };
-        }
+            patch.Points[0, index] = sharedEdge.GetControlPoint(index);
     }
 
-    private static void CopySharedColors(MeshPatch patch, MeshPatch previous, int flag)
-    {
-        (patch.Colors[0], patch.Colors[1]) = flag switch
-        {
-            1 => (previous.Colors[1], previous.Colors[2]),
-            2 => (previous.Colors[2], previous.Colors[3]),
-            _ => (previous.Colors[3], previous.Colors[0])
-        };
-    }
-
-    private static void CompleteCoonsInterior(MeshPatch patch)
+    private static void CompleteCoonsInterior(MeshPatchBuilder patch)
     {
         patch.Points[1, 1] = CoonsInterior(patch, 0, 0);
         patch.Points[1, 2] = CoonsInterior(patch, 0, 3);
@@ -411,7 +414,10 @@ internal static class PdfMeshShadingReader
         patch.Points[2, 2] = CoonsInterior(patch, 3, 3);
     }
 
-    private static PdfPoint CoonsInterior(MeshPatch patch, int cornerRow, int cornerColumn)
+    private static PdfPoint CoonsInterior(
+        MeshPatchBuilder patch,
+        int cornerRow,
+        int cornerColumn)
     {
         int oppositeRow = 3 - cornerRow;
         int oppositeColumn = 3 - cornerColumn;
@@ -439,7 +445,7 @@ internal static class PdfMeshShadingReader
     }
 
     private static void Tessellate(
-        MeshPatch patch,
+        PdfMeshPatch patch,
         List<PdfMeshTriangle> triangles,
         PdfDocumentCore document)
     {
@@ -455,8 +461,8 @@ internal static class PdfMeshShadingReader
             {
                 double v = column / (double)PatchDivisions;
                 grid[row, column] = new PdfMeshVertex(
-                    EvaluatePatchPoint(patch, u, v),
-                    EvaluatePatchColor(patch, u, v));
+                    patch.EvaluatePoint(u, v),
+                    patch.EvaluateColor(u, v));
             }
         }
 
@@ -475,58 +481,6 @@ internal static class PdfMeshShadingReader
             }
         }
     }
-
-    private static PdfPoint EvaluatePatchPoint(MeshPatch patch, double u, double v)
-    {
-        double[] bu = Bernstein(u);
-        double[] bv = Bernstein(v);
-        double x = 0;
-        double y = 0;
-        for (int row = 0; row < 4; row++)
-        {
-            for (int column = 0; column < 4; column++)
-            {
-                double weight = bu[row] * bv[column];
-                x += patch.Points[row, column].X * weight;
-                y += patch.Points[row, column].Y * weight;
-            }
-        }
-        return new PdfPoint(x, y);
-    }
-
-    private static PdfColor EvaluatePatchColor(MeshPatch patch, double u, double v)
-    {
-        (double r00, double g00, double b00) = patch.Colors[0].ToRgb();
-        (double r01, double g01, double b01) = patch.Colors[1].ToRgb();
-        (double r11, double g11, double b11) = patch.Colors[2].ToRgb();
-        (double r10, double g10, double b10) = patch.Colors[3].ToRgb();
-        return PdfColor.Rgb(
-            Bilinear(r00, r01, r11, r10, u, v),
-            Bilinear(g00, g01, g11, g10, u, v),
-            Bilinear(b00, b01, b11, b10, u, v));
-    }
-
-    private static double[] Bernstein(double value)
-    {
-        double inverse = 1 - value;
-        return new[]
-        {
-            inverse * inverse * inverse,
-            3 * value * inverse * inverse,
-            3 * value * value * inverse,
-            value * value * value
-        };
-    }
-
-    private static double Bilinear(
-        double topLeft,
-        double topRight,
-        double bottomRight,
-        double bottomLeft,
-        double u,
-        double v) =>
-        (1 - u) * ((1 - v) * topLeft + v * topRight) +
-        u * ((1 - v) * bottomLeft + v * bottomRight);
 
     private static bool TryReadVertex(
         MeshBitReader reader,
@@ -644,7 +598,7 @@ internal static class PdfMeshShadingReader
         triangles.Add(new PdfMeshTriangle(first, second, third));
     }
 
-    private sealed class MeshPatch
+    private sealed class MeshPatchBuilder
     {
         public PdfPoint[,] Points { get; } = new PdfPoint[4, 4];
         public PdfColor[] Colors { get; } = new PdfColor[4];

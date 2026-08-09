@@ -113,36 +113,70 @@ public sealed class TransparencyCompositingAlpha2Tests
                 FixtureDirectory(),
                 root.GetProperty("file").GetString()!))),
             Is.EqualTo(root.GetProperty("sha256").GetString()));
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(
+                root.GetProperty("managed_png_hash_mode").GetString(),
+                Is.EqualTo(CanonicalRenderingHash.PngMode));
+            Assert.That(
+                root.GetProperty("managed_svg_hash_mode").GetString(),
+                Is.EqualTo(CanonicalRenderingHash.SvgMode));
+        }));
 
-        string[] expectedPng = root.GetProperty("managed_png_sha256")
-            .GetProperty("dpi72-aa4-opaque-fixed-fonts")
+        const string renderKey = "dpi72-aa4-opaque-fixed-fonts";
+        JsonElement expectedPngHashes = root.GetProperty("managed_png_sha256")
+            .GetProperty(renderKey);
+        string[] expectedPng = expectedPngHashes
             .EnumerateArray()
             .Select(value => value.GetString()!)
             .ToArray();
-        string[] expectedSvg = root.GetProperty("managed_svg_sha256")
-            .GetProperty("default")
+        JsonElement approvedPngVariants = root
+            .GetProperty("managed_png_sha256_approved_variants")
+            .GetProperty(renderKey);
+        JsonElement svgHashes = root.GetProperty("managed_svg_sha256");
+        string[] expectedSvg = svgHashes
+            .GetProperty("alpha3-bounded-fallback")
             .EnumerateArray()
             .Select(value => value.GetString()!)
             .ToArray();
         using Document document = LoadCorpus();
         string fontDirectory = Path.Combine(FixtureDirectory(), "beta-fonts");
+        var actualPng = new string[document.Pages];
+        var actualSvg = new string[document.Pages];
         for (int index = 0; index < document.Pages; index++)
         {
             Page page = document.CreatePage(index);
-            string png = Hash(page.RenderToPng(new RasterRenderOptions
+            actualPng[index] = CanonicalRenderingHash.Png(page.RenderToPng(
+                new RasterRenderOptions
             {
                 Dpi = 72,
                 Antialiasing = 4,
                 FontDirectories = new[] { fontDirectory }
             }));
-            string svg = Hash(System.Text.Encoding.UTF8.GetBytes(
-                page.RenderToSvg()));
-            Assert.Multiple((Action)(() =>
-            {
-                Assert.That(png, Is.EqualTo(expectedPng[index]), $"PNG page {index + 1}");
-                Assert.That(svg, Is.EqualTo(expectedSvg[index]), $"SVG page {index + 1}");
-            }));
+            actualSvg[index] = CanonicalRenderingHash.Svg(page.RenderToSvg());
         }
+
+        Assert.Multiple((Action)(() =>
+        {
+            for (int index = 0; index < actualPng.Length; index++)
+            {
+                var approved = new List<string> { expectedPng[index] };
+                if (approvedPngVariants.TryGetProperty(
+                        (index + 1).ToString(
+                            System.Globalization.CultureInfo.InvariantCulture),
+                        out JsonElement variants))
+                {
+                    approved.AddRange(variants
+                        .EnumerateArray()
+                        .Select(value => value.GetString()!));
+                }
+                Assert.That(
+                    approved,
+                    Does.Contain(actualPng[index]),
+                    $"PNG content page {index + 1}");
+            }
+            Assert.That(actualSvg, Is.EqualTo(expectedSvg), "SVG content");
+        }));
     }
 
     [Test]

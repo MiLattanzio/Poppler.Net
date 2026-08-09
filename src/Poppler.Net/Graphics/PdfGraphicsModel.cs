@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using Poppler.Color;
 using Poppler.Graphics;
 
 namespace Poppler;
@@ -181,7 +182,8 @@ public enum PdfShadingKind
     FreeFormGouraud,
     LatticeGouraud,
     CoonsPatch,
-    TensorProductPatch
+    TensorProductPatch,
+    FunctionBased
 }
 
 public sealed record PdfGradientStop(double Offset, PdfColor Color);
@@ -214,6 +216,55 @@ public sealed record PdfGradientBrush : PdfBrush
     public PdfMatrix Matrix { get; }
 }
 
+/// <summary>A PDF type 1 shading evaluated over a two-dimensional domain.</summary>
+public sealed record PdfFunctionShadingBrush : PdfBrush
+{
+    internal PdfFunctionShadingBrush(
+        PdfRectangle domain,
+        PdfRectangle? boundingBox,
+        PdfMatrix matrix,
+        PdfMatrix boundingBoxMatrix,
+        IEnumerable<PdfFunction> functions,
+        PdfColorSpaceDefinition colorSpace)
+    {
+        ArgumentNullException.ThrowIfNull(functions);
+        ArgumentNullException.ThrowIfNull(colorSpace);
+        PdfFunction[] functionArray = functions.ToArray();
+        if (functionArray.Length == 0)
+            throw new ArgumentException("At least one shading function is required.", nameof(functions));
+        Domain = domain;
+        BoundingBox = boundingBox;
+        Matrix = matrix;
+        BoundingBoxMatrix = boundingBoxMatrix;
+        Functions = functionArray;
+        ColorSpace = colorSpace;
+    }
+
+    public PdfShadingKind Kind => PdfShadingKind.FunctionBased;
+    public PdfRectangle Domain { get; }
+    public PdfRectangle? BoundingBox { get; }
+    public PdfMatrix Matrix { get; }
+
+    internal PdfMatrix BoundingBoxMatrix { get; }
+    internal IReadOnlyList<PdfFunction> Functions { get; }
+    internal PdfColorSpaceDefinition ColorSpace { get; }
+
+    internal PdfColor Evaluate(double x, double y)
+    {
+        Span<double> input = stackalloc double[2];
+        input[0] = x;
+        input[1] = y;
+        int componentCount = ColorSpace.Components;
+        if (Functions.Count == 1)
+            return ColorSpace.Convert(Functions[0].Evaluate(input, componentCount));
+
+        var components = new double[componentCount];
+        for (int index = 0; index < components.Length; index++)
+            components[index] = Functions[index].Evaluate(input, 1)[0];
+        return ColorSpace.Convert(components);
+    }
+}
+
 /// <summary>A vertex and its decoded color in a PDF mesh shading.</summary>
 public readonly record struct PdfMeshVertex(PdfPoint Point, PdfColor Color);
 
@@ -224,8 +275,8 @@ public readonly record struct PdfMeshTriangle(
     PdfMeshVertex Third);
 
 /// <summary>
-/// A type 4-7 PDF mesh shading. Patch meshes are adaptively represented by a
-/// bounded triangle tessellation so rendering remains backend-neutral.
+/// A type 4-7 PDF mesh shading. Triangles expose a deterministic representation
+/// for inspection while patch meshes retain their parametric source internally.
 /// </summary>
 public sealed record PdfMeshShadingBrush : PdfBrush
 {
@@ -240,11 +291,24 @@ public sealed record PdfMeshShadingBrush : PdfBrush
         Kind = kind;
         Triangles = Array.AsReadOnly(triangles.ToArray());
         Matrix = matrix;
+        Patches = Array.Empty<PdfMeshPatch>();
+    }
+
+    internal PdfMeshShadingBrush(
+        PdfShadingKind kind,
+        IEnumerable<PdfMeshTriangle> triangles,
+        PdfMatrix matrix,
+        IEnumerable<PdfMeshPatch> patches)
+        : this(kind, triangles, matrix)
+    {
+        ArgumentNullException.ThrowIfNull(patches);
+        Patches = Array.AsReadOnly(patches.ToArray());
     }
 
     public PdfShadingKind Kind { get; }
     public IReadOnlyList<PdfMeshTriangle> Triangles { get; }
     public PdfMatrix Matrix { get; }
+    internal IReadOnlyList<PdfMeshPatch> Patches { get; }
 }
 
 public abstract record PdfPathSegment
@@ -424,6 +488,14 @@ public sealed record PdfShadingElement(
 public sealed record PdfMeshShadingElement(
     string ResourceName,
     PdfMeshShadingBrush Shading,
+    PdfGraphicsState State,
+    IReadOnlyList<PdfClipPath> ClipPaths,
+    string? SourceResource = null)
+    : PdfGraphicsElement(State, ClipPaths, SourceResource);
+
+public sealed record PdfFunctionShadingElement(
+    string ResourceName,
+    PdfFunctionShadingBrush Shading,
     PdfGraphicsState State,
     IReadOnlyList<PdfClipPath> ClipPaths,
     string? SourceResource = null)

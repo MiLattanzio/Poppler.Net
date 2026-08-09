@@ -392,8 +392,9 @@ def corpus() -> bytes:
 def main() -> None:
     data = corpus()
     pdf = ROOT / "rendering-beta2.pdf"
+    manifest = ROOT / "rendering-beta2-fixture.json"
     pdf.write_bytes(data)
-    (ROOT / "rendering-beta2-fixture.json").write_text(
+    contents = (
         json.dumps(
             {
                 "file": pdf.name,
@@ -409,9 +410,9 @@ def main() -> None:
             },
             indent=2,
         )
-        + "\n",
-        encoding="utf-8",
+        + "\n"
     )
+    manifest.write_bytes(contents.encode("utf-8"))
 
 
 if __name__ == "__main__":

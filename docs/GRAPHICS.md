@@ -1,6 +1,6 @@
 # Managed graphics engine
 
-Version `0.12.0-alpha.2` retains and extends the backend-neutral slice of Poppler
+Version `0.12.0-alpha.3` retains and extends the backend-neutral slice of Poppler
 26.07.0 `Gfx`, `GfxState`, `Function`, pattern and XObject behavior. It parses
 page content into immutable managed objects; it does not call Poppler, Cairo,
 FreeType or another native renderer.
@@ -103,14 +103,18 @@ Shading patterns and direct `sh` painting support:
 - function type 0 sampled and type 2 exponential interpolation;
 - function type 3 stitching, including function arrays;
 - bounded function type 4 calculator programs;
+- function-based shading type 1 with `/Domain`, `/Matrix`, optional `/BBox`,
+  one two-input multicomponent function or one two-input function per color
+  component;
 - `/Extend` flags and bounded generated stops.
 - type 4 free-form and type 5 lattice Gouraud triangle meshes;
-- type 6 Coons and type 7 tensor-product patch meshes, converted to a bounded
-  deterministic triangle list.
+- type 6 Coons and type 7 tensor-product patch meshes, retaining their
+  parametric control grids and shared edges for bounded deterministic adaptive
+  tessellation at render time.
 
-Function-based shading type 1 remains an explicit limitation. Mesh rendering
-is raster-only; SVG uses its configured embedded-PNG fallback or explicitly
-omits the page in `SvgFallbackMode.Omit`.
+Type 1 and mesh rendering are raster-backed in SVG. The fallback is cropped to
+conservative painted bounds, embedded as a PNG data URI, and can still be
+explicitly omitted with `SvgFallbackMode.Omit`.
 
 ## Resource limits
 
@@ -145,6 +149,7 @@ Limit failures throw `PdfLimitException` and are covered by NUnit tests.
 | clipping state | `PdfClipPath` |
 | `GfxTilingPattern` | `PdfTilingPatternBrush` |
 | `GfxAxialShading`/`GfxRadialShading` | `PdfGradientBrush` |
+| `GfxFunctionShading` | `PdfFunctionShadingBrush` |
 | Gouraud/Coons/tensor mesh shadings | `PdfMeshShadingBrush` |
 | sampled/exponential/stitching/calculator `Function` | `PdfFunction` |
 | `OutputDev` boundary | `PdfGraphicsElement` display list, including `PdfTextElement` |

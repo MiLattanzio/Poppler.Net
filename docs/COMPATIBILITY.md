@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.12.0-alpha.2
+## Works in 0.12.0-alpha.3
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -69,8 +69,13 @@
 - Colored and uncolored tiling patterns plus shading patterns.
 - Type 2 axial and type 3 radial shadings in device color spaces using
   exponential and stitching functions.
+- Function-based shading type 1 with two-input sampled/calculator functions,
+  component-function arrays, `/Domain`, `/Matrix`, `/BBox`, clipping and
+  deterministic singular-matrix omission.
 - Type 4 free-form and type 5 lattice Gouraud meshes plus type 6 Coons and
-  type 7 tensor-product patch meshes, exposed through bounded triangle lists.
+  type 7 tensor-product patch meshes. Patch control grids and shared edges are
+  retained for bounded device-space adaptive tessellation; deterministic
+  triangle lists remain exposed for inspection.
 - Public backend-neutral `Page.Graphics` display lists.
 - Public `PdfTextElement` entries in exact page/Form content-stream order,
   carrying font, size, glyph count, graphics state and all eight `Tr` modes.
@@ -95,7 +100,8 @@
 - Managed SVG vector output for paths, clipping, representable Form content,
   tiling patterns, axial/radial gradients, decoded Image XObjects and extracted
   text, with a default deterministic embedded-PNG fallback for unsupported
-  group/mesh semantics and an explicit historical `Omit` mode.
+  group/type-1/mesh semantics, conservative fallback bounds and an explicit
+  historical `Omit` mode.
 - Managed full-page RGBA raster output and PNG encoding at configurable DPI,
   Crop/Media/Bleed/Trim/Art page box and PDF page rotation.
 - Supersampled path fill/stroke and clip coverage at 1×, 2×, 4× or 8×,
@@ -191,11 +197,10 @@
   release (including ambiguous Flate/LZW/CCITT/JBIG2/JPX cases), unusual
   filter chains or unsupported color spaces may still require more complete
   recovery.
-- SVG uses a full-page raster fallback when one unsupported construct is
-  present; group-bounds fallback and native SVG mesh painting are not yet
-  implemented. `SvgFallbackMode.Omit` intentionally skips such constructs.
-- Shading type 1 is not painted. Patch meshes use a fixed bounded tessellation
-  rather than Poppler's adaptive device-space subdivision.
+- SVG does not emit native type 1 or type 4–7 mesh primitives. It embeds a
+  deterministic cropped managed PNG; nonzero page rotation conservatively
+  retains the complete CropBox. `SvgFallbackMode.Omit` intentionally skips
+  these constructs.
 - ICC LUT/device-link profiles, rendering intents, black-point compensation,
   proofing, spot-color calibration and spot-color overprint are not
   implemented. Process overprint is an sRGB managed preview rather than a
