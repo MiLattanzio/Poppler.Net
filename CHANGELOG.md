@@ -18,7 +18,9 @@
   independent Poppler 26.07 visual comparison.
 - Canonicalized raster golden hashes over PNG headers and uncompressed pixel
   rows, including PNG data embedded in SVG fallbacks, so CI remains strict on
-  rendered content without depending on the platform zlib implementation.
+  rendered content without depending on the platform zlib implementation;
+  the legacy mixed-content transparency page retains a bounded explicit set
+  of approved runtime variants.
 
 ## 0.12.0-alpha.2 — 2026-08-09
 

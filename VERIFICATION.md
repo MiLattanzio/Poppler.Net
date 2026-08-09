@@ -10,8 +10,8 @@ slice is not present.
 - NUnitLite executed 262 tests: 262 passed, 0 failed, 0 warnings and 0 skipped.
 - The managed-only verifier accepted production source and every asset in the
   restored NuGet graph.
-- `Poppler.Net.0.12.0-alpha.3.nupkg` is 421,384 bytes with SHA-256
-  `1b40e7af15c2591c83918c78771a218d6094326ad2e5b3e811092eb78c79c6fd`.
+- `Poppler.Net.0.12.0-alpha.3.nupkg` is 421,443 bytes with SHA-256
+  `17563cee912669a38a900b185683c9768397d3afed7040e631caa1acaf0492ff`.
 - The package contains only the Release net8.0 DLL/XML, README, release notes,
   license, notice and NuGet metadata. No unexpected binary/native entry is
   present.
@@ -70,7 +70,9 @@ raster/SVG renders of one page from one `Document` are byte-identical.
 The historical `rendering-beta2.pdf` and `transparency-alpha2.pdf` generators
 also reproduce their PDFs and manifests byte for byte. The alpha 2 manifest
 attributes the current bounded output to `alpha3-bounded-fallback` and uses
-the same compression-independent PNG/SVG content hashing.
+the same compression-independent PNG/SVG content hashing. Its mixed-content
+page 4 explicitly records the baseline plus the Windows and macOS CI variants;
+all other alpha 2 and alpha 3 outputs retain a single approved content hash.
 
 ## Independent Poppler comparison
 

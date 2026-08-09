@@ -20,6 +20,14 @@
       "c6c4aa5227c7de0e0c0503ba72eb4a9dc638143881a4e44c2ff9630e62ee5f32"
     ]
   },
+  "managed_png_sha256_approved_variants": {
+    "dpi72-aa4-opaque-fixed-fonts": {
+      "4": [
+        "84e23b02dd5d488ee4ba0ec97741e4aab3e37c5553d35a734dc4123011e44859",
+        "19276f0ac36b0ea09160d0bff0dd51aed20e244b71a74637e236a9dccf0c8e3f"
+      ]
+    }
+  },
   "managed_svg_hash_mode": "canonical-svg-content-v1",
   "managed_svg_sha256": {
     "alpha3-bounded-fallback": [

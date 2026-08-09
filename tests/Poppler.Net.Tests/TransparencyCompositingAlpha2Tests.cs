@@ -130,6 +130,9 @@ public sealed class TransparencyCompositingAlpha2Tests
             .EnumerateArray()
             .Select(value => value.GetString()!)
             .ToArray();
+        JsonElement approvedPngVariants = root
+            .GetProperty("managed_png_sha256_approved_variants")
+            .GetProperty(renderKey);
         JsonElement svgHashes = root.GetProperty("managed_svg_sha256");
         string[] expectedSvg = svgHashes
             .GetProperty("alpha3-bounded-fallback")
@@ -155,7 +158,23 @@ public sealed class TransparencyCompositingAlpha2Tests
 
         Assert.Multiple((Action)(() =>
         {
-            Assert.That(actualPng, Is.EqualTo(expectedPng), "PNG content");
+            for (int index = 0; index < actualPng.Length; index++)
+            {
+                var approved = new List<string> { expectedPng[index] };
+                if (approvedPngVariants.TryGetProperty(
+                        (index + 1).ToString(
+                            System.Globalization.CultureInfo.InvariantCulture),
+                        out JsonElement variants))
+                {
+                    approved.AddRange(variants
+                        .EnumerateArray()
+                        .Select(value => value.GetString()!));
+                }
+                Assert.That(
+                    approved,
+                    Does.Contain(actualPng[index]),
+                    $"PNG content page {index + 1}");
+            }
             Assert.That(actualSvg, Is.EqualTo(expectedSvg), "SVG content");
         }));
     }

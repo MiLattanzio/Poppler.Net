@@ -85,7 +85,9 @@ triangle.
 
 All historical corpus tests remain active. The alpha 2 transparency corpus
 now records the alpha 3 bounded-fallback output with the same canonical
-render-content hashing used by the new shading corpus.
+render-content hashing used by the new shading corpus. Its legacy mixed-content
+page has a small explicit set of approved runtime variants; any unrecognized
+pixel output still fails the manifest gate.
 
 ## Installation
 
