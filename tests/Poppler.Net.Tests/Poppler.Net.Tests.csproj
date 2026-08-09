@@ -70,6 +70,9 @@
     <None Include="..\fixtures\shading-alpha3-fixture.json"
           Link="Fixtures\shading-alpha3-fixture.json"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\poppler-beta1-compatibility.json"
+          Link="Fixtures\poppler-beta1-compatibility.json"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\robustness-beta2-fixture.json"
           Link="Fixtures\robustness-beta2-fixture.json"
           CopyToOutputDirectory="PreserveNewest" />

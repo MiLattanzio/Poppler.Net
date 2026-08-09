@@ -121,3 +121,20 @@ byte with the selected source set. That extracted copy is restored from the
 approved managed package cache, rebuilt without warnings, tested, verified as
 managed-only, repackaged and exercised through the CLI. No push, tag, GitHub
 release or NuGet publication is part of this verification.
+
+## Beta 1 compatibility-closure baseline
+
+The first `0.12.0-beta.1` slice adds a reproducible Poppler differential gate
+over the existing geometry, transparency and shading corpora. Nineteen pages
+are compared at 72 DPI using normalized RGB mean absolute error. Every page has
+an explicit budget and a written classification in
+`tests/fixtures/poppler-beta1-compatibility.json`; the manifest is checked by
+the managed test suite and the optional
+`tests/fixtures/verify_poppler_beta1_compatibility.py` runner reproduces the
+native comparison without adding a runtime dependency.
+
+All recorded measurements fit their approved budgets. The gate distinguishes
+expected antialiasing, high-precision compositing and adaptive-tessellation
+differences from the intentional odd-dash negative-phase semantic difference.
+The Poppler 26.07.0 source remains the semantic reference, while the local
+measurement renderer is Poppler 26.05.0.
