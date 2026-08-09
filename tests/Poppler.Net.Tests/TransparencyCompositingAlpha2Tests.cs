@@ -131,8 +131,12 @@ public sealed class TransparencyCompositingAlpha2Tests
             .EnumerateArray()
             .Select(value => value.GetString()!)
             .ToArray();
-        string[] expectedSvg = root.GetProperty("managed_svg_sha256")
-            .GetProperty("default")
+        JsonElement svgHashes = root.GetProperty("managed_svg_sha256");
+        Assert.That(
+            svgHashes.GetProperty("default").GetArrayLength(),
+            Is.EqualTo(root.GetProperty("pages").GetArrayLength()));
+        string[] expectedSvg = svgHashes
+            .GetProperty("alpha3-bounded-fallback")
             .EnumerateArray()
             .Select(value => value.GetString()!)
             .ToArray();

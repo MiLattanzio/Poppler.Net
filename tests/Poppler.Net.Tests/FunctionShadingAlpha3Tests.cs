@@ -1,6 +1,8 @@
+using System.Buffers.Binary;
 using Poppler;
 using Poppler.Graphics;
 using Poppler.Rendering;
+using StbImageSharp;
 
 namespace Poppler.Net.Tests;
 
@@ -90,8 +92,100 @@ public sealed class FunctionShadingAlpha3Tests
         {
             Assert.That(second, Is.EqualTo(first));
             Assert.That(first, Does.Contain("data:image/png;base64,"));
+            Assert.That(
+                first,
+                Does.Contain("<image x=\"25\" y=\"0\" width=\"50\" height=\"100\""));
+            (int width, int height) = EmbeddedPngSize(first);
+            Assert.That(width, Is.EqualTo(50));
+            Assert.That(height, Is.EqualTo(100));
             Assert.That(omitted, Does.Not.Contain("data:image/png;base64,"));
         }));
+    }
+
+    [Test]
+    public void SvgFallbackPixelLimitUsesTheEffectiveBoundingBox()
+    {
+        using Document accepted = Load(new PdfReadOptions
+        {
+            MaximumSvgFallbackPixels = 5_000
+        });
+        string svg = accepted.CreatePage(0).RenderToSvg(new SvgRenderOptions
+        {
+            RasterFallbackDpi = 72
+        });
+        Assert.That(svg, Does.Contain("width=\"50\" height=\"100\""));
+
+        using Document rejected = Load(new PdfReadOptions
+        {
+            MaximumSvgFallbackPixels = 4_999
+        });
+        Assert.That(
+            (Action)(() => rejected.CreatePage(0).RenderToSvg(new SvgRenderOptions
+            {
+                RasterFallbackDpi = 72
+            })),
+            Throws.TypeOf<PdfLimitException>());
+
+        using Document singular = Load(new PdfReadOptions
+        {
+            MaximumSvgFallbackPixels = 1
+        });
+        string empty = singular.CreatePage(3).RenderToSvg(new SvgRenderOptions
+        {
+            RasterFallbackDpi = 72
+        });
+        Assert.That(empty, Does.Not.Contain("data:image/png;base64,"));
+    }
+
+    [Test]
+    public void CroppedSvgFallbackMatchesTheFullPageRasterPixelForPixel()
+    {
+        using Document document = Load();
+        Page page = document.CreatePage(0);
+        string svg = page.RenderToSvg(new SvgRenderOptions
+        {
+            RasterFallbackDpi = 72,
+            Background = "#ffffff"
+        });
+        byte[] embedded = EmbeddedPng(svg);
+        ImageResult crop = ImageResult.FromMemory(
+            embedded,
+            ColorComponents.RedGreenBlueAlpha);
+        PdfBitmap full = page.Render(new RasterRenderOptions
+        {
+            Dpi = 72,
+            Antialiasing = 4,
+            Background = PdfColor.Rgb(1, 1, 1),
+            UseFontSubstitution = false
+        });
+        byte[] reconstructed = Enumerable.Repeat((byte)255, full.Data.Length).ToArray();
+        const int offsetX = 25;
+        for (int y = 0; y < crop.Height; y++)
+        {
+            crop.Data.AsSpan(y * crop.Width * 4, crop.Width * 4).CopyTo(
+                reconstructed.AsSpan(
+                    (y * full.Width + offsetX) * 4,
+                    crop.Width * 4));
+        }
+
+        Assert.That(reconstructed, Is.EqualTo(full.Data.ToArray()));
+    }
+
+    [Test]
+    public void CroppedSvgFallbackIncludesDegenerateStrokedPathBounds()
+    {
+        using Document document = Document.LoadFromData(
+            PdfFixtures.CreateBoundedFallbackStrokeFixture());
+
+        string svg = document.CreatePage(0).RenderToSvg(new SvgRenderOptions
+        {
+            RasterFallbackDpi = 72
+        });
+
+        Assert.That(
+            svg,
+            Does.Contain("<image x=\"9\" y=\"25\" width=\"66\" height=\"66\""));
+        Assert.That(EmbeddedPngSize(svg), Is.EqualTo((66, 66)));
     }
 
     [Test]
@@ -132,6 +226,22 @@ public sealed class FunctionShadingAlpha3Tests
             Antialiasing = 1,
             UseFontSubstitution = false
         });
+
+    private static (int Width, int Height) EmbeddedPngSize(string svg)
+    {
+        byte[] png = EmbeddedPng(svg);
+        return (
+            BinaryPrimitives.ReadInt32BigEndian(png.AsSpan(16, 4)),
+            BinaryPrimitives.ReadInt32BigEndian(png.AsSpan(20, 4)));
+    }
+
+    private static byte[] EmbeddedPng(string svg)
+    {
+        const string marker = "data:image/png;base64,";
+        int start = svg.IndexOf(marker, StringComparison.Ordinal) + marker.Length;
+        int end = svg.IndexOf('"', start);
+        return Convert.FromBase64String(svg[start..end]);
+    }
 
     private static void AssertPixel(
         PdfBitmap bitmap,

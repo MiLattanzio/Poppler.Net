@@ -154,9 +154,30 @@ internal static class SvgPageRenderer
         private void WriteRasterFallback(
             IReadOnlyList<PdfGraphicsElement> graphics)
         {
+            bool hasBackground = TryParseBackground(
+                _options.Background,
+                out PdfColor background);
+            var rasterOptions = new RasterRenderOptions
+            {
+                Dpi = _options.RasterFallbackDpi,
+                PageBox = PageBox.CropBox,
+                Antialiasing = 4,
+                Background = background,
+                Transparent = !hasBackground,
+                IncludeText = _options.IncludeText,
+                OptionalContentVisibility = _options.OptionalContentVisibility
+            };
+            PdfRectangle? fallback = SvgRasterFallbackBounds.Calculate(
+                _page,
+                graphics,
+                rasterOptions);
+            if (fallback is null)
+                return;
+
+            PdfRectangle source = fallback.Value;
             double scale = _options.RasterFallbackDpi / 72.0;
-            int width = Math.Max(1, checked((int)Math.Ceiling(_crop.Width * scale)));
-            int height = Math.Max(1, checked((int)Math.Ceiling(_crop.Height * scale)));
+            int width = Math.Max(1, checked((int)Math.Ceiling(source.Width * scale)));
+            int height = Math.Max(1, checked((int)Math.Ceiling(source.Height * scale)));
             long pixels = checked((long)width * height);
             if (pixels > _page.ReadOptions.MaximumSvgFallbackPixels)
             {
@@ -164,26 +185,21 @@ internal static class SvgPageRenderer
                     $"SVG raster fallback contains {pixels} pixels, exceeding the configured limit.");
             }
 
-            bool hasBackground = TryParseBackground(
-                _options.Background,
-                out PdfColor background);
             PdfBitmap bitmap = PdfRasterRenderer.RenderSubset(
                 _page,
                 graphics,
-                new RasterRenderOptions
-                {
-                    Dpi = _options.RasterFallbackDpi,
-                    PageBox = PageBox.CropBox,
-                    Antialiasing = 4,
-                    Background = background,
-                    Transparent = !hasBackground,
-                    IncludeText = _options.IncludeText,
-                    OptionalContentVisibility = _options.OptionalContentVisibility
-                });
-            _svg.Append("  <image x=\"0\" y=\"0\" width=\"");
-            _svg.Append(Format(_crop.Width));
+                rasterOptions,
+                source);
+            double cropLeft = Math.Min(_crop.Left, _crop.Right);
+            double cropTop = Math.Max(_crop.Bottom, _crop.Top);
+            _svg.Append("  <image x=\"");
+            _svg.Append(Format(source.Left - cropLeft));
+            _svg.Append("\" y=\"");
+            _svg.Append(Format(cropTop - source.Top));
+            _svg.Append("\" width=\"");
+            _svg.Append(Format(source.Width));
             _svg.Append("\" height=\"");
-            _svg.Append(Format(_crop.Height));
+            _svg.Append(Format(source.Height));
             _svg.Append("\" preserveAspectRatio=\"none\" href=\"data:image/png;base64,");
             _svg.Append(Convert.ToBase64String(bitmap.ToPngBytes()));
             AppendLine("\"/>");

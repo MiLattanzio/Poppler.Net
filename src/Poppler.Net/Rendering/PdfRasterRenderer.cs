@@ -63,21 +63,22 @@ internal sealed class PdfRasterRenderer
     internal static PdfBitmap RenderSubset(
         Page page,
         IReadOnlyList<PdfGraphicsElement> elements,
-        RasterRenderOptions options)
+        RasterRenderOptions options,
+        PdfRectangle source)
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(elements);
         ArgumentNullException.ThrowIfNull(options);
-        return RenderCore(page, elements, options.Snapshot());
+        return RenderCore(page, elements, options.Snapshot(), source);
     }
 
     private static PdfBitmap RenderCore(
         Page page,
         IReadOnlyList<PdfGraphicsElement> elements,
-        RasterRenderOptions options)
+        RasterRenderOptions options,
+        PdfRectangle? sourceOverride = null)
     {
-
-        PdfRectangle source = page.PageRect(options.PageBox);
+        PdfRectangle source = sourceOverride ?? page.PageRect(options.PageBox);
         double left = Math.Min(source.Left, source.Right);
         double right = Math.Max(source.Left, source.Right);
         double bottom = Math.Min(source.Bottom, source.Top);

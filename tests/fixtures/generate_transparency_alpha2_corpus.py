@@ -470,7 +470,7 @@ def main() -> None:
     pdf = ROOT / "transparency-alpha2.pdf"
     manifest = ROOT / "transparency-alpha2-fixture.json"
     pdf.write_bytes(data)
-    manifest.write_text(
+    manifest_contents = (
         json.dumps(
             {
                 "file": pdf.name,
@@ -511,14 +511,22 @@ def main() -> None:
                         "a50de6486a73abd39253d8a0b30169cee6e28c285c1397281e11891364abfbd2",
                         "76bfb10f95d1de6fd539e8738f48dc7d8fbd93bc500419f53b8394de0ae6aab7",
                         "7d90d81daed39f7c41b554cf5f40b522ac0ce93dc9d7003ba335810c6d617821",
-                    ]
+                    ],
+                    "alpha3-bounded-fallback": [
+                        "6712bbd305abc5f3769a7228353be0f955ea43089a0e9b62c7ea562013316b3d",
+                        "f4ce867687f80a6dffa8dddd420f6026433b6ed739cee59e9cc7d20bb456c9a8",
+                        "3285fbaefa4ff8605437547179e73f3894d6f245a7e5eff8d5183dcc662df39b",
+                        "a50de6486a73abd39253d8a0b30169cee6e28c285c1397281e11891364abfbd2",
+                        "76bfb10f95d1de6fd539e8738f48dc7d8fbd93bc500419f53b8394de0ae6aab7",
+                        "7d90d81daed39f7c41b554cf5f40b522ac0ce93dc9d7003ba335810c6d617821",
+                    ],
                 },
             },
             indent=2,
         )
-        + "\n",
-        encoding="utf-8",
+        + "\n"
     )
+    manifest.write_bytes(manifest_contents.encode("utf-8"))
 
 
 if __name__ == "__main__":

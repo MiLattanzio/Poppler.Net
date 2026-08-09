@@ -136,6 +136,29 @@ public sealed class RenderingBeta2Tests
     }
 
     [Test]
+    public void SvgFallbackCropsAllFourMeshKindsToTheirSupport()
+    {
+        using Document document = Load();
+
+        string gouraud = document.CreatePage(0).RenderToSvg();
+        string patches = document.CreatePage(1).RenderToSvg();
+
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(
+                gouraud,
+                Does.Contain(
+                    "<image x=\"18.5\" y=\"78\" width=\"189\" height=\"69.5\""));
+            Assert.That(
+                patches,
+                Does.Contain(
+                    "<image x=\"0\" y=\"65.5\" width=\"224\" height=\"91.5\""));
+            Assert.That(gouraud, Does.Contain("data:image/png;base64,"));
+            Assert.That(patches, Does.Contain("data:image/png;base64,"));
+        }));
+    }
+
+    [Test]
     public void ReusesUncoloredPatternWithIndependentUnderlyingColors()
     {
         using Document document = Load();

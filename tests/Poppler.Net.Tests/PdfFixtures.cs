@@ -113,6 +113,35 @@ internal static class PdfFixtures
         return BuildClassic(objects, infoObject: null);
     }
 
+    public static byte[] CreateBoundedFallbackStrokeFixture()
+    {
+        byte[] sampledRgb =
+        {
+            0, 0, 0,
+            255, 0, 0,
+            0, 255, 0,
+            255, 255, 0
+        };
+        var objects = new[]
+        {
+            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+            Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] " +
+                "/Resources << /Shading << /S 5 0 R >> >> /Contents 4 0 R >>"),
+            ContentStream("1 j 0 J 2 w 10 10 m 10 30 l S /S sh"),
+            Ascii(
+                "<< /ShadingType 1 /ColorSpace /DeviceRGB /Domain [0 1 0 1] " +
+                "/Matrix [25 0 0 25 50 50] /BBox [50 50 75 75] /Function 6 0 R >>"),
+            Stream(
+                $"<< /FunctionType 0 /Domain [0 1 0 1] /Range [0 1 0 1 0 1] " +
+                $"/Size [2 2] /BitsPerSample 8 /Decode [0 1 0 1 0 1] " +
+                $"/Length {sampledRgb.Length} >>",
+                sampledRgb)
+        };
+        return BuildClassic(objects, infoObject: null);
+    }
+
     private static byte[] SampledComponent(byte[] samples) =>
         Stream(
             $"<< /FunctionType 0 /Domain [0 1 0 1] /Range [0 1] " +
