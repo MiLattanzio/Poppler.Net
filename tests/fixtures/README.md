@@ -81,8 +81,10 @@ component arrays; one-input exponential/stitching gradient functions;
 transformed, clipped, thin and degenerate Gouraud meshes; adjacent curved
 Coons patches and a tensor patch; and meshes inside an isolated transparency
 group and a luminosity soft mask. `shading-alpha3-fixture.json` freezes managed
-PNG output at 72, 96, 144 and 300 DPI, a transparent patch page and bounded
-SVG fallbacks. Poppler 26.05 independently opens and renders all five pages.
+PNG content at 72, 96, 144 and 300 DPI, a transparent patch page and bounded
+SVG fallbacks. Golden hashes cover uncompressed PNG pixel rows and canonicalize
+embedded SVG PNGs, avoiding platform zlib differences without relaxing pixel
+comparisons. Poppler 26.05 independently opens and renders all five pages.
 
 ## Annotations
 

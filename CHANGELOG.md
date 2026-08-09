@@ -16,6 +16,9 @@
 - Added a deterministic five-page shading corpus, four-DPI raster manifests,
   transparent and SVG hashes, shared-document concurrency checks and
   independent Poppler 26.07 visual comparison.
+- Canonicalized raster golden hashes over PNG headers and uncompressed pixel
+  rows, including PNG data embedded in SVG fallbacks, so CI remains strict on
+  rendered content without depending on the platform zlib implementation.
 
 ## 0.12.0-alpha.2 — 2026-08-09
 

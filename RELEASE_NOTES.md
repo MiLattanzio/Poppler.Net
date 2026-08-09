@@ -72,16 +72,20 @@ The deterministic five-page `shading-alpha3.pdf` corpus covers:
 - adjacent high-curvature Coons patches and a tensor patch;
 - meshes inside an isolated group and a luminosity soft mask.
 
-Managed PNG hashes are frozen at 72, 96, 144 and 300 DPI. Transparent patch
-output, bounded SVG data URIs and eight-way raster/SVG concurrency are frozen
-separately. Poppler 26.05 independently opens and renders every page. At 72
-DPI the normalized RGB mean absolute errors are `0.00285`, `0.00455`,
-`0.00342`, `0.00476` and `0.00339`; the most visible difference is confined
-to antialiasing of the intentionally thin/degenerate triangle.
+Managed PNG content hashes are frozen at 72, 96, 144 and 300 DPI. They include
+the PNG header and uncompressed pixel rows, while SVG hashes canonicalize any
+embedded PNG in the same way. This preserves exact rendered-content checks
+without treating platform-specific zlib output as a rendering change.
+Transparent patch output, bounded SVG data URIs and eight-way raster/SVG
+concurrency are frozen separately. Poppler 26.05 independently opens and
+renders every page. At 72 DPI the normalized RGB mean absolute errors are
+`0.00285`, `0.00455`, `0.00342`, `0.00476` and `0.00339`; the most visible
+difference is confined to antialiasing of the intentionally thin/degenerate
+triangle.
 
-All historical manifests remain active. The alpha 2 full-page SVG hashes are
-preserved in their original manifest key, while the attributed alpha 3
-bounded-fallback hashes are recorded separately.
+All historical corpus tests remain active. The alpha 2 transparency corpus
+now records the alpha 3 bounded-fallback output with the same canonical
+render-content hashing used by the new shading corpus.
 
 ## Installation
 

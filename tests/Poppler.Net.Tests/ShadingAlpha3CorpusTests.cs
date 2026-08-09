@@ -110,8 +110,12 @@ public sealed class ShadingAlpha3CorpusTests
     {
         using JsonDocument manifest = Manifest();
         using Document document = Load();
+        Assert.That(
+            manifest.RootElement.GetProperty("managed_png_hash_mode").GetString(),
+            Is.EqualTo(CanonicalRenderingHash.PngMode));
         JsonElement configurations = manifest.RootElement
             .GetProperty("managed_png_sha256");
+        var results = new List<(string Name, string[] Actual, string[] Expected)>();
 
         foreach (JsonProperty configuration in configurations.EnumerateObject())
         {
@@ -123,21 +127,26 @@ public sealed class ShadingAlpha3CorpusTests
                 .Select(value => value.GetString()!)
                 .ToArray();
             Assert.That(expected, Has.Length.EqualTo(document.PageCount));
+            var actual = new string[document.PageCount];
             for (int pageIndex = 0; pageIndex < document.PageCount; pageIndex++)
             {
-                string actual = Hash(document.CreatePage(pageIndex).RenderToPng(
+                actual[pageIndex] = CanonicalRenderingHash.Png(
+                    document.CreatePage(pageIndex).RenderToPng(
                     new RasterRenderOptions
                     {
                         Dpi = dpi,
                         Antialiasing = 4,
                         UseFontSubstitution = false
                     }));
-                Assert.That(
-                    actual,
-                    Is.EqualTo(expected[pageIndex]),
-                    $"{configuration.Name}, page {pageIndex + 1}");
             }
+            results.Add((configuration.Name, actual, expected));
         }
+
+        Assert.Multiple((Action)(() =>
+        {
+            foreach ((string name, string[] actual, string[] expected) in results)
+                Assert.That(actual, Is.EqualTo(expected), name);
+        }));
     }
 
     [Test]
@@ -145,7 +154,17 @@ public sealed class ShadingAlpha3CorpusTests
     {
         using JsonDocument manifest = Manifest();
         using Document document = Load();
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(
+                manifest.RootElement.GetProperty("managed_png_hash_mode").GetString(),
+                Is.EqualTo(CanonicalRenderingHash.PngMode));
+            Assert.That(
+                manifest.RootElement.GetProperty("managed_svg_hash_mode").GetString(),
+                Is.EqualTo(CanonicalRenderingHash.SvgMode));
+        }));
         Page transparentPage = document.CreatePage(3);
+        var transparentResults = new List<(string Name, string Actual, string Expected)>();
         foreach (JsonProperty configuration in manifest.RootElement
                      .GetProperty("managed_transparent_page_sha256")
                      .EnumerateObject())
@@ -154,7 +173,7 @@ public sealed class ShadingAlpha3CorpusTests
             double dpi = double.Parse(
                 dpiToken[3..],
                 System.Globalization.CultureInfo.InvariantCulture);
-            string actual = Hash(transparentPage.RenderToPng(
+            string actual = CanonicalRenderingHash.Png(transparentPage.RenderToPng(
                 new RasterRenderOptions
                 {
                     Dpi = dpi,
@@ -162,7 +181,8 @@ public sealed class ShadingAlpha3CorpusTests
                     Transparent = true,
                     UseFontSubstitution = false
                 }));
-            Assert.That(actual, Is.EqualTo(configuration.Value.GetString()));
+            string expected = configuration.Value.GetString()!;
+            transparentResults.Add((configuration.Name, actual, expected));
         }
 
         string[] expectedSvg = manifest.RootElement
@@ -170,14 +190,20 @@ public sealed class ShadingAlpha3CorpusTests
             .EnumerateArray()
             .Select(value => value.GetString()!)
             .ToArray();
+        var actualSvg = new string[document.PageCount];
         for (int pageIndex = 0; pageIndex < document.PageCount; pageIndex++)
         {
             string svg = document.CreatePage(pageIndex).RenderToSvg();
             Assert.That(svg, Does.Contain("data:image/png;base64,"));
-            Assert.That(
-                Hash(Encoding.UTF8.GetBytes(svg)),
-                Is.EqualTo(expectedSvg[pageIndex]));
+            actualSvg[pageIndex] = CanonicalRenderingHash.Svg(svg);
         }
+
+        Assert.Multiple((Action)(() =>
+        {
+            foreach ((string name, string actual, string expected) in transparentResults)
+                Assert.That(actual, Is.EqualTo(expected), name);
+            Assert.That(actualSvg, Is.EqualTo(expectedSvg));
+        }));
     }
 
     [Test]
