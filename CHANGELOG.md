@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.12.0-beta.1 — 2026-08-10
+
+- Added a reproducible Poppler differential gate with per-page error budgets
+  and classifications across the geometry, transparency and shading corpora.
+- Added a deterministic three-page cross-feature corpus for transformed dashed
+  strokes in reused isolated groups, a Coons mesh through a type 1 luminosity
+  mask and even-odd clip, and transformed groups inside a rotated CropBox.
+- Frozen 72 DPI opaque/transparent output and canonical SVG fallbacks without
+  adding a native runtime or CI dependency.
+
 ## 0.12.0-alpha.3 — 2026-08-09
 
 - Added public function-based shading type 1 display-list values with

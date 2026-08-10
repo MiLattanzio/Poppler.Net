@@ -1,0 +1,229 @@
+{
+  "semantic_reference": "Poppler 26.07.0",
+  "measured_renderer": "pdftoppm 26.05.0",
+  "metric": "normalized-rgb-mean-absolute-error-v1",
+  "render": {
+    "dpi": 72,
+    "managed_antialiasing": 4,
+    "background": "opaque",
+    "managed_font_substitution": false
+  },
+  "corpora": [
+    {
+      "id": "geometry",
+      "file": "raster-geometry-alpha1.pdf",
+      "sha256": "32fb3960c725637ea4de1a03c27f1f381d57f549a89f12398bab5fd19c6fdf66",
+      "page_manifest": "raster-geometry-alpha1-fixture.json",
+      "poppler_options": [
+        "-cropbox"
+      ],
+      "pages": [
+        {
+          "number": 1,
+          "name": "caps-joins-and-miter-limits",
+          "baseline_mae": 0.001746085,
+          "maximum_mae": 0.003,
+          "changed_rgb_pixels_over_8": 0.028438,
+          "classification": "stroke-edge antialiasing"
+        },
+        {
+          "number": 2,
+          "name": "zero-length-and-hairlines",
+          "baseline_mae": 0.006547249,
+          "maximum_mae": 0.009,
+          "changed_rgb_pixels_over_8": 0.023542,
+          "classification": "hairline coverage and zero-length cap antialiasing"
+        },
+        {
+          "number": 3,
+          "name": "dash-phase-odd-zero-and-closure",
+          "baseline_mae": 0.011747447,
+          "maximum_mae": 0.014,
+          "changed_rgb_pixels_over_8": 0.031198,
+          "classification": "intentional PDF odd-array duplication versus Poppler negative-phase normalization, plus edge antialiasing"
+        },
+        {
+          "number": 4,
+          "name": "anisotropic-shear-and-reflection",
+          "baseline_mae": 0.007988834,
+          "maximum_mae": 0.011,
+          "changed_rgb_pixels_over_8": 0.033151,
+          "classification": "device-space coverage under anisotropic and reflected transforms"
+        },
+        {
+          "number": 5,
+          "name": "tight-curves-cusps-and-reversals",
+          "baseline_mae": 0.002041054,
+          "maximum_mae": 0.004,
+          "changed_rgb_pixels_over_8": 0.026927,
+          "classification": "curve flattening and cusp antialiasing"
+        },
+        {
+          "number": 6,
+          "name": "self-intersection-and-collinearity",
+          "baseline_mae": 0.004386983,
+          "maximum_mae": 0.007,
+          "changed_rgb_pixels_over_8": 0.036380,
+          "classification": "self-intersection and near-collinear join coverage"
+        },
+        {
+          "number": 7,
+          "name": "nested-nonzero-evenodd-page-edge-clips",
+          "baseline_mae": 0.000846167,
+          "maximum_mae": 0.002,
+          "changed_rgb_pixels_over_8": 0.015755,
+          "classification": "clip-boundary antialiasing"
+        },
+        {
+          "number": 8,
+          "name": "cropbox-edge-and-page-rotation",
+          "baseline_mae": 0.002770602,
+          "maximum_mae": 0.005,
+          "changed_rgb_pixels_over_8": 0.042659,
+          "classification": "CropBox-aligned rotation and page-edge antialiasing"
+        }
+      ]
+    },
+    {
+      "id": "transparency",
+      "file": "transparency-alpha2.pdf",
+      "sha256": "4776510211fc97ec94fce458806952fe2ecd33e14ad62738f70acc5d1c700a7a",
+      "page_manifest": "transparency-alpha2-fixture.json",
+      "poppler_options": [],
+      "pages": [
+        {
+          "number": 1,
+          "name": "isolated-knockout-grid",
+          "baseline_mae": 0.006170838,
+          "maximum_mae": 0.009,
+          "changed_rgb_pixels_over_8": 0.114553,
+          "classification": "group-boundary quantization across the isolated and knockout matrix"
+        },
+        {
+          "number": 2,
+          "name": "three-level-nesting-and-boundary-blend",
+          "baseline_mae": 0.002979521,
+          "maximum_mae": 0.005,
+          "changed_rgb_pixels_over_8": 0.017387,
+          "classification": "nested high-precision group boundary rounding"
+        },
+        {
+          "number": 3,
+          "name": "alpha-luminosity-backdrop-transfer-and-clips",
+          "baseline_mae": 0.001343137,
+          "maximum_mae": 0.003,
+          "changed_rgb_pixels_over_8": 0.007375,
+          "classification": "soft-mask transfer quantization and partial-clip edges"
+        },
+        {
+          "number": 4,
+          "name": "text-image-pattern-shading-and-annotation",
+          "baseline_mae": 0.007608369,
+          "maximum_mae": 0.020,
+          "changed_rgb_pixels_over_8": 0.036254,
+          "classification": "font availability, managed image-codec samples, and mixed-content antialiasing"
+        },
+        {
+          "number": 5,
+          "name": "separable-and-nonseparable-blend-grid",
+          "baseline_mae": 0.002578227,
+          "maximum_mae": 0.005,
+          "changed_rgb_pixels_over_8": 0.019375,
+          "classification": "8-bit versus high-precision blend rounding"
+        },
+        {
+          "number": 6,
+          "name": "two-by-two-numeric-formulas",
+          "baseline_mae": 0.046078431,
+          "maximum_mae": 0.055,
+          "changed_rgb_pixels_over_8": 0.250000,
+          "classification": "one 2x2 diagnostic sample exposes the documented group-boundary rounding difference"
+        }
+      ]
+    },
+    {
+      "id": "shading",
+      "file": "shading-alpha3.pdf",
+      "sha256": "82634dc1ccc914125c0a26ae67144d6d95471edda4e77c1fd70e78c256135321",
+      "page_manifest": "shading-alpha3-fixture.json",
+      "poppler_options": [],
+      "pages": [
+        {
+          "number": 1,
+          "name": "type1-sampled-and-component-functions",
+          "baseline_mae": 0.002847324,
+          "maximum_mae": 0.004,
+          "changed_rgb_pixels_over_8": 0.004687,
+          "classification": "function interpolation and clip-edge antialiasing"
+        },
+        {
+          "number": 2,
+          "name": "type1-calculator-type2-type3-and-singular-matrix",
+          "baseline_mae": 0.004553343,
+          "maximum_mae": 0.006,
+          "changed_rgb_pixels_over_8": 0.009089,
+          "classification": "function interpolation and gradient-edge antialiasing"
+        },
+        {
+          "number": 3,
+          "name": "transformed-clipped-thin-and-degenerate-gouraud-meshes",
+          "baseline_mae": 0.003421773,
+          "maximum_mae": 0.005,
+          "changed_rgb_pixels_over_8": 0.007682,
+          "classification": "intentional thin and degenerate mesh antialiasing"
+        },
+        {
+          "number": 4,
+          "name": "adaptive-adjacent-coons-and-curved-tensor-patches",
+          "baseline_mae": 0.004763651,
+          "maximum_mae": 0.006,
+          "changed_rgb_pixels_over_8": 0.012500,
+          "classification": "adaptive patch tessellation and edge antialiasing"
+        },
+        {
+          "number": 5,
+          "name": "mesh-transparency-group-and-mesh-luminosity-mask",
+          "baseline_mae": 0.003388957,
+          "maximum_mae": 0.005,
+          "changed_rgb_pixels_over_8": 0.010156,
+          "classification": "mesh tessellation plus transparency and luminosity-mask rounding"
+        }
+      ]
+    },
+    {
+      "id": "cross-feature",
+      "file": "compatibility-beta1.pdf",
+      "sha256": "707ff82cf5b7ab30bec5036cf8ebabacad83143bd29ce07ba28b6d7ff8811431",
+      "page_manifest": "compatibility-beta1-fixture.json",
+      "poppler_options": [
+        "-cropbox"
+      ],
+      "pages": [
+        {
+          "number": 1,
+          "name": "reused-isolated-dashed-stroke-groups",
+          "baseline_mae": 0.007798615,
+          "maximum_mae": 0.011,
+          "changed_rgb_pixels_over_8": 0.045085,
+          "classification": "odd-dash phase semantics, transformed stroke coverage, and isolated-group boundary rounding"
+        },
+        {
+          "number": 2,
+          "name": "coons-mesh-through-type1-luminosity-mask-and-evenodd-clip",
+          "baseline_mae": 0.019085777,
+          "maximum_mae": 0.024,
+          "changed_rgb_pixels_over_8": 0.042842,
+          "classification": "adaptive patch tessellation combined with type 1 luminosity-mask and group-boundary quantization"
+        },
+        {
+          "number": 3,
+          "name": "rotated-cropbox-with-transformed-groups-and-conservative-svg-fallback",
+          "baseline_mae": 0.003756047,
+          "maximum_mae": 0.006,
+          "changed_rgb_pixels_over_8": 0.026010,
+          "classification": "rotated CropBox coordinates, transformed group coverage, and edge antialiasing"
+        }
+      ]
+    }
+  ]
+}
