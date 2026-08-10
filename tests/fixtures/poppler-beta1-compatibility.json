@@ -189,6 +189,41 @@
           "classification": "mesh tessellation plus transparency and luminosity-mask rounding"
         }
       ]
+    },
+    {
+      "id": "cross-feature",
+      "file": "compatibility-beta1.pdf",
+      "sha256": "707ff82cf5b7ab30bec5036cf8ebabacad83143bd29ce07ba28b6d7ff8811431",
+      "page_manifest": "compatibility-beta1-fixture.json",
+      "poppler_options": [
+        "-cropbox"
+      ],
+      "pages": [
+        {
+          "number": 1,
+          "name": "reused-isolated-dashed-stroke-groups",
+          "baseline_mae": 0.007798615,
+          "maximum_mae": 0.011,
+          "changed_rgb_pixels_over_8": 0.045085,
+          "classification": "odd-dash phase semantics, transformed stroke coverage, and isolated-group boundary rounding"
+        },
+        {
+          "number": 2,
+          "name": "coons-mesh-through-type1-luminosity-mask-and-evenodd-clip",
+          "baseline_mae": 0.019085777,
+          "maximum_mae": 0.024,
+          "changed_rgb_pixels_over_8": 0.042842,
+          "classification": "adaptive patch tessellation combined with type 1 luminosity-mask and group-boundary quantization"
+        },
+        {
+          "number": 3,
+          "name": "rotated-cropbox-with-transformed-groups-and-conservative-svg-fallback",
+          "baseline_mae": 0.003756047,
+          "maximum_mae": 0.006,
+          "changed_rgb_pixels_over_8": 0.026010,
+          "classification": "rotated CropBox coordinates, transformed group coverage, and edge antialiasing"
+        }
+      ]
     }
   ]
 }

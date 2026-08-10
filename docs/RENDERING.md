@@ -283,6 +283,15 @@ group and a luminosity mask. Managed PNG hashes are frozen at 72, 96, 144 and
 separately. Poppler 26.05 opens and renders all pages; normalized RGB mean
 absolute error at 72 DPI is 0.00285, 0.00455, 0.00342, 0.00476 and 0.00339.
 
+The `0.12.0-beta.1` compatibility corpus adds three cross-feature pages. They
+combine transformed odd-dash strokes with reused isolated transparency groups,
+a Coons mesh through a two-input type 1 luminosity mask and even-odd clip, and
+both group families inside a rotated CropBox. Opaque/transparent 72 DPI and
+canonical 72 DPI SVG outputs are frozen. The non-rotated complex page uses
+a bounded `244x148` fallback inside a `260x180` page; the rotated page retains
+the complete `230x170` CropBox conservatively. These pages extend the Poppler
+differential baseline from 19 to 22 classified comparisons.
+
 This remains a compatibility-focused rasterizer with explicit limits:
 
 - unsupported calculator operators are rejected and reported rather than

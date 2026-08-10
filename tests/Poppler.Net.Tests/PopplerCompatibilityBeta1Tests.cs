@@ -19,7 +19,13 @@ public sealed class PopplerCompatibilityBeta1Tests
             .ToArray();
         Assert.That(
             corpora.Select(corpus => corpus.GetProperty("id").GetString()),
-            Is.EqualTo(new[] { "geometry", "transparency", "shading" }));
+            Is.EqualTo(new[]
+            {
+                "geometry",
+                "transparency",
+                "shading",
+                "cross-feature"
+            }));
 
         foreach (JsonElement corpus in corpora)
         {
@@ -73,7 +79,7 @@ public sealed class PopplerCompatibilityBeta1Tests
             .SelectMany(corpus => corpus.GetProperty("pages").EnumerateArray())
             .ToArray();
 
-        Assert.That(pages, Has.Length.EqualTo(19));
+        Assert.That(pages, Has.Length.EqualTo(22));
         Assert.Multiple((Action)(() =>
         {
             foreach (JsonElement page in pages)

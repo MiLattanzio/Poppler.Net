@@ -1,0 +1,28 @@
+{
+  "file": "compatibility-beta1.pdf",
+  "sha256": "707ff82cf5b7ab30bec5036cf8ebabacad83143bd29ce07ba28b6d7ff8811431",
+  "pages": [
+    "reused-isolated-dashed-stroke-groups",
+    "coons-mesh-through-type1-luminosity-mask-and-evenodd-clip",
+    "rotated-cropbox-with-transformed-groups-and-conservative-svg-fallback"
+  ],
+  "managed_png_hash_mode": "canonical-png-content-v1",
+  "managed_png_sha256": {
+    "dpi72-aa4-opaque": [
+      "c7bdc057ccacf0e1a30320a40a71e35a88a0eeeabd5e43d87e483490695383d0",
+      "9c87bfdb04658e6e369c980a1c62a26ac3d7ee36f75688dc9d31110648f72432",
+      "6e9127e0a1e28a58648f6471b7eda8798e05e42afde8598e8cdc9c4f01ca8cd7"
+    ]
+  },
+  "managed_transparent_sha256": [
+    "c7bdc057ccacf0e1a30320a40a71e35a88a0eeeabd5e43d87e483490695383d0",
+    "fe8a568777a38bdfc58e78f6e05ffcc38f4811cff03c236d2bf6e43939189c6a",
+    "429c6b076ffc179129bb878aa7ac5dae72036c6abeae2a70ad30ed61943ac920"
+  ],
+  "managed_svg_hash_mode": "canonical-svg-content-v1",
+  "managed_svg_sha256": [
+    "f0a4bbf1ef06c587b3d979c532167be8908900e500b3242e7875cef86e0da0c7",
+    "13e3eba1ef221c2b41a9d798de69b7f38ea7a8f6301ed2dc00c69448225ccbda",
+    "7849e97fe13f54a088fb0fc3a4b438dea4dff47eb985b9b44a52e82384809993"
+  ]
+}

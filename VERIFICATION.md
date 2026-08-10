@@ -125,9 +125,9 @@ release or NuGet publication is part of this verification.
 ## Beta 1 compatibility-closure baseline
 
 The first `0.12.0-beta.1` slice adds a reproducible Poppler differential gate
-over the existing geometry, transparency and shading corpora. Nineteen pages
-are compared at 72 DPI using normalized RGB mean absolute error. Every page has
-an explicit budget and a written classification in
+over the geometry, transparency, shading and cross-feature corpora. Twenty-two
+pages are compared at 72 DPI using normalized RGB mean absolute error. Every
+page has an explicit budget and a written classification in
 `tests/fixtures/poppler-beta1-compatibility.json`; the manifest is checked by
 the managed test suite and the optional
 `tests/fixtures/verify_poppler_beta1_compatibility.py` runner reproduces the
@@ -138,3 +138,11 @@ expected antialiasing, high-precision compositing and adaptive-tessellation
 differences from the intentional odd-dash negative-phase semantic difference.
 The Poppler 26.07.0 source remains the semantic reference, while the local
 measurement renderer is Poppler 26.05.0.
+
+The second slice adds the deterministic three-page `compatibility-beta1.pdf`
+corpus. It combines transformed dashed strokes with reused isolated groups; a
+Coons mesh with a type 1 luminosity mask, even-odd clip and dashed boundary;
+and both groups under a rotated CropBox. Canonical hashes freeze 72 DPI
+opaque/transparent output and 72 DPI SVG fallbacks. The non-rotated
+complex page embeds only its `244x148` painted support, while the rotated page
+conservatively retains its complete `230x170` CropBox.

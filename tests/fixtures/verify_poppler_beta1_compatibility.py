@@ -248,7 +248,8 @@ def main() -> int:
     if failures:
         print(f"{failures} compatibility comparison(s) exceeded their budget")
         return 1
-    print("All 19 Poppler compatibility comparisons are within budget")
+    comparisons = sum(len(corpus["pages"]) for corpus in manifest["corpora"])
+    print(f"All {comparisons} Poppler compatibility comparisons are within budget")
     return 0
 
 
