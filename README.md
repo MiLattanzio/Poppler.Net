@@ -1,5 +1,9 @@
 # Poppler.Net 26.07
 
+[![CI](https://github.com/MiLattanzio/Poppler.Net/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/MiLattanzio/Poppler.Net/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/vpre/Poppler.Net?label=NuGet&logo=nuget)](https://www.nuget.org/packages/Poppler.Net/)
+[![WebAssembly playground](https://img.shields.io/badge/WebAssembly-Playground-654ff0?logo=webassembly&logoColor=white)](https://milattanzio.github.io/Poppler.Net/)
+
 `Poppler.Net` is an **in-progress, source-level managed C# port** of Poppler
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
