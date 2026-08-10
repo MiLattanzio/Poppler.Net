@@ -44,6 +44,26 @@ public sealed class DocumentTests
     }
 
     [Test]
+    public void KeepsSvgTextUprightInsidePageCoordinateFlip()
+    {
+        using Document document = Document.LoadFromData(PdfFixtures.Create(compressContent: false));
+
+        string svg = document.CreatePage(0).RenderToSvg();
+
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(
+                svg,
+                Does.Contain("<g transform=\"matrix(1 0 0 -1 -0 792)\">"),
+                "the page transform must continue mapping PDF coordinates to SVG coordinates");
+            Assert.That(
+                svg,
+                Does.Contain("transform=\"matrix(18 0 0 -18 72 720)\""),
+                "native SVG text must cancel the page's vertical reflection in glyph space");
+        }));
+    }
+
+    [Test]
     public void DecodesFlateContent()
     {
         using Document document = Document.LoadFromData(PdfFixtures.Create(compressContent: true));

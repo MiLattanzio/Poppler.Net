@@ -611,7 +611,7 @@ internal static class SvgPageRenderer
                 _svg.Append("<text x=\"0\" y=\"0\" font-family=\"");
                 _svg.Append(Escape(family));
                 _svg.Append("\" font-size=\"1\" transform=\"");
-                _svg.Append(Matrix(placement.Transform));
+                _svg.Append(Matrix(SvgTextTransform(placement.Transform)));
                 _svg.Append("\" fill=\"");
                 _svg.Append(fill
                     ? Brush(element.State.Fill, PdfMatrix.Identity)
@@ -689,6 +689,20 @@ internal static class SvgPageRenderer
         private static string Matrix(PdfMatrix matrix) =>
             $"matrix({Format(matrix.A)} {Format(matrix.B)} {Format(matrix.C)} " +
             $"{Format(matrix.D)} {Format(matrix.E)} {Format(matrix.F)})";
+
+        private static PdfMatrix SvgTextTransform(PdfMatrix matrix) =>
+            // SVG glyphs rise along negative local Y, while PDF glyph space rises
+            // along positive Y. Reflect glyph-local Y before the page-level PDF-to-SVG
+            // transform so native text remains upright without moving its baseline.
+            new(
+                matrix.A,
+                matrix.B,
+                Reflect(matrix.C),
+                Reflect(matrix.D),
+                matrix.E,
+                matrix.F);
+
+        private static double Reflect(double value) => value == 0 ? 0 : -value;
 
         private static string Color(PdfColor color)
         {
