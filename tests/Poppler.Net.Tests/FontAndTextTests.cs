@@ -14,6 +14,7 @@ public sealed class FontAndTextTests
         Assert.That(page.Text(), Is.EqualTo("fi€😀"));
         Assert.That(page.Fonts, Has.Count.EqualTo(1));
         FontInfo font = page.Fonts[0];
+        Assert.That(font.Name, Is.EqualTo("FixtureSerif"));
         Assert.That(font.Type, Is.EqualTo(PdfFontType.Type1));
         Assert.That(font.Encoding, Is.EqualTo("WinAnsiEncoding"));
         Assert.That(font.IsSubset, Is.True);

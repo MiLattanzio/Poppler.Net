@@ -156,18 +156,21 @@ internal sealed partial class PdfFontDecoder
             declaredSubtype,
             effectiveSubtype,
             actualFormat);
+        bool isSubset = IsSubsetName(Name);
         Info = new FontInfo(
             resourceName,
-            Name,
+            isSubset ? Name[7..] : Name,
             type,
             encodingName,
             writingMode,
             fontProgram is not null,
             actualFormat,
             fontProgram?.Length ?? 0,
-            IsSubsetName(Name),
+            isSubset,
             _toUnicode.HasUnicodeMappings,
             _collection);
+        if (fontProgram is not null)
+            EmbeddedFontProgramStore.Set(Info, fontProgram);
     }
 
     public string Name { get; }

@@ -1,6 +1,7 @@
 @page "/"
 @implements IDisposable
 @inject HttpClient Http
+@inject IJSRuntime JS
 
 <PageTitle>Poppler.Net Playground · PDF nel browser</PageTitle>
 
@@ -119,6 +120,9 @@
                             <div><dt>Struttura</dt><dd>@(_document.IsLinearized ? "Linearizzato" : "Standard")</dd></div>
                             <div><dt>Cifratura</dt><dd>@(_document.IsEncrypted ? _document.PasswordKind.ToString() : "Nessuna")</dd></div>
                         </dl>
+                        <button type="button" class="download-action full-width" @onclick="DownloadSourcePdfAsync" disabled="@(_selectedBytes is null || _isBusy)">
+                            Scarica PDF originale
+                        </button>
                     </div>
 
                     <div class="render-controls">
@@ -247,14 +251,19 @@
                             </label>
                             <button type="button" title="Pagina successiva" @onclick="NextPageAsync" disabled="@(_pageIndex >= _document.Pages - 1 || _isBusy)">→</button>
                         </div>
-                        @if (_page is not null)
-                        {
-                            <div class="page-facts">
-                                <span>@_page.Orientation</span>
-                                <span>@FormatNumber(_pageRect.Width) × @FormatNumber(_pageRect.Height) pt</span>
-                                <span>rot. @_page.Rotation°</span>
-                            </div>
-                        }
+                        <div class="viewer-actions">
+                            @if (_page is not null)
+                            {
+                                <div class="page-facts">
+                                    <span>@_page.Orientation</span>
+                                    <span>@FormatNumber(_pageRect.Width) × @FormatNumber(_pageRect.Height) pt</span>
+                                    <span>rot. @_page.Rotation°</span>
+                                </div>
+                            }
+                            <button type="button" class="download-action compact" @onclick="DownloadPreviewAsync" disabled="@(_previewBytes is null || _isBusy)">
+                                Scarica @(_previewFormat == PreviewFormat.Png ? "PNG" : "SVG")
+                            </button>
+                        </div>
                     </div>
 
                     <div class="canvas-area">
@@ -318,6 +327,18 @@
                                 <div><span class="cap-icon">◫</span><strong>Immagini</strong><small>Decodifica e conversione PNG</small></div>
                                 <div><span class="cap-icon">⌁</span><strong>Struttura PDF</strong><small>Outline, livelli, form e allegati</small></div>
                             </div>
+                            <section class="export-panel" aria-label="Esporta documento e pagina">
+                                <div class="export-copy">
+                                    <span class="cap-icon">↓</span>
+                                    <div><strong>Esporta i risultati</strong><small>File generati localmente, senza upload al server.</small></div>
+                                </div>
+                                <div class="export-actions">
+                                    <button type="button" class="download-action" @onclick="DownloadSourcePdfAsync" disabled="@(_selectedBytes is null || _isBusy)">PDF originale</button>
+                                    <button type="button" class="download-action" @onclick="DownloadPreviewAsync" disabled="@(_previewBytes is null || _isBusy)">Anteprima @(_previewFormat == PreviewFormat.Png ? "PNG" : "SVG")</button>
+                                    <button type="button" class="download-action" @onclick="DownloadDocumentTextAsync" disabled="@_isBusy">Testo completo</button>
+                                    <button type="button" class="download-action" @onclick="DownloadMetadataAsync" disabled="@_isBusy">Metadati JSON</button>
+                                </div>
+                            </section>
                             break;
 
                         case InspectorTab.Text:
@@ -326,10 +347,14 @@
                                     <input type="search" placeholder="Cerca nella pagina…" @bind="_searchText" @bind:event="oninput" @onkeydown="SearchOnEnterAsync" />
                                     <button type="button" @onclick="SearchPage">Cerca</button>
                                 </div>
-                                @if (_searchText.Length > 0)
-                                {
-                                    <span class="search-result">@_searchHits.Count occorrenze</span>
-                                }
+                                <div class="inline-actions">
+                                    @if (_searchText.Length > 0)
+                                    {
+                                        <span class="search-result">@_searchHits.Count occorrenze</span>
+                                    }
+                                    <button type="button" class="download-action compact" @onclick="DownloadPageTextAsync" disabled="@(string.IsNullOrEmpty(_pageText) || _isBusy)">Pagina .txt</button>
+                                    <button type="button" class="download-action compact" @onclick="DownloadDocumentTextAsync" disabled="@_isBusy">Documento .txt</button>
+                                </div>
                             </div>
                             @if (string.IsNullOrEmpty(_pageText))
                             {
@@ -348,8 +373,12 @@
                             }
                             else
                             {
+                                <div class="section-toolbar">
+                                    <p class="result-note">I programmi font sono disponibili solo quando incorporati nel PDF.</p>
+                                    <button type="button" class="download-action compact" @onclick="DownloadFontsZipAsync" disabled="@(!_fonts.Any(font => font.GetEmbeddedData().Length > 0) || _isBusy)">Font incorporati .zip</button>
+                                </div>
                                 <div class="table-wrap"><table>
-                                    <thead><tr><th>Risorsa</th><th>Nome</th><th>Tipo</th><th>Encoding</th><th>Incorporato</th><th>ToUnicode</th></tr></thead>
+                                    <thead><tr><th>Risorsa</th><th>Nome</th><th>Tipo</th><th>Encoding</th><th>Incorporato</th><th>ToUnicode</th><th>Download</th></tr></thead>
                                     <tbody>
                                     @foreach (FontInfo font in _fonts)
                                     {
@@ -366,6 +395,16 @@
                                             <td>@font.Encoding</td>
                                             <td><StatusBadge Enabled="font.IsEmbedded" TrueText="Sì" FalseText="No" /></td>
                                             <td><StatusBadge Enabled="font.HasToUnicode" TrueText="Sì" FalseText="No" /></td>
+                                            <td>
+                                                @if (font.GetEmbeddedData().Length > 0)
+                                                {
+                                                    <button type="button" class="download-action compact" @onclick="() => DownloadFontAsync(font)" disabled="@_isBusy">Scarica</button>
+                                                }
+                                                else
+                                                {
+                                                    <span class="muted">—</span>
+                                                }
+                                            </td>
                                         </tr>
                                     }
                                     </tbody>
@@ -380,6 +419,10 @@
                             }
                             else
                             {
+                                <div class="section-toolbar">
+                                    <p class="result-note">Le immagini sono esportate come PNG decodificati.</p>
+                                    <button type="button" class="download-action compact" @onclick="DownloadImagesZipAsync" disabled="@_isBusy">Tutte le immagini .zip</button>
+                                </div>
                                 <div class="image-grid">
                                     @foreach (ImagePreview image in _imagePreviews)
                                     {
@@ -394,7 +437,10 @@
                                                     <span>Anteprima non disponibile</span>
                                                 }
                                             </div>
-                                            <div><strong>@image.Source.ResourceName</strong><small>@image.Source.Width × @image.Source.Height px · @image.Source.Compression</small></div>
+                                            <div class="image-card-footer">
+                                                <span><strong>@image.Source.ResourceName</strong><small>@image.Source.Width × @image.Source.Height px · @image.Source.Compression</small></span>
+                                                <button type="button" class="download-action compact" @onclick="() => DownloadImageAsync(image)" disabled="@_isBusy">PNG</button>
+                                            </div>
                                         </article>
                                     }
                                 </div>
@@ -413,7 +459,7 @@
                             else
                             {
                                 <div class="table-wrap"><table>
-                                    <thead><tr><th>Tipo</th><th>Contenuto</th><th>Rettangolo</th><th>Azione</th><th>Visibile</th></tr></thead>
+                                    <thead><tr><th>Tipo</th><th>Contenuto</th><th>Rettangolo</th><th>Azione</th><th>Visibile</th><th>Allegato</th></tr></thead>
                                     <tbody>
                                     @foreach (PdfAnnotation annotation in _annotations)
                                     {
@@ -423,6 +469,16 @@
                                             <td><code>@annotation.Rectangle</code></td>
                                             <td>@annotation.Action.Type</td>
                                             <td><StatusBadge Enabled="annotation.IsVisible" TrueText="Sì" FalseText="No" /></td>
+                                            <td>
+                                                @if (annotation.Attachment is { } attachment)
+                                                {
+                                                    <button type="button" class="download-action compact" @onclick="() => DownloadAttachmentAsync(attachment)" disabled="@_isBusy">Scarica</button>
+                                                }
+                                                else
+                                                {
+                                                    <span class="muted">—</span>
+                                                }
+                                            </td>
                                         </tr>
                                     }
                                     </tbody>
@@ -463,15 +519,37 @@
                                     <div class="section-title"><h3>Documento</h3></div>
                                     <ul class="detail-list compact">
                                         <li><span>Campi modulo</span><strong>@_formFieldsCount</strong></li>
-                                        <li><span>Allegati</span><strong>@_embeddedFilesCount</strong></li>
+                                        <li><span>Allegati</span><strong>@_embeddedFiles.Count</strong></li>
                                         <li><span>Destinazioni nominate</span><strong>@_namedDestinationsCount</strong></li>
                                         <li><span>JavaScript dichiarato</span><strong>@(_hasJavaScript ? "Sì" : "No")</strong></li>
                                     </ul>
                                 </article>
+                                @if (_embeddedFiles.Count > 0)
+                                {
+                                    <article class="attachments-card">
+                                        <div class="section-title">
+                                            <h3>File allegati</h3>
+                                            <button type="button" class="download-action compact" @onclick="DownloadAttachmentsZipAsync" disabled="@_isBusy">Tutti .zip</button>
+                                        </div>
+                                        <ul class="detail-list attachment-list">
+                                            @foreach (EmbeddedFile attachment in _embeddedFiles)
+                                            {
+                                                <li>
+                                                    <span><strong>@attachment.Name</strong><small>@FormatBytes(attachment.DeclaredSize ?? attachment.Size) · @ValueOrDash(attachment.MimeType)</small></span>
+                                                    <button type="button" class="download-action compact" @onclick="() => DownloadAttachmentAsync(attachment)" disabled="@_isBusy">Scarica</button>
+                                                </li>
+                                            }
+                                        </ul>
+                                    </article>
+                                }
                             </div>
                             break;
 
                         case InspectorTab.Diagnostics:
+                            <div class="section-toolbar diagnostics-toolbar">
+                                <p class="result-note">Esporta le segnalazioni raccolte durante l'apertura e il rendering.</p>
+                                <button type="button" class="download-action compact" @onclick="DownloadDiagnosticsAsync" disabled="@_isBusy">Diagnostica JSON</button>
+                            </div>
                             @if (_diagnostics.Count == 0)
                             {
                                 <EmptyResult Icon="✓" Title="Nessuna diagnostica" Description="Il documento è stato interpretato senza segnalazioni." />
@@ -520,6 +598,9 @@
     private string _userPassword = "";
     private string? _errorMessage;
     private string? _previewUrl;
+    private byte[]? _previewBytes;
+    private string _previewExtension = "png";
+    private string _previewMimeType = "image/png";
     private string _pageText = "";
     private string _searchText = "";
     private bool _isBusy;
@@ -532,7 +613,6 @@
     private int _textBoxesCount;
     private int _formWidgetsCount;
     private int _formFieldsCount;
-    private int _embeddedFilesCount;
     private int _namedDestinationsCount;
     private double _dpi = 96;
     private double _svgScale = 1;
@@ -544,6 +624,7 @@
     private IReadOnlyList<FontInfo> _fonts = Array.Empty<FontInfo>();
     private IReadOnlyList<PdfImage> _images = Array.Empty<PdfImage>();
     private IReadOnlyList<ImagePreview> _imagePreviews = Array.Empty<ImagePreview>();
+    private IReadOnlyList<EmbeddedFile> _embeddedFiles = Array.Empty<EmbeddedFile>();
     private IReadOnlyList<PdfAnnotation> _annotations = Array.Empty<PdfAnnotation>();
     private IReadOnlyList<PdfOutlineItem> _outlines = Array.Empty<PdfOutlineItem>();
     private IReadOnlyList<PdfOptionalContentGroup> _layers = Array.Empty<PdfOptionalContentGroup>();
@@ -647,7 +728,7 @@
         foreach (PdfOptionalContentGroup layer in _layers)
             _layerVisibility[layer.Id] = layer.IsVisible;
         _formFieldsCount = _document.FormFields.Count;
-        _embeddedFilesCount = _document.EmbeddedFiles.Count;
+        _embeddedFiles = _document.EmbeddedFiles;
         _namedDestinationsCount = _document.NamedDestinations.Count;
         _hasJavaScript = _document.HasJavaScript;
 
@@ -674,7 +755,10 @@
             _formWidgetsCount = _page.FormWidgets.Count;
             _imagePreviews = _images
                 .Take(MaxImagePreviews)
-                .Select(image => new ImagePreview(image, TryCreatePngDataUrl(image)))
+                .Select((image, index) => new ImagePreview(
+                    image,
+                    index,
+                    TryCreatePngDataUrl(image)))
                 .ToArray();
             _searchText = "";
             _searchHits = Array.Empty<PdfRectangle>();
@@ -729,6 +813,9 @@
                 UseFontSubstitution = false,
                 OptionalContentVisibility = visibility
             });
+            _previewBytes = png;
+            _previewExtension = "png";
+            _previewMimeType = "image/png";
             _previewUrl = $"data:image/png;base64,{Convert.ToBase64String(png)}";
         }
         else
@@ -742,7 +829,11 @@
                 FallbackMode = _svgFallback,
                 OptionalContentVisibility = visibility
             });
-            _previewUrl = $"data:image/svg+xml;base64,{Convert.ToBase64String(Encoding.UTF8.GetBytes(svg))}";
+            byte[] svgBytes = Encoding.UTF8.GetBytes(svg);
+            _previewBytes = svgBytes;
+            _previewExtension = "svg";
+            _previewMimeType = "image/svg+xml";
+            _previewUrl = $"data:image/svg+xml;base64,{Convert.ToBase64String(svgBytes)}";
         }
     }
 
@@ -793,6 +884,329 @@
     private bool LayerIsVisible(PdfOptionalContentGroup layer) =>
         _layerVisibility.TryGetValue(layer.Id, out bool visible) ? visible : layer.IsVisible;
 
+    private Task DownloadSourcePdfAsync()
+    {
+        return RunDownloadAsync(() =>
+        {
+            byte[] data = _selectedBytes ?? throw new InvalidOperationException("Nessun PDF caricato.");
+            return new DownloadArtifact(SafeFileName(_fileName, "document.pdf"), "application/pdf", data);
+        });
+    }
+
+    private Task DownloadPreviewAsync()
+    {
+        return RunDownloadAsync(() =>
+        {
+            byte[] data = _previewBytes ?? throw new InvalidOperationException("Nessuna anteprima disponibile.");
+            return new DownloadArtifact(
+                $"{DocumentStem}-pagina-{_pageIndex + 1}.{_previewExtension}",
+                _previewMimeType,
+                data);
+        });
+    }
+
+    private Task DownloadPageTextAsync() => RunDownloadAsync(() =>
+        new DownloadArtifact(
+            $"{DocumentStem}-pagina-{_pageIndex + 1}.txt",
+            "text/plain;charset=utf-8",
+            Encoding.UTF8.GetBytes(_pageText)));
+
+    private Task DownloadDocumentTextAsync()
+    {
+        return RunDownloadAsync(() =>
+        {
+            Document document = _document ?? throw new InvalidOperationException("Nessun PDF caricato.");
+            var text = new StringBuilder();
+            for (int index = 0; index < document.Pages; index++)
+            {
+                Page page = document.CreatePage(index);
+                if (index > 0)
+                    text.AppendLine().AppendLine();
+                text.Append("=== Pagina ").Append(index + 1);
+                if (!string.IsNullOrWhiteSpace(page.Label))
+                    text.Append(" (").Append(page.Label).Append(')');
+                text.AppendLine(" ===").Append(page.Text());
+            }
+
+            return new DownloadArtifact(
+                $"{DocumentStem}-testo.txt",
+                "text/plain;charset=utf-8",
+                Encoding.UTF8.GetBytes(text.ToString()));
+        });
+    }
+
+    private Task DownloadMetadataAsync()
+    {
+        return RunDownloadAsync(() =>
+        {
+            Document document = _document ?? throw new InvalidOperationException("Nessun PDF caricato.");
+            object metadata = new
+            {
+                file = new { name = _fileName, size = _fileSize },
+                document = new
+                {
+                    pdfVersion = document.PdfVersion,
+                    pages = document.Pages,
+                    document.Title,
+                    document.Author,
+                    document.Subject,
+                    document.Keywords,
+                    document.Creator,
+                    document.Producer,
+                    document.CreationDate,
+                    document.ModificationDate,
+                    document.IsLinearized,
+                    document.IsEncrypted,
+                    passwordKind = document.PasswordKind.ToString(),
+                    pageMode = document.PageMode.ToString(),
+                    pageLayout = document.PageLayout.ToString(),
+                    information = document.Information,
+                    xmpMetadata = document.Metadata,
+                    embeddedFiles = _embeddedFiles.Select(file => new
+                    {
+                        file.Name,
+                        file.Description,
+                        file.MimeType,
+                        file.DeclaredSize,
+                        actualSize = file.Size,
+                        file.CreationDate,
+                        file.ModificationDate
+                    })
+                },
+                currentPage = new
+                {
+                    number = _pageIndex + 1,
+                    label = _page?.Label,
+                    widthPoints = _pageRect.Width,
+                    heightPoints = _pageRect.Height,
+                    rotation = _page?.Rotation,
+                    textCharacters = _pageText.Length,
+                    fonts = _fonts.Select(font => new
+                    {
+                        font.ResourceName,
+                        font.Name,
+                        type = font.Type.ToString(),
+                        font.Encoding,
+                        writingMode = font.WritingMode.ToString(),
+                        font.IsEmbedded,
+                        embeddedFormat = font.EmbeddedFormat.ToString(),
+                        font.EmbeddedLength,
+                        font.IsSubset,
+                        font.HasToUnicode,
+                        font.Collection
+                    }),
+                    images = _images.Select(image => new
+                    {
+                        image.ResourceName,
+                        image.Width,
+                        image.Height,
+                        image.SourceBitsPerComponent,
+                        colorSpace = image.ColorSpace.ToString(),
+                        image.Compression
+                    }),
+                    annotations = _annotations.Select(annotation => new
+                    {
+                        type = annotation.Type.ToString(),
+                        annotation.Subtype,
+                        annotation.Contents,
+                        annotation.Title,
+                        annotation.Subject,
+                        rectangle = annotation.Rectangle.ToString(),
+                        annotation.IsVisible,
+                        attachment = annotation.Attachment?.Name
+                    })
+                },
+                diagnostics = _diagnostics
+            };
+
+            return new DownloadArtifact(
+                $"{DocumentStem}-metadati.json",
+                "application/json",
+                JsonSerializer.SerializeToUtf8Bytes(metadata, new JsonSerializerOptions { WriteIndented = true }));
+        });
+    }
+
+    private Task DownloadDiagnosticsAsync() => RunDownloadAsync(() =>
+        new DownloadArtifact(
+            $"{DocumentStem}-diagnostica.json",
+            "application/json",
+            JsonSerializer.SerializeToUtf8Bytes(_diagnostics, new JsonSerializerOptions { WriteIndented = true })));
+
+    private Task DownloadImageAsync(ImagePreview image) => RunDownloadAsync(() =>
+        new DownloadArtifact(
+            ImageFileName(image.Source, image.Index),
+            "image/png",
+            image.Source.ToPngBytes()));
+
+    private Task DownloadImagesZipAsync()
+    {
+        return RunDownloadAsync(() =>
+        {
+            IEnumerable<ZipItem> items = _images.Select((image, index) =>
+                new ZipItem(ImageFileName(image, index), image.ToPngBytes()));
+            return new DownloadArtifact(
+                $"{DocumentStem}-pagina-{_pageIndex + 1}-immagini.zip",
+                "application/zip",
+                CreateZip(items));
+        });
+    }
+
+    private Task DownloadAttachmentAsync(EmbeddedFile attachment) => RunDownloadAsync(() =>
+        new DownloadArtifact(
+            SafeFileName(attachment.Name, "allegato.bin"),
+            string.IsNullOrWhiteSpace(attachment.MimeType) ? "application/octet-stream" : attachment.MimeType,
+            attachment.Data.ToArray()));
+
+    private Task DownloadAttachmentsZipAsync()
+    {
+        return RunDownloadAsync(() =>
+        {
+            IEnumerable<ZipItem> items = _embeddedFiles.Select((attachment, index) =>
+                new ZipItem(
+                    SafeFileName(attachment.Name, $"allegato-{index + 1}.bin"),
+                    attachment.Data.ToArray()));
+            return new DownloadArtifact(
+                $"{DocumentStem}-allegati.zip",
+                "application/zip",
+                CreateZip(items));
+        });
+    }
+
+    private Task DownloadFontAsync(FontInfo font)
+    {
+        return RunDownloadAsync(() =>
+        {
+            FontDownload download = FontDownloadFor(font);
+            return new DownloadArtifact(download.FileName, download.MimeType, font.GetEmbeddedData().ToArray());
+        });
+    }
+
+    private Task DownloadFontsZipAsync()
+    {
+        return RunDownloadAsync(() =>
+        {
+            IEnumerable<ZipItem> items = _fonts
+                .Where(font => font.GetEmbeddedData().Length > 0)
+                .Select(font =>
+                {
+                    FontDownload download = FontDownloadFor(font);
+                    return new ZipItem(download.FileName, font.GetEmbeddedData().ToArray());
+                });
+            return new DownloadArtifact(
+                $"{DocumentStem}-pagina-{_pageIndex + 1}-font.zip",
+                "application/zip",
+                CreateZip(items));
+        });
+    }
+
+    private async Task RunDownloadAsync(Func<DownloadArtifact> createArtifact)
+    {
+        _errorMessage = null;
+        _isBusy = true;
+        try
+        {
+            await Task.Yield();
+            DownloadArtifact artifact = createArtifact();
+            using var stream = new MemoryStream(artifact.Data, writable: false);
+            using var streamReference = new DotNetStreamReference(stream);
+            await JS.InvokeVoidAsync(
+                "popplerNetDownloads.save",
+                SafeFileName(artifact.FileName, "download.bin"),
+                artifact.MimeType,
+                streamReference);
+        }
+        catch (Exception exception)
+        {
+            _errorMessage = FriendlyMessage(exception);
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private string DocumentStem
+    {
+        get
+        {
+            string fileName = SafeFileName(_fileName, "document.pdf");
+            string stem = Path.GetFileNameWithoutExtension(fileName);
+            return SafeFileName(stem, "document");
+        }
+    }
+
+    private string ImageFileName(PdfImage image, int index)
+    {
+        string resource = SafeFileName(image.ResourceName, $"immagine-{index + 1}");
+        return $"{DocumentStem}-pagina-{_pageIndex + 1}-{resource}.png";
+    }
+
+    private static FontDownload FontDownloadFor(FontInfo font)
+    {
+        (string extension, string mimeType) = font.EmbeddedFormat switch
+        {
+            EmbeddedFontFormat.Type1 => ("pfb", "application/x-font-type1"),
+            EmbeddedFontFormat.Cff => ("cff", "application/octet-stream"),
+            EmbeddedFontFormat.TrueType => ("ttf", "font/ttf"),
+            EmbeddedFontFormat.OpenType => ("otf", "font/otf"),
+            _ => ("bin", "application/octet-stream")
+        };
+        string name = SafeFileName(font.Name, SafeFileName(font.ResourceName, "font"));
+        return new FontDownload($"{name}.{extension}", mimeType);
+    }
+
+    private static byte[] CreateZip(IEnumerable<ZipItem> items)
+    {
+        using var output = new MemoryStream();
+        using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (ZipItem item in items)
+            {
+                string name = UniqueZipName(SafeFileName(item.Name, "file.bin"), usedNames);
+                ZipArchiveEntry entry = archive.CreateEntry(name, CompressionLevel.Fastest);
+                using Stream destination = entry.Open();
+                destination.Write(item.Data);
+            }
+        }
+        return output.ToArray();
+    }
+
+    private static string UniqueZipName(string name, HashSet<string> usedNames)
+    {
+        if (usedNames.Add(name))
+            return name;
+
+        string extension = Path.GetExtension(name);
+        string stem = Path.GetFileNameWithoutExtension(name);
+        for (int suffix = 2; ; suffix++)
+        {
+            string candidate = $"{stem}-{suffix}{extension}";
+            if (usedNames.Add(candidate))
+                return candidate;
+        }
+    }
+
+    private static string SafeFileName(string? candidate, string fallback)
+    {
+        string value = string.IsNullOrWhiteSpace(candidate) ? fallback : candidate.Trim();
+        value = value.Replace('\\', '/');
+        value = value[(value.LastIndexOf('/') + 1)..];
+
+        var sanitized = new StringBuilder(value.Length);
+        foreach (char character in value)
+        {
+            sanitized.Append(char.IsControl(character) || character is '<' or '>' or ':' or '"' or '/' or '\\' or '|' or '?' or '*'
+                ? '-'
+                : character);
+        }
+
+        string result = sanitized.ToString().Trim(' ', '.');
+        if (string.IsNullOrWhiteSpace(result))
+            result = fallback;
+        return result.Length <= 140 ? result : result[..140].TrimEnd(' ', '.');
+    }
+
     private int? TabCount(InspectorTab tab) => tab switch
     {
         InspectorTab.Text => _textBoxesCount,
@@ -821,6 +1235,7 @@
         _document?.Dispose();
         _document = null;
         _previewUrl = null;
+        _previewBytes = null;
         ClearPageState();
     }
 
@@ -831,6 +1246,7 @@
         _fonts = Array.Empty<FontInfo>();
         _images = Array.Empty<PdfImage>();
         _imagePreviews = Array.Empty<ImagePreview>();
+        _embeddedFiles = Array.Empty<EmbeddedFile>();
         _annotations = Array.Empty<PdfAnnotation>();
         _outlines = Array.Empty<PdfOutlineItem>();
         _layers = Array.Empty<PdfOptionalContentGroup>();
@@ -871,5 +1287,8 @@
 
     private enum PreviewFormat { Png, Svg }
     private enum InspectorTab { Overview, Text, Fonts, Images, Annotations, Structure, Diagnostics }
-    private sealed record ImagePreview(PdfImage Source, string? DataUrl);
+    private sealed record ImagePreview(PdfImage Source, int Index, string? DataUrl);
+    private sealed record DownloadArtifact(string FileName, string MimeType, byte[] Data);
+    private sealed record FontDownload(string FileName, string MimeType);
+    private sealed record ZipItem(string Name, byte[] Data);
 }

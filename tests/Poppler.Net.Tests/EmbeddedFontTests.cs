@@ -34,6 +34,26 @@ public sealed class EmbeddedFontTests
     }
 
     [Test]
+    public void NormalizesSubsetNameAndRetainsEmbeddedProgram()
+    {
+        string path = Path.Combine(
+            AppContext.BaseDirectory,
+            "Fixtures",
+            "truetype-format0-subset.pdf");
+        using Document document = Document.LoadFromFile(path);
+
+        FontInfo font = document.CreatePage(0).Fonts.Single();
+
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(font.Name, Is.EqualTo("DejaVuSans"));
+            Assert.That(font.IsSubset, Is.True);
+            Assert.That(font.GetEmbeddedData().Length, Is.EqualTo(font.EmbeddedLength));
+            Assert.That(font.GetEmbeddedData().Length, Is.GreaterThan(0));
+        }));
+    }
+
+    [Test]
     public void EmbeddedFontFixtureHashesMatchManifest()
     {
         string fixtureDirectory = Path.Combine(AppContext.BaseDirectory, "Fixtures");

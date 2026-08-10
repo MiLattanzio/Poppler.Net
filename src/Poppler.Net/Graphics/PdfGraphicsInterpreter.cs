@@ -667,7 +667,7 @@ internal sealed class PdfGraphicsInterpreter
             new PdfTextElement(
                 string.Concat(decoded.Select(glyph => glyph.Text)),
                 context.Text.FontResourceName,
-                font.Name,
+                font.Info.Name,
                 context.Text.FontSize,
                 context.Text.RenderingMode,
                 font,

@@ -761,11 +761,7 @@ internal static class SvgPageRenderer
 
         private static string NormalizeFontFamily(string fontName)
         {
-            int plus = fontName.IndexOf('+');
-            string normalized = plus >= 0 && plus + 1 < fontName.Length
-                ? fontName[(plus + 1)..]
-                : fontName;
-            return normalized.Replace(',', ' ').Replace('"', ' ').Trim();
+            return fontName.Replace(',', ' ').Replace('"', ' ').Trim();
         }
 
         private static string Escape(string value) =>
