@@ -19,9 +19,14 @@ internal sealed class PdfFontSubstitutionResolver
         OperatingSystem.IsWindows()
             ? StringComparison.OrdinalIgnoreCase
             : StringComparison.Ordinal;
+    private const int MaximumCachedFontPrograms = 256;
+    private static readonly object FontCacheSync = new();
+    private static readonly Dictionary<string, CachedFont> FontCache =
+        new(PathComparer);
+    private static readonly Queue<string> FontCacheOrder = new();
 
     private readonly RasterRenderOptions _options;
-    private readonly Dictionary<string, IReadOnlyList<SubstituteFont>> _cache =
+    private readonly Dictionary<string, IReadOnlyList<string>> _cache =
         new(StringComparer.Ordinal);
     private string[]? _fontFiles;
 
@@ -42,14 +47,17 @@ internal sealed class PdfFontSubstitutionResolver
             text.EnumerateRunes().All(Rune.IsWhiteSpace))
             return false;
         string key = NormalizePdfFontName(pdfFontName);
-        if (!_cache.TryGetValue(key, out IReadOnlyList<SubstituteFont>? fonts))
+        if (!_cache.TryGetValue(key, out IReadOnlyList<string>? fontFiles))
         {
-            fonts = Resolve(key);
-            _cache[key] = fonts;
+            fontFiles = Resolve(key);
+            _cache[key] = fontFiles;
         }
         Rune[] runes = text.EnumerateRunes().ToArray();
-        foreach (SubstituteFont font in fonts)
+        foreach (string fontFile in fontFiles)
         {
+            SubstituteFont? font = Load(fontFile);
+            if (font is null)
+                continue;
             uint[] glyphs = runes
                 .Select(rune => font.Cmap.TryGetGlyph(rune.Value, out uint glyph)
                     ? glyph
@@ -83,59 +91,79 @@ internal sealed class PdfFontSubstitutionResolver
         return false;
     }
 
-    private IReadOnlyList<SubstituteFont> Resolve(string pdfFontName)
+    private IReadOnlyList<string> Resolve(string pdfFontName)
     {
         string[] files = _fontFiles ??= DiscoverFontFiles();
-        var result = new List<SubstituteFont>();
-        foreach (string file in files
-                     .Select(path => (
-                         Path: path,
-                         Score: Score(path, pdfFontName) +
-                                (IsConfiguredFont(path) ? 1000 : 0)))
-                     .OrderByDescending(candidate => candidate.Score)
-                     .ThenBy(candidate => candidate.Path, StringComparer.Ordinal)
-                     .Take(64)
-                     .Select(candidate => candidate.Path))
-        {
-            try
-            {
-                var info = new FileInfo(file);
-                if (!info.Exists ||
-                    info.Length is <= 0 or > MaximumFontBytes)
-                {
-                    continue;
-                }
-                byte[] bytes = File.ReadAllBytes(file);
-                PdfOpenTypeCmap? cmap =
-                    PdfOpenTypeCmap.TryParse(bytes, maximumMappings: 1_000_000);
-                if (cmap is null)
-                    continue;
-                PdfTrueTypeFont? trueType = PdfTrueTypeFont.TryParse(bytes);
-                PdfCffFont? cff = trueType is null
-                    ? PdfCffFont.TryParse(bytes)
-                    : null;
-                if (trueType is not null || cff is not null)
-                {
-                    result.Add(new SubstituteFont(
-                        cmap,
-                        PdfOpenTypeLayout.TryParse(bytes),
-                        trueType,
-                        cff));
-                    if (result.Count >= 8)
-                        break;
-                }
-            }
-            catch (Exception exception) when (
-                exception is IOException or
-                UnauthorizedAccessException or
-                ArgumentException)
-            {
-                // A broken or inaccessible candidate does not disable the
-                // remaining managed substitution candidates.
-            }
-        }
+        return files
+            .Select(path => (
+                Path: path,
+                Score: Score(path, pdfFontName) +
+                       (IsConfiguredFont(path) ? 1000 : 0)))
+            .OrderByDescending(candidate => candidate.Score)
+            .ThenBy(candidate => candidate.Path, StringComparer.Ordinal)
+            .Take(64)
+            .Select(candidate => candidate.Path)
+            .ToArray();
+    }
 
-        return result;
+    private static SubstituteFont? Load(string path)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length is <= 0 or > MaximumFontBytes)
+                return null;
+            long lastWriteTicks = info.LastWriteTimeUtc.Ticks;
+            lock (FontCacheSync)
+            {
+                if (FontCache.TryGetValue(path, out CachedFont? cached) &&
+                    cached.Length == info.Length &&
+                    cached.LastWriteTicks == lastWriteTicks)
+                    return cached.Font;
+            }
+
+            byte[] bytes = File.ReadAllBytes(path);
+            PdfOpenTypeCmap? cmap =
+                PdfOpenTypeCmap.TryParse(bytes, maximumMappings: 1_000_000);
+            PdfTrueTypeFont? trueType = cmap is null
+                ? null
+                : PdfTrueTypeFont.TryParse(bytes);
+            PdfCffFont? cff = cmap is null || trueType is not null
+                ? null
+                : PdfCffFont.TryParse(bytes);
+            SubstituteFont? font = cmap is not null &&
+                                   (trueType is not null || cff is not null)
+                ? new SubstituteFont(
+                    cmap,
+                    PdfOpenTypeLayout.TryParse(bytes),
+                    trueType,
+                    cff)
+                : null;
+
+            lock (FontCacheSync)
+            {
+                if (!FontCache.ContainsKey(path))
+                {
+                    while (FontCache.Count >= MaximumCachedFontPrograms &&
+                           FontCacheOrder.TryDequeue(out string? oldest))
+                    {
+                        FontCache.Remove(oldest);
+                    }
+                    FontCacheOrder.Enqueue(path);
+                }
+                FontCache[path] = new CachedFont(info.Length, lastWriteTicks, font);
+            }
+            return font;
+        }
+        catch (Exception exception) when (
+            exception is IOException or
+            UnauthorizedAccessException or
+            ArgumentException)
+        {
+            // A broken or inaccessible candidate does not disable the
+            // remaining managed substitution candidates.
+            return null;
+        }
     }
 
     private bool IsConfiguredFont(string path)
@@ -331,4 +359,9 @@ internal sealed class PdfFontSubstitutionResolver
         PdfOpenTypeLayout? Layout,
         PdfTrueTypeFont? TrueType,
         PdfCffFont? Cff);
+
+    private sealed record CachedFont(
+        long Length,
+        long LastWriteTicks,
+        SubstituteFont? Font);
 }

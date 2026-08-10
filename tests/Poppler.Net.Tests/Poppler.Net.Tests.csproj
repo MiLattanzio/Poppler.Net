@@ -88,5 +88,8 @@
     <None Include="..\fixtures\Helvetica.ttf"
           Link="Fixtures\Helvetica.ttf"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\samples\Poppler.Net.Playground\wwwroot\fonts\*"
+          Link="PlaygroundFonts\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

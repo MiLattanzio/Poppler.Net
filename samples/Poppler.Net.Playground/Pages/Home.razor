@@ -587,6 +587,13 @@
 @code {
     private const long MaxInputBytes = 64 * 1024 * 1024;
     private const int MaxImagePreviews = 12;
+    private static readonly string[] FallbackFontFiles =
+    {
+        "DejaVuSans.ttf",
+        "DejaVuSans-Bold.ttf",
+        "DejaVuSans-Oblique.ttf",
+        "DejaVuSans-BoldOblique.ttf"
+    };
 
     private readonly Dictionary<string, bool> _layerVisibility = new(StringComparer.Ordinal);
     private byte[]? _selectedBytes;
@@ -629,6 +636,7 @@
     private IReadOnlyList<PdfOutlineItem> _outlines = Array.Empty<PdfOutlineItem>();
     private IReadOnlyList<PdfOptionalContentGroup> _layers = Array.Empty<PdfOptionalContentGroup>();
     private IReadOnlyList<PdfDiagnostic> _diagnostics = Array.Empty<PdfDiagnostic>();
+    private Task<string>? _fallbackFontsTask;
 
     private string DisplayTitle =>
         !string.IsNullOrWhiteSpace(_document?.Title) ? _document.Title : _fileName ?? "Documento PDF";
@@ -804,13 +812,18 @@
         IReadOnlyDictionary<string, bool> visibility = new Dictionary<string, bool>(_layerVisibility, StringComparer.Ordinal);
         if (_previewFormat == PreviewFormat.Png)
         {
+            IReadOnlyList<string> fontDirectories =
+                _includeText && _fonts.Any(font => !font.IsEmbedded)
+                    ? new[] { await EnsureFallbackFontsAsync() }
+                    : Array.Empty<string>();
             byte[] png = _page!.RenderToPng(new RasterRenderOptions
             {
                 Dpi = _dpi,
                 Antialiasing = _antialiasing,
                 Transparent = _transparent,
                 IncludeText = _includeText,
-                UseFontSubstitution = false,
+                UseFontSubstitution = true,
+                FontDirectories = fontDirectories,
                 OptionalContentVisibility = visibility
             });
             _previewBytes = png;
@@ -835,6 +848,43 @@
             _previewMimeType = "image/svg+xml";
             _previewUrl = $"data:image/svg+xml;base64,{Convert.ToBase64String(svgBytes)}";
         }
+    }
+
+    private async Task<string> EnsureFallbackFontsAsync()
+    {
+        Task<string> loadTask = _fallbackFontsTask ??= LoadFallbackFontsAsync();
+        try
+        {
+            return await loadTask;
+        }
+        catch
+        {
+            if (ReferenceEquals(_fallbackFontsTask, loadTask))
+                _fallbackFontsTask = null;
+            throw;
+        }
+    }
+
+    private async Task<string> LoadFallbackFontsAsync()
+    {
+        string directory = Path.Combine(
+            Path.GetTempPath(),
+            "poppler-net-playground",
+            "fonts",
+            "dejavu-2.37");
+        Directory.CreateDirectory(directory);
+
+        Task<byte[]>[] downloads = FallbackFontFiles
+            .Select(fileName => Http.GetByteArrayAsync($"fonts/{fileName}"))
+            .ToArray();
+        byte[][] fontData = await Task.WhenAll(downloads);
+        for (int index = 0; index < FallbackFontFiles.Length; index++)
+        {
+            string path = Path.Combine(directory, FallbackFontFiles[index]);
+            File.WriteAllBytes(path, fontData[index]);
+        }
+
+        return directory;
     }
 
     private async Task SetPreviewFormatAsync(PreviewFormat format)
