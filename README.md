@@ -95,9 +95,11 @@ dotnet run --project tests/Poppler.Net.Tests -- --noresult
 ```
 
 `./build.sh` performs restore, Release build, NUnitLite regression tests and
-NuGet packaging. It also rejects native or mixed-mode binaries anywhere in the
-restored NuGet graph. The production library uses three audited managed
-runtime packages for JPEG, JPEG 2000 and JBIG2. NUnit and its in-process
+NuGet packaging. It also rejects native or mixed-mode binaries in the restored
+library, test and engineering-tool NuGet graph. The WebAssembly sample is kept
+outside that package-policy boundary because the standard browser runtime
+necessarily contains a `.wasm` host. The production library uses three audited
+managed runtime packages for JPEG, JPEG 2000 and JBIG2. NUnit and its in-process
 NUnitLite runner are approved test-only managed dependencies. See
 `VERIFICATION.md` for the checks completed in the creation environment.
 
@@ -109,7 +111,8 @@ or any native cryptography asset.
 
 The GitHub Actions workflow builds, tests, verifies and packs the solution on
 Ubuntu, Windows and macOS for pushes to `master` and pull requests. It also
-stores the generated `.nupkg` as a workflow artifact.
+stores the generated `.nupkg` as a workflow artifact. Every push to `master`
+publishes the WebAssembly playground to GitHub Pages.
 
 Publishing a GitHub Release runs the same gates and then publishes the package
 to NuGet.org through OIDC Trusted Publishing. Configure a nuget.org trusted
@@ -122,6 +125,23 @@ execute the deploy job.
 
 Package author and project metadata identify **Mi Lattanzio** and
 <https://github.com/MiLattanzio/Poppler.Net>.
+
+## WebAssembly playground
+
+The [online playground](https://milattanzio.github.io/Poppler.Net/) is a
+Blazor WebAssembly application that runs Poppler.Net entirely in the browser.
+PDF files and passwords never leave the device. It exposes PNG and SVG page
+rendering, text extraction and search, font and image inspection, annotations,
+outlines, optional-content layers and parser diagnostics.
+
+Run it locally with the pinned SDK:
+
+```bash
+dotnet run --project samples/Poppler.Net.Playground
+```
+
+The sample references the source project directly, so local library changes
+are immediately visible in the playground.
 
 ## CLI
 

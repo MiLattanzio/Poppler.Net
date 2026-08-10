@@ -75,7 +75,8 @@ internal static class Program
             StringComparer.OrdinalIgnoreCase);
         var centralVersions = ReadCentralVersions(root);
 
-        foreach (string projectPath in EnumerateBuildFiles(root))
+        foreach (string projectPath in EnumerateBuildFiles(root)
+                     .Where(path => !IsSamplePath(root, path)))
         {
             if (IsGeneratedPath(projectPath))
                 continue;
@@ -122,6 +123,9 @@ internal static class Program
     {
         string[] projects = Directory.EnumerateFiles(root, "*.csproj", SearchOption.AllDirectories)
             .Where(path => !IsGeneratedPath(path))
+            // Browser samples carry the standard WebAssembly runtime. They do
+            // not participate in the Poppler.Net managed-only package graph.
+            .Where(path => !IsSamplePath(root, path))
             .ToArray();
         var packageDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -306,6 +310,11 @@ internal static class Program
     private static bool IsGeneratedPath(string path) =>
         path.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             .Any(segment => segment is "obj" or "bin");
+
+    private static bool IsSamplePath(string root, string path) =>
+        Path.GetRelativePath(root, path)
+            .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .FirstOrDefault() == "samples";
 
     private static IEnumerable<string> EnumerateBuildFiles(string root) =>
         Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)

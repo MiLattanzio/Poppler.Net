@@ -1,0 +1,875 @@
+@page "/"
+@implements IDisposable
+@inject HttpClient Http
+
+<PageTitle>Poppler.Net Playground · PDF nel browser</PageTitle>
+
+<div class="app-shell">
+    <header class="topbar">
+        <a class="brand" href="" aria-label="Poppler.Net Playground">
+            <span class="brand-mark" aria-hidden="true">
+                <span></span><span></span><span></span>
+            </span>
+            <span>
+                <strong>Poppler.Net</strong>
+                <small>WebAssembly playground</small>
+            </span>
+        </a>
+        <div class="topbar-actions">
+            <span class="privacy-pill"><i></i> Elaborazione locale</span>
+            <a class="github-link" href="https://github.com/MiLattanzio/Poppler.Net" target="_blank" rel="noreferrer">
+                GitHub <span aria-hidden="true">↗</span>
+            </a>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div>
+                <p class="eyebrow">Managed PDF engine · @Document.PortVersion</p>
+                <h1>Apri il PDF.<br /><em>Guarda dentro.</em></h1>
+                <p class="hero-copy">
+                    Renderizza, estrai e ispeziona un documento con la stessa API .NET di Poppler.Net,
+                    eseguita interamente nel browser tramite WebAssembly.
+                </p>
+            </div>
+            <div class="hero-stats" aria-label="Caratteristiche">
+                <div><strong>0</strong><span>upload al server</span></div>
+                <div><strong>2</strong><span>renderer PNG + SVG</span></div>
+                <div><strong>100%</strong><span>codice gestito</span></div>
+            </div>
+        </section>
+
+        <section class="workspace">
+            <aside class="control-panel">
+                <div class="panel-heading">
+                    <div>
+                        <p class="step">01 · Documento</p>
+                        <h2>Scegli un PDF</h2>
+                    </div>
+                    @if (_document is not null)
+                    {
+                        <span class="status-dot" title="Documento caricato"></span>
+                    }
+                </div>
+
+                <label class="drop-zone @(_isBusy ? "disabled" : null)" for="pdf-file">
+                    <InputFile id="pdf-file" OnChange="HandleFileAsync" accept="application/pdf,.pdf" disabled="@_isBusy" />
+                    <span class="upload-icon" aria-hidden="true">↑</span>
+                    @if (_fileName is null)
+                    {
+                        <strong>Trascina o seleziona</strong>
+                        <small>PDF fino a @FormatBytes(MaxInputBytes)</small>
+                    }
+                    else
+                    {
+                        <strong title="@_fileName">@_fileName</strong>
+                        <small>@FormatBytes(_fileSize) · scegli per sostituire</small>
+                    }
+                </label>
+                <button type="button" class="sample-link" @onclick="LoadSampleAsync" disabled="@_isBusy">
+                    Non hai un PDF? Apri il documento demo <span aria-hidden="true">→</span>
+                </button>
+
+                <details class="password-box" open="@(_document?.IsLocked == true)">
+                    <summary>Password del documento <span>opzionale</span></summary>
+                    <div class="password-fields">
+                        <label>
+                            Password utente
+                            <input type="password" autocomplete="off" @bind="_userPassword" />
+                        </label>
+                        <label>
+                            Password proprietario
+                            <input type="password" autocomplete="off" @bind="_ownerPassword" />
+                        </label>
+                        <button type="button" class="button secondary full" @onclick="ReloadDocumentAsync" disabled="@(_selectedBytes is null || _isBusy)">
+                            Apri con password
+                        </button>
+                    </div>
+                </details>
+
+                @if (_errorMessage is not null)
+                {
+                    <div class="notice error" role="alert">
+                        <strong>Non è stato possibile continuare</strong>
+                        <span>@_errorMessage</span>
+                    </div>
+                }
+                else if (_document?.IsLocked == true)
+                {
+                    <div class="notice warning" role="status">
+                        <strong>PDF protetto</strong>
+                        <span>Inserisci la password corretta per accedere alle pagine.</span>
+                    </div>
+                }
+
+                @if (_document is not null && !_document.IsLocked)
+                {
+                    <div class="document-card">
+                        <div class="document-title">
+                            <span class="mini-file" aria-hidden="true">PDF</span>
+                            <div>
+                                <strong>@DisplayTitle</strong>
+                                <small>PDF @_document.PdfVersion · @_document.Pages pagine</small>
+                            </div>
+                        </div>
+                        <dl>
+                            <div><dt>Autore</dt><dd>@ValueOrDash(_document.Author)</dd></div>
+                            <div><dt>Produttore</dt><dd>@ValueOrDash(_document.Producer)</dd></div>
+                            <div><dt>Struttura</dt><dd>@(_document.IsLinearized ? "Linearizzato" : "Standard")</dd></div>
+                            <div><dt>Cifratura</dt><dd>@(_document.IsEncrypted ? _document.PasswordKind.ToString() : "Nessuna")</dd></div>
+                        </dl>
+                    </div>
+
+                    <div class="render-controls">
+                        <p class="step">02 · Rendering</p>
+                        <div class="segmented" role="group" aria-label="Formato anteprima">
+                            <button type="button" class="@(_previewFormat == PreviewFormat.Png ? "active" : null)" @onclick="() => SetPreviewFormatAsync(PreviewFormat.Png)">PNG</button>
+                            <button type="button" class="@(_previewFormat == PreviewFormat.Svg ? "active" : null)" @onclick="() => SetPreviewFormatAsync(PreviewFormat.Svg)">SVG</button>
+                        </div>
+                        <div class="control-grid">
+                            @if (_previewFormat == PreviewFormat.Png)
+                            {
+                                <label>
+                                    Risoluzione
+                                    <select @bind="_dpi">
+                                        <option value="72">72 DPI</option>
+                                        <option value="96">96 DPI</option>
+                                        <option value="144">144 DPI</option>
+                                        <option value="192">192 DPI</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    Antialiasing
+                                    <select @bind="_antialiasing">
+                                        <option value="1">1×</option>
+                                        <option value="2">2×</option>
+                                        <option value="4">4×</option>
+                                    </select>
+                                </label>
+                            }
+                            else
+                            {
+                                <label>
+                                    Scala SVG
+                                    <select @bind="_svgScale">
+                                        <option value="1">1×</option>
+                                        <option value="1.5">1,5×</option>
+                                        <option value="2">2×</option>
+                                    </select>
+                                </label>
+                                <label>
+                                    Fallback
+                                    <select @bind="_svgFallback">
+                                        <option value="@SvgFallbackMode.Rasterize">Rasterizza</option>
+                                        <option value="@SvgFallbackMode.Omit">Ometti</option>
+                                    </select>
+                                </label>
+                            }
+                        </div>
+                        <label class="switch-row">
+                            <input type="checkbox" @bind="_includeText" />
+                            <span></span>
+                            Includi testo
+                        </label>
+                        @if (_previewFormat == PreviewFormat.Png)
+                        {
+                            <label class="switch-row">
+                                <input type="checkbox" @bind="_transparent" />
+                                <span></span>
+                                Sfondo trasparente
+                            </label>
+                        }
+                        else
+                        {
+                            <label class="switch-row">
+                                <input type="checkbox" @bind="_drawBounds" />
+                                <span></span>
+                                Mostra limiti testo e immagini
+                            </label>
+                        }
+
+                        @if (_layers.Count > 0)
+                        {
+                            <details class="layers-box">
+                                <summary>Livelli opzionali <span>@_layers.Count</span></summary>
+                                @foreach (PdfOptionalContentGroup layer in _layers)
+                                {
+                                    <label class="layer-row">
+                                        <input type="checkbox"
+                                               checked="@LayerIsVisible(layer)"
+                                               disabled="@layer.IsLocked"
+                                               @onchange="eventArgs => SetLayerVisibility(layer.Id, eventArgs.Value)" />
+                                        <span>@layer.Name</span>
+                                        @if (layer.IsLocked)
+                                        {
+                                            <small>bloccato</small>
+                                        }
+                                    </label>
+                                }
+                            </details>
+                        }
+
+                        <button type="button" class="button primary full" @onclick="RenderPreviewAsync" disabled="@_isBusy">
+                            @if (_isBusy)
+                            {
+                                <span class="spinner" aria-hidden="true"></span>
+                            }
+                            Renderizza pagina
+                        </button>
+                    </div>
+                }
+            </aside>
+
+            <section class="viewer-panel" aria-busy="@_isBusy">
+                @if (_document is null || _document.IsLocked)
+                {
+                    <div class="empty-state">
+                        <div class="empty-art" aria-hidden="true">
+                            <span class="sheet back"></span>
+                            <span class="sheet front"><i></i><i></i><i></i></span>
+                            <span class="lens"></span>
+                        </div>
+                        <p class="eyebrow">Pronto per l'analisi</p>
+                        <h2>Il documento apparirà qui</h2>
+                        <p>Seleziona un PDF dal pannello laterale. Il contenuto rimane sul tuo dispositivo.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="viewer-toolbar">
+                        <div class="page-navigation">
+                            <button type="button" title="Pagina precedente" @onclick="PreviousPageAsync" disabled="@(_pageIndex == 0 || _isBusy)">←</button>
+                            <label>
+                                Pagina
+                                <input type="number" min="1" max="@_document.Pages" value="@(_pageIndex + 1)" @onchange="JumpToPageAsync" />
+                                <span>di @_document.Pages</span>
+                            </label>
+                            <button type="button" title="Pagina successiva" @onclick="NextPageAsync" disabled="@(_pageIndex >= _document.Pages - 1 || _isBusy)">→</button>
+                        </div>
+                        @if (_page is not null)
+                        {
+                            <div class="page-facts">
+                                <span>@_page.Orientation</span>
+                                <span>@FormatNumber(_pageRect.Width) × @FormatNumber(_pageRect.Height) pt</span>
+                                <span>rot. @_page.Rotation°</span>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="canvas-area">
+                        @if (_isBusy)
+                        {
+                            <div class="render-overlay"><span class="spinner large"></span><p>Poppler.Net sta elaborando la pagina…</p></div>
+                        }
+                        @if (_previewUrl is not null)
+                        {
+                            <figure class="page-preview @(_transparent ? "checkerboard" : null)">
+                                <img src="@_previewUrl" alt="Anteprima della pagina @(_pageIndex + 1)" />
+                            </figure>
+                        }
+                        else
+                        {
+                            <div class="preview-placeholder">Anteprima non disponibile</div>
+                        }
+                    </div>
+                }
+            </section>
+        </section>
+
+        @if (_document is not null && !_document.IsLocked && _page is not null)
+        {
+            <section class="inspector">
+                <div class="inspector-heading">
+                    <div>
+                        <p class="step">03 · Ispezione</p>
+                        <h2>Dentro la pagina @(_pageIndex + 1)</h2>
+                    </div>
+                    <span class="api-chip">Poppler.Page</span>
+                </div>
+
+                <div class="tabs" role="tablist" aria-label="Dati del documento">
+                    @foreach (InspectorTab tab in Enum.GetValues<InspectorTab>())
+                    {
+                        int? count = TabCount(tab);
+                        <button type="button" role="tab" aria-selected="@(_activeTab == tab)" class="@(_activeTab == tab ? "active" : null)" @onclick="() => _activeTab = tab">
+                            @TabLabel(tab)
+                            @if (count.HasValue)
+                            {
+                                <small>@count.Value</small>
+                            }
+                        </button>
+                    }
+                </div>
+
+                <div class="tab-content" role="tabpanel">
+                    @switch (_activeTab)
+                    {
+                        case InspectorTab.Overview:
+                            <div class="overview-grid">
+                                <article class="metric-card"><span>Pagine</span><strong>@_document.Pages</strong><small>etichetta corrente: @_page.Label</small></article>
+                                <article class="metric-card"><span>Blocchi testo</span><strong>@_textBoxesCount</strong><small>@_pageText.Length caratteri estratti</small></article>
+                                <article class="metric-card"><span>Risorse</span><strong>@(_fonts.Count + _images.Count)</strong><small>@_fonts.Count font · @_images.Count immagini</small></article>
+                                <article class="metric-card"><span>Interattività</span><strong>@(_annotations.Count + _formWidgetsCount)</strong><small>@_annotations.Count annotazioni · @_formWidgetsCount widget</small></article>
+                            </div>
+                            <div class="capability-grid">
+                                <div><span class="cap-icon">T</span><strong>Estrazione testo</strong><small>Ordine fisico e ricerca</small></div>
+                                <div><span class="cap-icon">Aa</span><strong>Analisi font</strong><small>Embedding, encoding e mapping Unicode</small></div>
+                                <div><span class="cap-icon">◫</span><strong>Immagini</strong><small>Decodifica e conversione PNG</small></div>
+                                <div><span class="cap-icon">⌁</span><strong>Struttura PDF</strong><small>Outline, livelli, form e allegati</small></div>
+                            </div>
+                            break;
+
+                        case InspectorTab.Text:
+                            <div class="text-tools">
+                                <div class="search-box">
+                                    <input type="search" placeholder="Cerca nella pagina…" @bind="_searchText" @bind:event="oninput" @onkeydown="SearchOnEnterAsync" />
+                                    <button type="button" @onclick="SearchPage">Cerca</button>
+                                </div>
+                                @if (_searchText.Length > 0)
+                                {
+                                    <span class="search-result">@_searchHits.Count occorrenze</span>
+                                }
+                            </div>
+                            @if (string.IsNullOrEmpty(_pageText))
+                            {
+                                <EmptyResult Icon="T" Title="Nessun testo estratto" Description="La pagina potrebbe contenere solo immagini o tracciati." />
+                            }
+                            else
+                            {
+                                <pre class="text-output">@_pageText</pre>
+                            }
+                            break;
+
+                        case InspectorTab.Fonts:
+                            @if (_fonts.Count == 0)
+                            {
+                                <EmptyResult Icon="Aa" Title="Nessun font rilevato" Description="Questa pagina non usa risorse font." />
+                            }
+                            else
+                            {
+                                <div class="table-wrap"><table>
+                                    <thead><tr><th>Risorsa</th><th>Nome</th><th>Tipo</th><th>Encoding</th><th>Incorporato</th><th>ToUnicode</th></tr></thead>
+                                    <tbody>
+                                    @foreach (FontInfo font in _fonts)
+                                    {
+                                        <tr>
+                                            <td><code>@font.ResourceName</code></td>
+                                            <td>
+                                                <strong>@font.Name</strong>
+                                                @if (font.IsSubset)
+                                                {
+                                                    <small class="line-note">subset</small>
+                                                }
+                                            </td>
+                                            <td>@font.Type</td>
+                                            <td>@font.Encoding</td>
+                                            <td><StatusBadge Enabled="font.IsEmbedded" TrueText="Sì" FalseText="No" /></td>
+                                            <td><StatusBadge Enabled="font.HasToUnicode" TrueText="Sì" FalseText="No" /></td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table></div>
+                            }
+                            break;
+
+                        case InspectorTab.Images:
+                            @if (_images.Count == 0)
+                            {
+                                <EmptyResult Icon="◫" Title="Nessuna immagine rilevata" Description="La pagina potrebbe essere composta solo da testo e grafica vettoriale." />
+                            }
+                            else
+                            {
+                                <div class="image-grid">
+                                    @foreach (ImagePreview image in _imagePreviews)
+                                    {
+                                        <article class="image-card">
+                                            <div class="image-thumb checkerboard">
+                                                @if (image.DataUrl is not null)
+                                                {
+                                                    <img src="@image.DataUrl" alt="Risorsa @image.Source.ResourceName" />
+                                                }
+                                                else
+                                                {
+                                                    <span>Anteprima non disponibile</span>
+                                                }
+                                            </div>
+                                            <div><strong>@image.Source.ResourceName</strong><small>@image.Source.Width × @image.Source.Height px · @image.Source.Compression</small></div>
+                                        </article>
+                                    }
+                                </div>
+                                @if (_images.Count > _imagePreviews.Count)
+                                {
+                                    <p class="result-note">Mostrate le prime @_imagePreviews.Count di @_images.Count immagini.</p>
+                                }
+                            }
+                            break;
+
+                        case InspectorTab.Annotations:
+                            @if (_annotations.Count == 0)
+                            {
+                                <EmptyResult Icon="⌁" Title="Nessuna annotazione" Description="Non sono presenti link, note o altre annotazioni sulla pagina." />
+                            }
+                            else
+                            {
+                                <div class="table-wrap"><table>
+                                    <thead><tr><th>Tipo</th><th>Contenuto</th><th>Rettangolo</th><th>Azione</th><th>Visibile</th></tr></thead>
+                                    <tbody>
+                                    @foreach (PdfAnnotation annotation in _annotations)
+                                    {
+                                        <tr>
+                                            <td><strong>@annotation.Type</strong><small class="line-note">@annotation.Subtype</small></td>
+                                            <td class="wide-cell">@ValueOrDash(annotation.Contents)</td>
+                                            <td><code>@annotation.Rectangle</code></td>
+                                            <td>@annotation.Action.Type</td>
+                                            <td><StatusBadge Enabled="annotation.IsVisible" TrueText="Sì" FalseText="No" /></td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table></div>
+                            }
+                            break;
+
+                        case InspectorTab.Structure:
+                            <div class="structure-grid">
+                                <article>
+                                    <div class="section-title"><h3>Outline</h3><span>@_outlines.Count</span></div>
+                                    @if (_outlines.Count == 0)
+                                    {
+                                        <p class="muted">Nessun segnalibro nel documento.</p>
+                                    }
+                                    else
+                                    {
+                                        <OutlineTree Items="_outlines" PageSelected="GoToPageAsync" />
+                                    }
+                                </article>
+                                <article>
+                                    <div class="section-title"><h3>Livelli opzionali</h3><span>@_layers.Count</span></div>
+                                    @if (_layers.Count == 0)
+                                    {
+                                        <p class="muted">Nessun Optional Content Group.</p>
+                                    }
+                                    else
+                                    {
+                                        <ul class="detail-list">
+                                            @foreach (PdfOptionalContentGroup layer in _layers)
+                                            {
+                                                <li><span><strong>@layer.Name</strong><small>@string.Join(", ", layer.Intents)</small></span><StatusBadge Enabled="LayerIsVisible(layer)" TrueText="Visibile" FalseText="Nascosto" /></li>
+                                            }
+                                        </ul>
+                                    }
+                                </article>
+                                <article>
+                                    <div class="section-title"><h3>Documento</h3></div>
+                                    <ul class="detail-list compact">
+                                        <li><span>Campi modulo</span><strong>@_formFieldsCount</strong></li>
+                                        <li><span>Allegati</span><strong>@_embeddedFilesCount</strong></li>
+                                        <li><span>Destinazioni nominate</span><strong>@_namedDestinationsCount</strong></li>
+                                        <li><span>JavaScript dichiarato</span><strong>@(_hasJavaScript ? "Sì" : "No")</strong></li>
+                                    </ul>
+                                </article>
+                            </div>
+                            break;
+
+                        case InspectorTab.Diagnostics:
+                            @if (_diagnostics.Count == 0)
+                            {
+                                <EmptyResult Icon="✓" Title="Nessuna diagnostica" Description="Il documento è stato interpretato senza segnalazioni." />
+                            }
+                            else
+                            {
+                                <ul class="diagnostic-list">
+                                    @foreach (PdfDiagnostic diagnostic in _diagnostics)
+                                    {
+                                        long? offset = diagnostic.Offset;
+                                        <li class="@diagnostic.Severity.ToString().ToLowerInvariant()">
+                                            <span class="diag-level">@diagnostic.Severity</span>
+                                            <div><strong>@diagnostic.Code</strong><p>@diagnostic.Message</p></div>
+                                            @if (offset.HasValue)
+                                            {
+                                                <code>@@ @offset.Value</code>
+                                            }
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                            break;
+                    }
+                </div>
+            </section>
+        }
+    </main>
+
+    <footer>
+        <span>Poppler.Net @Document.PortVersion · upstream @Document.UpstreamVersion</span>
+        <span>Blazor WebAssembly · .NET 8</span>
+    </footer>
+</div>
+
+@code {
+    private const long MaxInputBytes = 64 * 1024 * 1024;
+    private const int MaxImagePreviews = 12;
+
+    private readonly Dictionary<string, bool> _layerVisibility = new(StringComparer.Ordinal);
+    private byte[]? _selectedBytes;
+    private Document? _document;
+    private Page? _page;
+    private string? _fileName;
+    private long _fileSize;
+    private string _ownerPassword = "";
+    private string _userPassword = "";
+    private string? _errorMessage;
+    private string? _previewUrl;
+    private string _pageText = "";
+    private string _searchText = "";
+    private bool _isBusy;
+    private bool _includeText = true;
+    private bool _transparent;
+    private bool _drawBounds;
+    private bool _hasJavaScript;
+    private int _pageIndex;
+    private int _antialiasing = 2;
+    private int _textBoxesCount;
+    private int _formWidgetsCount;
+    private int _formFieldsCount;
+    private int _embeddedFilesCount;
+    private int _namedDestinationsCount;
+    private double _dpi = 96;
+    private double _svgScale = 1;
+    private PdfRectangle _pageRect;
+    private PreviewFormat _previewFormat = PreviewFormat.Png;
+    private SvgFallbackMode _svgFallback = SvgFallbackMode.Rasterize;
+    private InspectorTab _activeTab;
+    private IReadOnlyList<PdfRectangle> _searchHits = Array.Empty<PdfRectangle>();
+    private IReadOnlyList<FontInfo> _fonts = Array.Empty<FontInfo>();
+    private IReadOnlyList<PdfImage> _images = Array.Empty<PdfImage>();
+    private IReadOnlyList<ImagePreview> _imagePreviews = Array.Empty<ImagePreview>();
+    private IReadOnlyList<PdfAnnotation> _annotations = Array.Empty<PdfAnnotation>();
+    private IReadOnlyList<PdfOutlineItem> _outlines = Array.Empty<PdfOutlineItem>();
+    private IReadOnlyList<PdfOptionalContentGroup> _layers = Array.Empty<PdfOptionalContentGroup>();
+    private IReadOnlyList<PdfDiagnostic> _diagnostics = Array.Empty<PdfDiagnostic>();
+
+    private string DisplayTitle =>
+        !string.IsNullOrWhiteSpace(_document?.Title) ? _document.Title : _fileName ?? "Documento PDF";
+
+    private async Task HandleFileAsync(InputFileChangeEventArgs eventArgs)
+    {
+        _errorMessage = null;
+        _isBusy = true;
+        IBrowserFile file = eventArgs.File;
+        _fileName = file.Name;
+        _fileSize = file.Size;
+        try
+        {
+            await using Stream input = file.OpenReadStream(MaxInputBytes);
+            using var output = new MemoryStream((int)Math.Min(file.Size, int.MaxValue));
+            await input.CopyToAsync(output);
+            _selectedBytes = output.ToArray();
+            await LoadDocumentAsync();
+        }
+        catch (Exception exception)
+        {
+            ResetDocument();
+            _errorMessage = FriendlyMessage(exception);
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task LoadSampleAsync()
+    {
+        _errorMessage = null;
+        _isBusy = true;
+        try
+        {
+            _selectedBytes = await Http.GetByteArrayAsync("samples/playground-demo.pdf");
+            _fileName = "playground-demo.pdf";
+            _fileSize = _selectedBytes.LongLength;
+            _ownerPassword = "";
+            _userPassword = "";
+            await LoadDocumentAsync();
+        }
+        catch (Exception exception)
+        {
+            ResetDocument();
+            _errorMessage = FriendlyMessage(exception);
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task ReloadDocumentAsync()
+    {
+        if (_selectedBytes is null)
+            return;
+
+        _errorMessage = null;
+        _isBusy = true;
+        try
+        {
+            await LoadDocumentAsync();
+        }
+        catch (Exception exception)
+        {
+            ResetDocument();
+            _errorMessage = FriendlyMessage(exception);
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task LoadDocumentAsync()
+    {
+        await Task.Yield();
+        _document?.Dispose();
+        _document = Document.LoadFromData(
+            _selectedBytes!,
+            ownerPassword: _ownerPassword,
+            userPassword: _userPassword);
+        _pageIndex = 0;
+        _previewUrl = null;
+        _layerVisibility.Clear();
+
+        if (_document.IsLocked)
+        {
+            ClearPageState();
+            return;
+        }
+
+        _outlines = _document.OutlineItems;
+        _layers = _document.OptionalContentGroups;
+        foreach (PdfOptionalContentGroup layer in _layers)
+            _layerVisibility[layer.Id] = layer.IsVisible;
+        _formFieldsCount = _document.FormFields.Count;
+        _embeddedFilesCount = _document.EmbeddedFiles.Count;
+        _namedDestinationsCount = _document.NamedDestinations.Count;
+        _hasJavaScript = _document.HasJavaScript;
+
+        await RefreshPageAsync();
+    }
+
+    private async Task RefreshPageAsync()
+    {
+        if (_document is null || _document.IsLocked || _document.Pages == 0)
+            return;
+
+        _isBusy = true;
+        _errorMessage = null;
+        try
+        {
+            await Task.Yield();
+            _page = _document.CreatePage(_pageIndex);
+            _pageRect = _page.PageRect();
+            _pageText = _page.Text();
+            _textBoxesCount = _page.TextList().Count;
+            _fonts = _page.Fonts;
+            _images = _page.Images;
+            _annotations = _page.Annotations;
+            _formWidgetsCount = _page.FormWidgets.Count;
+            _imagePreviews = _images
+                .Take(MaxImagePreviews)
+                .Select(image => new ImagePreview(image, TryCreatePngDataUrl(image)))
+                .ToArray();
+            _searchText = "";
+            _searchHits = Array.Empty<PdfRectangle>();
+            await RenderPreviewCoreAsync();
+            _diagnostics = _document.Diagnostics.ToArray();
+        }
+        catch (Exception exception)
+        {
+            _previewUrl = null;
+            _errorMessage = FriendlyMessage(exception);
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task RenderPreviewAsync()
+    {
+        if (_page is null)
+            return;
+
+        _isBusy = true;
+        _errorMessage = null;
+        try
+        {
+            await RenderPreviewCoreAsync();
+            _diagnostics = _document?.Diagnostics.ToArray() ?? Array.Empty<PdfDiagnostic>();
+        }
+        catch (Exception exception)
+        {
+            _errorMessage = FriendlyMessage(exception);
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private async Task RenderPreviewCoreAsync()
+    {
+        await Task.Yield();
+        IReadOnlyDictionary<string, bool> visibility = new Dictionary<string, bool>(_layerVisibility, StringComparer.Ordinal);
+        if (_previewFormat == PreviewFormat.Png)
+        {
+            byte[] png = _page!.RenderToPng(new RasterRenderOptions
+            {
+                Dpi = _dpi,
+                Antialiasing = _antialiasing,
+                Transparent = _transparent,
+                IncludeText = _includeText,
+                UseFontSubstitution = false,
+                OptionalContentVisibility = visibility
+            });
+            _previewUrl = $"data:image/png;base64,{Convert.ToBase64String(png)}";
+        }
+        else
+        {
+            string svg = _page!.RenderToSvg(new SvgRenderOptions
+            {
+                Scale = _svgScale,
+                IncludeText = _includeText,
+                DrawTextBounds = _drawBounds,
+                DrawImageBounds = _drawBounds,
+                FallbackMode = _svgFallback,
+                OptionalContentVisibility = visibility
+            });
+            _previewUrl = $"data:image/svg+xml;base64,{Convert.ToBase64String(Encoding.UTF8.GetBytes(svg))}";
+        }
+    }
+
+    private async Task SetPreviewFormatAsync(PreviewFormat format)
+    {
+        if (_previewFormat == format)
+            return;
+        _previewFormat = format;
+        await RenderPreviewAsync();
+    }
+
+    private async Task PreviousPageAsync() => await GoToPageAsync(_pageIndex - 1);
+    private async Task NextPageAsync() => await GoToPageAsync(_pageIndex + 1);
+
+    private async Task JumpToPageAsync(ChangeEventArgs eventArgs)
+    {
+        if (int.TryParse(eventArgs.Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int number))
+            await GoToPageAsync(number - 1);
+    }
+
+    private async Task GoToPageAsync(int pageIndex)
+    {
+        if (_document is null || pageIndex < 0 || pageIndex >= _document.Pages || pageIndex == _pageIndex)
+            return;
+        _pageIndex = pageIndex;
+        await RefreshPageAsync();
+    }
+
+    private void SearchPage()
+    {
+        _searchHits = _page is not null && !string.IsNullOrWhiteSpace(_searchText)
+            ? _page.Search(_searchText)
+            : Array.Empty<PdfRectangle>();
+    }
+
+    private Task SearchOnEnterAsync(KeyboardEventArgs eventArgs)
+    {
+        if (eventArgs.Key == "Enter")
+            SearchPage();
+        return Task.CompletedTask;
+    }
+
+    private void SetLayerVisibility(string id, object? value)
+    {
+        _layerVisibility[id] = value is bool enabled && enabled;
+    }
+
+    private bool LayerIsVisible(PdfOptionalContentGroup layer) =>
+        _layerVisibility.TryGetValue(layer.Id, out bool visible) ? visible : layer.IsVisible;
+
+    private int? TabCount(InspectorTab tab) => tab switch
+    {
+        InspectorTab.Text => _textBoxesCount,
+        InspectorTab.Fonts => _fonts.Count,
+        InspectorTab.Images => _images.Count,
+        InspectorTab.Annotations => _annotations.Count,
+        InspectorTab.Structure => _outlines.Count + _layers.Count,
+        InspectorTab.Diagnostics => _diagnostics.Count,
+        _ => null
+    };
+
+    private static string TabLabel(InspectorTab tab) => tab switch
+    {
+        InspectorTab.Overview => "Panoramica",
+        InspectorTab.Text => "Testo",
+        InspectorTab.Fonts => "Font",
+        InspectorTab.Images => "Immagini",
+        InspectorTab.Annotations => "Annotazioni",
+        InspectorTab.Structure => "Struttura",
+        InspectorTab.Diagnostics => "Diagnostica",
+        _ => tab.ToString()
+    };
+
+    private void ResetDocument()
+    {
+        _document?.Dispose();
+        _document = null;
+        _previewUrl = null;
+        ClearPageState();
+    }
+
+    private void ClearPageState()
+    {
+        _page = null;
+        _pageText = "";
+        _fonts = Array.Empty<FontInfo>();
+        _images = Array.Empty<PdfImage>();
+        _imagePreviews = Array.Empty<ImagePreview>();
+        _annotations = Array.Empty<PdfAnnotation>();
+        _outlines = Array.Empty<PdfOutlineItem>();
+        _layers = Array.Empty<PdfOptionalContentGroup>();
+        _diagnostics = _document?.Diagnostics.ToArray() ?? Array.Empty<PdfDiagnostic>();
+    }
+
+    private static string? TryCreatePngDataUrl(PdfImage image)
+    {
+        try
+        {
+            return $"data:image/png;base64,{Convert.ToBase64String(image.ToPngBytes())}";
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string FriendlyMessage(Exception exception) => exception switch
+    {
+        IOException => "Il file non può essere letto o supera il limite consentito.",
+        PdfEncryptedException => "La password non è valida oppure il documento è ancora bloccato.",
+        PdfLimitException => exception.Message,
+        _ => exception.Message
+    };
+
+    private static string ValueOrDash(string? value) => string.IsNullOrWhiteSpace(value) ? "—" : value;
+    private static string FormatNumber(double value) => value.ToString("0.#", CultureInfo.InvariantCulture);
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        >= 1024L * 1024L => $"{bytes / (1024d * 1024d):0.#} MB",
+        >= 1024L => $"{bytes / 1024d:0.#} KB",
+        _ => $"{bytes} B"
+    };
+
+    public void Dispose() => _document?.Dispose();
+
+    private enum PreviewFormat { Png, Svg }
+    private enum InspectorTab { Overview, Text, Fonts, Images, Annotations, Structure, Diagnostics }
+    private sealed record ImagePreview(PdfImage Source, string? DataUrl);
+}

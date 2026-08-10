@@ -1,0 +1,7 @@
+<span class="status-badge @(Enabled ? "yes" : "no")">@(Enabled ? TrueText : FalseText)</span>
+
+@code {
+    [Parameter] public bool Enabled { get; set; }
+    [Parameter] public string TrueText { get; set; } = "Sì";
+    [Parameter] public string FalseText { get; set; } = "No";
+}

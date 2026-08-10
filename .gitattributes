@@ -21,3 +21,4 @@ tests/fixtures/annotations-beta1.pdf text eol=lf
 tests/fixtures/robustness-beta2.pdf text eol=lf
 tests/fixtures/outline-alpha1.pdf text eol=lf
 tests/fixtures/raster-geometry-alpha1.pdf text eol=lf
+samples/Poppler.Net.Playground/wwwroot/samples/playground-demo.pdf text eol=lf -diff

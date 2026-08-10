@@ -1,0 +1,43 @@
+@if (Items.Count > 0)
+{
+    <ul class="outline-tree">
+        @foreach (PdfOutlineItem item in Items)
+        {
+            <li>
+                @if (item.Destination is { } destination)
+                {
+                    <button type="button"
+                            class="outline-link"
+                            title="Apri pagina @destination.PageNumber"
+                            @onclick="() => PageSelected.InvokeAsync(destination.PageIndex)">
+                        <span>@item.Title</span>
+                        <small>p. @destination.PageNumber</small>
+                    </button>
+                }
+                else
+                {
+                    <div class="outline-label">
+                        <span>@item.Title</span>
+                        @if (item.Action.Type != PdfAnnotationActionType.None)
+                        {
+                            <small>@item.Action.Type</small>
+                        }
+                    </div>
+                }
+
+                @if (item.Children.Count > 0)
+                {
+                    <OutlineTree Items="item.Children" PageSelected="PageSelected" />
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public IReadOnlyList<PdfOutlineItem> Items { get; set; } = Array.Empty<PdfOutlineItem>();
+
+    [Parameter]
+    public EventCallback<int> PageSelected { get; set; }
+}
