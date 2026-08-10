@@ -1,6 +1,6 @@
 # Managed graphics engine
 
-Version `0.12.0-alpha.3` retains and extends the backend-neutral slice of Poppler
+Version `0.12.0-beta.1` retains and extends the backend-neutral slice of Poppler
 26.07.0 `Gfx`, `GfxState`, `Function`, pattern and XObject behavior. It parses
 page content into immutable managed objects; it does not call Poppler, Cairo,
 FreeType or another native renderer.

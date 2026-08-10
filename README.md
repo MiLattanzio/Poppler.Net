@@ -4,7 +4,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.12.0-alpha.3` shading-conformance release is not a complete replacement for
+> This `0.12.0-beta.1` graphics-compatibility release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -72,6 +72,11 @@ process invocation, or native NuGet dependency.
 > SVG raster fallbacks to conservative painted bounds aligned to the page
 > pixel grid. Type 4–7 meshes and complex type 1 shadings remain raster-backed
 > in SVG; no external image resource is emitted.
+> Beta 1 closes the declared graphics-compatibility pass with a versioned
+> 22-page Poppler differential baseline and a deterministic cross-feature
+> corpus covering reused isolated groups, transformed dashed strokes, a Coons
+> mesh through a type 1 luminosity mask, even-odd clipping and rotated CropBox
+> handling. The public API and managed-only dependency boundary are unchanged.
 > See [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md) for its scope and limits. See
 > [docs/FORMS.md](docs/FORMS.md) for the AcroForm model and
 > [docs/OPTIONAL_CONTENT.md](docs/OPTIONAL_CONTENT.md) for layer behavior. See

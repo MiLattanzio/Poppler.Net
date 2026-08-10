@@ -146,3 +146,23 @@ and both groups under a rotated CropBox. Canonical hashes freeze 72 DPI
 opaque/transparent output and 72 DPI SVG fallbacks. The non-rotated
 complex page embeds only its `244x148` painted support, while the rotated page
 conservatively retains its complete `230x170` CropBox.
+
+## Beta 1 release qualification
+
+Release qualification performed on 2026-08-10 for `0.12.0-beta.1` uses .NET
+SDK 8.0.423 with warnings treated as errors. NUnitLite executes 266 tests,
+including the two new cross-feature compatibility tests. The managed-only
+verifier accepts production source and the restored dependency graph.
+
+The library and CLI versions, `Document.PortVersion` and NuGet metadata all
+report `0.12.0-beta.1`. Local packaging contains only the Release net8.0
+DLL/XML, README, release notes, license, notice and NuGet metadata. The runtime
+dependency set remains CoreJ2K 2.3.3.91, JBig2Decoder.NETStandard 1.5.2 and
+StbImageSharp 2.30.15. The complete public-surface SHA-256 is
+`be515260264b76a8c2dd59df8d0052d0b71ca1635aa6d854a24e1a6fc230f21a`;
+the version-normalized callable fingerprint remains
+`cd82599822b9d301c9236b56a22cacb45a284d40498ce4b42a0c72e75a07af46`.
+
+The pull-request gate repeats build, tests, managed-only verification and
+packaging on Ubuntu, Windows and macOS. Publishing a matching GitHub
+prerelease tag repeats those gates before NuGet.org trusted publishing.

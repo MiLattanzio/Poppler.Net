@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.12.0-beta.1 - Unreleased
+## 0.12.0-beta.1 — 2026-08-10
 
 - Added a reproducible Poppler differential gate with per-page error budgets
   and classifications across the geometry, transparency and shading corpora.

@@ -52,13 +52,13 @@ scope.
 
 ### Exit criteria
 
-- [ ] No known P0/P1 graphics correctness defect remains in the declared 0.12
+- [x] No known P0/P1 graphics correctness defect remains in the declared 0.12
   scope.
-- [ ] Every new regression has a deterministic fixture or focused unit test.
-- [ ] Full CI passes on Ubuntu, Windows, and macOS.
-- [ ] Poppler comparisons and approved differences are recorded in the
+- [x] Every new regression has a deterministic fixture or focused unit test.
+- [x] Full CI passes on Ubuntu, Windows, and macOS.
+- [x] Poppler comparisons and approved differences are recorded in the
   verification documentation.
-- [ ] Changelog, compatibility documentation, and release notes describe the
+- [x] Changelog, compatibility documentation, and release notes describe the
   beta.1 state.
 
 ## 0.12.0-beta.2: hardening
