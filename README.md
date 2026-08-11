@@ -151,11 +151,13 @@ Package author and project metadata identify **Mi Lattanzio** and
 
 The [online playground](https://milattanzio.github.io/Poppler.Net/) is a
 Blazor WebAssembly application that runs Poppler.Net entirely in the browser.
-PDF files and passwords never leave the device. It exposes PNG and SVG page
-rendering, text extraction and search, font and image inspection, annotations,
-outlines, optional-content layers and parser diagnostics. HTML downloads are
-available for the current page, the complete document and a ZIP directory
-bundle containing `index.html`, CSS, page SVGs, reusable fonts and a manifest.
+PDF files and passwords never leave the device. The current page opens by
+default in the selectable HTML renderer, with PNG and SVG available from the
+same preview controls. Each preview can be downloaded in its active format;
+complete-document HTML and a ZIP directory bundle containing `index.html`,
+CSS, page SVGs, reusable fonts and a manifest are also available. The
+playground additionally exposes text extraction and search, font and image
+inspection, annotations, outlines, optional-content layers and diagnostics.
 The generated HTML contains only the requested page or the complete stack of
 pages at the top-left origin, without viewer toolbar, centering or decoration.
 

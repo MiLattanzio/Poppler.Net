@@ -19,6 +19,8 @@
   fallback, font, image/vector and layer options.
 - Added page/document HTML and bundle ZIP downloads to the WebAssembly
   playground.
+- Made sandboxed, selectable HTML the playground's default current-page
+  preview, alongside downloadable PNG and SVG modes.
 - Began publishing `Poppler.Net.Cli` as a net8.0 dotnet tool with
   major-version roll-forward and synchronized library/tool versions.
 - Extended CI, package/source verification and local build scripts to inspect,

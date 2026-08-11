@@ -40,6 +40,8 @@ remains managed-only and invokes no Poppler binary or subprocess.
   font, image/vector, fallback, title, layer and password options.
 - Added current-page HTML, complete-document HTML and directory-bundle ZIP
   downloads to the WebAssembly playground. All processing remains local.
+- Made the sandboxed HTML page renderer the default playground preview, with
+  HTML, PNG and SVG selectable and downloadable from the same viewer controls.
 - `Poppler.Net.Cli` is now a `net8.0` dotnet-tool package with major-version
   roll-forward and command name `poppler-net`:
 

@@ -36,7 +36,7 @@
             </div>
             <div class="hero-stats" aria-label="Caratteristiche">
                 <div><strong>0</strong><span>upload al server</span></div>
-                <div><strong>2</strong><span>renderer PNG + SVG</span></div>
+                <div><strong>3</strong><span>renderer HTML + PNG + SVG</span></div>
                 <div><strong>100%</strong><span>codice gestito</span></div>
             </div>
         </section>
@@ -128,6 +128,7 @@
                     <div class="render-controls">
                         <p class="step">02 · Rendering</p>
                         <div class="segmented" role="group" aria-label="Formato anteprima">
+                            <button type="button" class="@(_previewFormat == PreviewFormat.Html ? "active" : null)" @onclick="() => SetPreviewFormatAsync(PreviewFormat.Html)">HTML</button>
                             <button type="button" class="@(_previewFormat == PreviewFormat.Png ? "active" : null)" @onclick="() => SetPreviewFormatAsync(PreviewFormat.Png)">PNG</button>
                             <button type="button" class="@(_previewFormat == PreviewFormat.Svg ? "active" : null)" @onclick="() => SetPreviewFormatAsync(PreviewFormat.Svg)">SVG</button>
                         </div>
@@ -155,7 +156,7 @@
                             else
                             {
                                 <label>
-                                    Scala SVG
+                                    @(_previewFormat == PreviewFormat.Html ? "Scala HTML" : "Scala SVG")
                                     <select @bind="_svgScale">
                                         <option value="1">1×</option>
                                         <option value="1.5">1,5×</option>
@@ -171,11 +172,18 @@
                                 </label>
                             }
                         </div>
-                        <label class="switch-row">
-                            <input type="checkbox" @bind="_includeText" />
-                            <span></span>
-                            Includi testo
-                        </label>
+                        @if (_previewFormat == PreviewFormat.Html)
+                        {
+                            <p class="render-note">Testo HTML visibile e selezionabile con font incorporati quando disponibili.</p>
+                        }
+                        else
+                        {
+                            <label class="switch-row">
+                                <input type="checkbox" @bind="_includeText" />
+                                <span></span>
+                                Includi testo
+                            </label>
+                        }
                         @if (_previewFormat == PreviewFormat.Png)
                         {
                             <label class="switch-row">
@@ -184,7 +192,7 @@
                                 Sfondo trasparente
                             </label>
                         }
-                        else
+                        else if (_previewFormat == PreviewFormat.Svg)
                         {
                             <label class="switch-row">
                                 <input type="checkbox" @bind="_drawBounds" />
@@ -261,7 +269,7 @@
                                 </div>
                             }
                             <button type="button" class="download-action compact" @onclick="DownloadPreviewAsync" disabled="@(_previewBytes is null || _isBusy)">
-                                Scarica @(_previewFormat == PreviewFormat.Png ? "PNG" : "SVG")
+                                Scarica @PreviewFormatLabel
                             </button>
                         </div>
                     </div>
@@ -271,7 +279,16 @@
                         {
                             <div class="render-overlay"><span class="spinner large"></span><p>Poppler.Net sta elaborando la pagina…</p></div>
                         }
-                        @if (_previewUrl is not null)
+                        @if (_previewFormat == PreviewFormat.Html && _previewHtml is not null)
+                        {
+                            <figure class="page-preview html-preview">
+                                <iframe srcdoc="@_previewHtml"
+                                        style="@HtmlPreviewStyle"
+                                        title="Anteprima HTML della pagina @(_pageIndex + 1)"
+                                        sandbox=""></iframe>
+                            </figure>
+                        }
+                        else if (_previewUrl is not null)
                         {
                             <figure class="page-preview @(_transparent ? "checkerboard" : null)">
                                 <img src="@_previewUrl" alt="Anteprima della pagina @(_pageIndex + 1)" />
@@ -334,7 +351,7 @@
                                 </div>
                                 <div class="export-actions">
                                     <button type="button" class="download-action" @onclick="DownloadSourcePdfAsync" disabled="@(_selectedBytes is null || _isBusy)">PDF originale</button>
-                                    <button type="button" class="download-action" @onclick="DownloadPreviewAsync" disabled="@(_previewBytes is null || _isBusy)">Anteprima @(_previewFormat == PreviewFormat.Png ? "PNG" : "SVG")</button>
+                                    <button type="button" class="download-action" @onclick="DownloadPreviewAsync" disabled="@(_previewBytes is null || _isBusy)">Anteprima @PreviewFormatLabel</button>
                                     <button type="button" class="download-action" @onclick="DownloadPageHtmlAsync" disabled="@_isBusy">Pagina HTML</button>
                                     <button type="button" class="download-action" @onclick="DownloadDocumentHtmlAsync" disabled="@_isBusy">Documento HTML</button>
                                     <button type="button" class="download-action" @onclick="DownloadHtmlBundleAsync" disabled="@_isBusy">Bundle HTML .zip</button>
@@ -608,9 +625,10 @@
     private string _userPassword = "";
     private string? _errorMessage;
     private string? _previewUrl;
+    private string? _previewHtml;
     private byte[]? _previewBytes;
-    private string _previewExtension = "png";
-    private string _previewMimeType = "image/png";
+    private string _previewExtension = "html";
+    private string _previewMimeType = "text/html;charset=utf-8";
     private string _pageText = "";
     private string _searchText = "";
     private bool _isBusy;
@@ -627,7 +645,7 @@
     private double _dpi = 96;
     private double _svgScale = 1;
     private PdfRectangle _pageRect;
-    private PreviewFormat _previewFormat = PreviewFormat.Png;
+    private PreviewFormat _previewFormat = PreviewFormat.Html;
     private SvgFallbackMode _svgFallback = SvgFallbackMode.Rasterize;
     private InspectorTab _activeTab;
     private IReadOnlyList<PdfRectangle> _searchHits = Array.Empty<PdfRectangle>();
@@ -643,6 +661,31 @@
 
     private string DisplayTitle =>
         !string.IsNullOrWhiteSpace(_document?.Title) ? _document.Title : _fileName ?? "Documento PDF";
+
+    private string PreviewFormatLabel => _previewFormat switch
+    {
+        PreviewFormat.Html => "HTML",
+        PreviewFormat.Png => "PNG",
+        PreviewFormat.Svg => "SVG",
+        _ => _previewFormat.ToString().ToUpperInvariant()
+    };
+
+    private string HtmlPreviewStyle
+    {
+        get
+        {
+            if (_page is null)
+                return "";
+
+            PdfRectangle crop = _page.PageRect(PageBox.CropBox);
+            double width = crop.Width * _svgScale;
+            double height = crop.Height * _svgScale;
+            int rotation = ((_page.Rotation % 360) + 360) % 360;
+            if (rotation is 90 or 270)
+                (width, height) = (height, width);
+            return $"width:{FormatNumber(width)}px;height:{FormatNumber(height)}px";
+        }
+    }
 
     private async Task HandleFileAsync(InputFileChangeEventArgs eventArgs)
     {
@@ -726,6 +769,7 @@
             userPassword: _userPassword);
         _pageIndex = 0;
         _previewUrl = null;
+        _previewHtml = null;
         _layerVisibility.Clear();
 
         if (_document.IsLocked)
@@ -779,6 +823,8 @@
         catch (Exception exception)
         {
             _previewUrl = null;
+            _previewHtml = null;
+            _previewBytes = null;
             _errorMessage = FriendlyMessage(exception);
         }
         finally
@@ -813,7 +859,20 @@
     {
         await Task.Yield();
         IReadOnlyDictionary<string, bool> visibility = new Dictionary<string, bool>(_layerVisibility, StringComparer.Ordinal);
-        if (_previewFormat == PreviewFormat.Png)
+        _previewUrl = null;
+        _previewHtml = null;
+        _previewBytes = null;
+
+        if (_previewFormat == PreviewFormat.Html)
+        {
+            string html = _page!.RenderToHtml(HtmlPageOptions());
+            byte[] htmlBytes = Encoding.UTF8.GetBytes(html);
+            _previewHtml = html;
+            _previewBytes = htmlBytes;
+            _previewExtension = "html";
+            _previewMimeType = "text/html;charset=utf-8";
+        }
+        else if (_previewFormat == PreviewFormat.Png)
         {
             IReadOnlyList<string> fontDirectories =
                 _includeText && _fonts.Any(font => !font.IsEmbedded)
@@ -1364,6 +1423,7 @@
         _document?.Dispose();
         _document = null;
         _previewUrl = null;
+        _previewHtml = null;
         _previewBytes = null;
         ClearPageState();
     }
@@ -1414,7 +1474,7 @@
 
     public void Dispose() => _document?.Dispose();
 
-    private enum PreviewFormat { Png, Svg }
+    private enum PreviewFormat { Html, Png, Svg }
     private enum InspectorTab { Overview, Text, Fonts, Images, Annotations, Structure, Diagnostics }
     private sealed record ImagePreview(PdfImage Source, int Index, string? DataUrl);
     private sealed record DownloadArtifact(string FileName, string MimeType, byte[] Data);

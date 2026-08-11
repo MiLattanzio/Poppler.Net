@@ -145,6 +145,8 @@ are supported.
 The WebAssembly playground generates every artifact locally. The export panel
 offers:
 
+- a sandboxed live HTML preview of the current page, selected by default and
+  downloadable through the same preview action used by PNG and SVG;
 - current page HTML;
 - complete-document self-contained HTML;
 - a ZIP containing the directory bundle without flattening its paths.
