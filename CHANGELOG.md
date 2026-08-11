@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.0 — 2026-08-11
+
+- Promoted the qualified RC 1 implementation to stable without adding a new
+  feature family or changing the frozen callable public API.
+- Aligned library, CLI, package-consumer fallback and `Document.PortVersion`
+  metadata at `0.12.0` while retaining assembly/file version `26.7.0.0`.
+- Finalized stable release notes and compatibility/API documentation and
+  retained the full build, test, managed-only, package, source-archive,
+  Poppler-differential and dual-framework consumer gates.
+- Required the stable `v0.12.0` tag to match the package version before the
+  GitHub release can publish the package to NuGet.org.
+
 ## 0.12.0-rc.1 — 2026-08-11
 
 - Froze the callable `0.12` public API carried by beta.2 and recorded both the
