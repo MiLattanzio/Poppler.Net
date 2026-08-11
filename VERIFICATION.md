@@ -258,3 +258,52 @@ separate P0/P1 blocker is open. Pull-request
 passes all three build/test and managed-only jobs, the package and extracted
 source verification, and all six Ubuntu/Windows/macOS `net8.0`/`net10.0`
 consumer jobs.
+
+## 0.12.0 stable local qualification
+
+Local qualification performed on 2026-08-11 for candidate commit
+`bf2b9977580f694f69e856206cd218d23f01b635` promotes approved master commit
+`a23eefc09d4b041b2bfe9466114e961bbed26cae` from RC 1 without an implementation
+or callable-API change. Issue #22 and its milestone are complete, and RC 1
+release [run 31514782326](https://github.com/MiLattanzio/Poppler.Net/actions/runs/31514782326)
+is green. No post-RC blocker fix was required.
+
+.NET SDK 10.0.302 and CLR 10.0.10 restore all six projects from the repository
+NuGet configuration and build Release with zero warnings. The managed-only
+verifier accepts production source and the restored dependency graph. NUnitLite
+executes 285 tests: 285 pass with no failure, warning or skip. The six-page
+Release smoke completes in 23.7 ms in the working tree and 47.7 ms in the clean
+source extraction, with 7.6--7.7 MiB allocated.
+
+Library, CLI, package-consumer fallback and `Document.PortVersion` all report
+`0.12.0`; assembly and file versions remain `26.7.0.0`. The complete stable
+public-surface SHA-256 is
+`c72005f9c1bd3418c1a7fd00c582c8ccc88ba7e3beedd65e815a45861b72655b`.
+The version-normalized callable fingerprint remains
+`ce87b22579e9458c3c1dcdb1aa01790f15d13006ad177ad4815f1e974e63b527`.
+The MSBuild guard accepts `v0.12.0`, classifies `v0.12.0-rc.1` as a mismatch
+when expected and fails an unexpected mismatched tag.
+
+The optional differential runner reproduces all 22 geometry, transparency,
+shading and cross-feature pages within their approved normalized RGB error
+budgets. Poppler 26.05.0 is the available local renderer and Poppler 26.07.0
+remains the semantic source reference.
+
+The tracked source archive is 859,980 bytes with SHA-256
+`8985351acaa79acc0b3da7e3324ceeb4c50bb8f874d09df1bca710c9ea28ee77`.
+An independent temporary extraction restores, builds, passes managed-only
+verification and all 285 tests, exercises the CLI, then repacks and verifies
+an 833,869-byte NuGet package with SHA-256
+`5c80d34fac8a415179a1289d5849220d1dd6bada05e0d831e9026e93145941d1`.
+The package contains the audited GPL-2.0-or-later metadata, repository commit,
+two framework assemblies, documentation payload and pinned managed dependency
+graph.
+
+Clean local consumers restore that exact package and render PNG/SVG as both
+supported targets. The PNG hashes are
+`288113db35fd02ced30e623e8ac7f2a58055a4607c311850f26a43e23de7af03`
+on CLR 8 and
+`578873f57b3a0125e4a6b7da9baf37ebe685393e402a6aea0a7c078eba5aefc2`
+on CLR 10. PR CI, merge, stable tag/release, NuGet publication and the
+post-index consumer check remain publication gates; they are not claimed by
+this local qualification.

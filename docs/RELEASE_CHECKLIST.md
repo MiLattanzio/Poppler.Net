@@ -33,10 +33,10 @@ blocker and rerun every affected gate plus the complete qualification suite.
   as errors and run the complete NUnitLite suite.
 - [x] Run the managed-only verifier and the optional Poppler differential
   review; record approved differences.
-- [ ] Pack with the approved source revision and run the package verifier.
-- [ ] Extract the tracked source archive into a clean directory, then restore,
+- [x] Pack with the approved source revision and run the package verifier.
+- [x] Extract the tracked source archive into a clean directory, then restore,
   build, test, verify, repack and exercise the CLI from that copy.
-- [ ] Restore and render from the produced package as `net8.0` and `net10.0`.
+- [x] Restore and render from the produced package as `net8.0` and `net10.0`.
 - [ ] PR CI is green for Ubuntu, Windows and macOS, package/source verification
   and all six operating-system/framework consumers.
 - [x] The tag guard accepts `v0.12.0` and rejects a mismatched tag.
