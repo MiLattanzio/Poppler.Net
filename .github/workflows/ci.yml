@@ -101,17 +101,33 @@ jobs:
           -nologo
           -getProperty:Version)" >> "${GITHUB_OUTPUT}"
 
+      - name: Verify release tag guard
+        shell: bash
+        run: |
+          package_version="$(dotnet msbuild src/Poppler.Net/Poppler.Net.csproj -nologo -getProperty:Version)"
+          dotnet msbuild \
+            src/Poppler.Net/Poppler.Net.csproj \
+            -nologo \
+            -target:ValidateReleaseTag \
+            -property:ReleaseTag="v${package_version}"
+          dotnet msbuild \
+            src/Poppler.Net/Poppler.Net.csproj \
+            -nologo \
+            -target:ValidateReleaseTag \
+            -property:ReleaseTag="v0.0.0-invalid" \
+            -property:ExpectedReleaseTagMatch=false
+
       - name: Verify release tag matches package version
         if: github.event_name == 'release'
         shell: bash
         env:
           RELEASE_TAG: ${{ github.event.release.tag_name }}
-        run: |
-          package_version="$(dotnet msbuild src/Poppler.Net/Poppler.Net.csproj -nologo -getProperty:Version)"
-          if [[ "${RELEASE_TAG#v}" != "$package_version" ]]; then
-            echo "::error::Release tag '$RELEASE_TAG' does not match package version '$package_version'."
-            exit 1
-          fi
+        run: >-
+          dotnet msbuild
+          src/Poppler.Net/Poppler.Net.csproj
+          -nologo
+          -target:ValidateReleaseTag
+          -property:ReleaseTag="${RELEASE_TAG}"
 
       - name: Pack
         run: >-

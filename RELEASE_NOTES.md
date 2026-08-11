@@ -1,71 +1,57 @@
-# Poppler.Net 0.12.0-beta.2
+# Poppler.Net 0.12.0-rc.1
 
 Release date: 2026-08-11
 
-`0.12.0-beta.2` hardens the feature-complete `0.12` graphics line for hostile
-inputs, concurrent read-only use, bounded resource growth and real package
-consumption. It retains the beta.1 Poppler differential baseline and does not
-add a native runtime or expand the declared rendering scope.
+`0.12.0-rc.1` is the publication-ready release candidate for the managed-only,
+read-only Poppler 26.07.0 port. The callable `0.12` API is frozen; this release
+qualifies the beta.2 implementation and distribution without adding a new
+feature family.
 
-## Hostile-input hardening
+## API freeze
 
-Decoded ASCIIHex, ASCII85 and RunLength streams now check their byte budget
-before every output write. Combined page content includes inserted separators
-in the pre-growth calculation. Oversized but finite page boxes and raster
-working arrays fail as `PdfLimitException` with stable diagnostics instead of
-leaking arithmetic exceptions or attempting oversized allocations.
+- The version-normalized callable API SHA-256 is
+  `ce87b22579e9458c3c1dcdb1aa01790f15d13006ad177ad4815f1e974e63b527`.
+- The complete rc.1 public-surface SHA-256 is
+  `dae14d92c94ed709bf9012ebe977e24779aa317b2be5a1cdca317f5bbcc83711`.
+- Promotion to `0.12.0` may change only `Document.PortVersion` and version
+  metadata unless a documented release blocker requires an explicitly
+  approved API re-baseline.
 
-Three new cumulative controls complement the existing per-resource limits:
+See `docs/API_FREEZE.md` for the fingerprint scope and change policy.
 
-- `MaximumClipPaths` bounds clips retained by one graphics state;
-- `MaximumPageImagePixels` bounds decoded image pixels across one display list;
-- `MaximumPageMeshTriangles` bounds mesh triangles across one page.
+## Release qualification
 
-Repeated non-mask Image XObjects with the same resource identity share one
-immutable decoded image inside an interpretation pass. Stencil masks remain
-color-dependent and are deliberately decoded per use.
+- The complete historical and `0.12` corpus, managed-only verifier and
+  bounded performance/concurrency gates remain active.
+- The package contains library assets for both `net8.0` and `net10.0`; tools,
+  tests, engineering utilities and the WebAssembly playground use .NET 10.
+- NuGet content, GPL license metadata, repository revision and the pinned
+  managed dependency graph are inspected before publication.
+- The tracked source archive is restored, rebuilt, tested, repacked and
+  verified from a clean extraction.
+- Clean consumers restore the produced package and render PNG/SVG output as
+  `net8.0` and `net10.0` on Ubuntu, Windows and macOS.
+- CI exercises both the accepting and rejecting paths of the release
+  tag-version guard before an RC package can be published.
 
-The adversarial suite covers decoder growth, combined malformed content,
-deep clip accumulation, reused and distinct images, multiple meshes, extreme
-page boxes and working-surface array limits. Existing geometry, nested group,
-soft-mask, shading-function and adaptive-refinement limits remain active.
+## Compatibility with beta.2
 
-## Concurrency and performance
-
-A combined stress gate discovers fonts, images, text and display-list resources
-while rendering all image/color corpus pages concurrently from one `Document`;
-all summaries and raster hashes must match.
-
-The six-page Release smoke gate now permits at most 5 seconds and 32 MiB of
-managed allocations. The qualification measurement on Windows completed in
-about 0.2 seconds with 10.1 MiB allocated, leaving runner variance without
-making the gate too broad to catch a material regression.
-
-## Distribution gates
-
-CI now inspects the produced NuGet archive for an exact managed package shape,
-GPL license metadata, repository commit metadata and the pinned three-package
-runtime dependency set. A clean project restores the produced package and
-renders PNG/SVG output as both `net8.0` and `net10.0` on Ubuntu, Windows and
-macOS. The library package contains assemblies for both target frameworks;
-the CLI, test, engineering and WebAssembly projects run on .NET 10.
-Historical raster gates now hash canonical decompressed PNG content, avoiding
-false failures when .NET 8 and .NET 10 emit different valid zlib streams for
-identical pixels.
-
-CI also creates a tracked-file source archive, extracts it into a clean
-directory, restores, builds, runs the complete tests and managed-only verifier,
-repacks the library and rechecks package metadata. NuGet publication waits for
-all six operating-system/framework consumer jobs.
-
-## Installation
+There are no intentional source or binary breaking changes from
+`0.12.0-beta.2`. Update the package reference to:
 
 ```xml
-<PackageReference Include="Poppler.Net" Version="0.12.0-beta.2" />
+<PackageReference Include="Poppler.Net" Version="0.12.0-rc.1" />
 ```
 
-## Deliberate limits
+The candidate retains beta.2 hostile-input limits, shared-document
+determinism, immutable decoded-image reuse, dual-target packaging and the
+beta.1 Poppler differential baseline.
+
+## Prerelease status and limits
+
+This is a prerelease. Stable `0.12.0` is published only after the RC gates and
+the checklist in `docs/RELEASE_CHECKLIST.md` remain green.
 
 Advanced ICC LUT/device-link profiles, proofing, rendering intents, spot-color
-overprint, native SVG mesh primitives and complex-script shaping remain outside
-`0.12`. The project is read-only and does not write, edit or sign PDFs.
+overprint, native SVG mesh primitives and complex-script shaping remain
+outside `0.12`. The project does not write, edit or sign PDFs.

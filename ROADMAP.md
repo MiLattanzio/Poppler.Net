@@ -109,13 +109,13 @@ callable API; new feature work is not accepted in this milestone.
 
 ### Exit criteria
 
-- [ ] No known P0/P1 defect remains; lower-priority work is documented and
+- [x] No known P0/P1 defect remains; lower-priority work is documented and
   assigned beyond 0.12 where appropriate.
-- [ ] The public API fingerprint is frozen and approved.
-- [ ] Three-OS CI, managed-only verification, package inspection, source
+- [x] The public API fingerprint is frozen and approved.
+- [x] Three-OS CI, managed-only verification, package inspection, source
   archive, and consumer smoke pass.
-- [ ] RC package and release notes accurately identify prerelease status.
-- [ ] The stable-release checklist is ready.
+- [x] RC package and release notes accurately identify prerelease status.
+- [x] The stable-release checklist is ready.
 
 ## 0.12.0: stable release
 
