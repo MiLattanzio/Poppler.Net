@@ -4,7 +4,7 @@
     <TargetFramework />
     <AssemblyName>Poppler.Net</AssemblyName>
     <RootNamespace>Poppler</RootNamespace>
-    <Version>0.12.0-beta.2</Version>
+    <Version>0.12.0-rc.1</Version>
     <AssemblyVersion>26.7.0.0</AssemblyVersion>
     <FileVersion>26.7.0.0</FileVersion>
     <Description>Managed-only port of the Poppler 26.07.0 PDF engine.</Description>
@@ -23,4 +23,29 @@
     <None Include="..\..\LICENSE" Pack="true" PackagePath="" Link="LICENSE" />
     <None Include="..\..\NOTICE.md" Pack="true" PackagePath="" Link="NOTICE.md" />
   </ItemGroup>
+  <Target Name="ValidateReleaseTag">
+    <PropertyGroup>
+      <ExpectedReleaseTagMatch Condition="'$(ExpectedReleaseTagMatch)' == ''">true</ExpectedReleaseTagMatch>
+      <ReleaseTagMatchesVersion>false</ReleaseTagMatchesVersion>
+      <ReleaseTagMatchesVersion
+        Condition="'$(ReleaseTag)' == '$(Version)' or '$(ReleaseTag)' == 'v$(Version)'">true</ReleaseTagMatchesVersion>
+    </PropertyGroup>
+    <Error
+      Condition="'$(ReleaseTag)' == ''"
+      Text="ReleaseTag must be provided." />
+    <Error
+      Condition="'$(ExpectedReleaseTagMatch)' != 'true' and '$(ExpectedReleaseTagMatch)' != 'false'"
+      Text="ExpectedReleaseTagMatch must be true or false." />
+    <Error
+      Condition="'$(ReleaseTagMatchesVersion)' != '$(ExpectedReleaseTagMatch)'"
+      Text="Release tag '$(ReleaseTag)' match state was '$(ReleaseTagMatchesVersion)', expected '$(ExpectedReleaseTagMatch)' for package version '$(Version)'." />
+    <Message
+      Condition="'$(ReleaseTagMatchesVersion)' == 'true'"
+      Importance="high"
+      Text="Release tag '$(ReleaseTag)' matches package version '$(Version)'." />
+    <Message
+      Condition="'$(ReleaseTagMatchesVersion)' == 'false'"
+      Importance="high"
+      Text="Release tag '$(ReleaseTag)' is correctly rejected for package version '$(Version)'." />
+  </Target>
 </Project>

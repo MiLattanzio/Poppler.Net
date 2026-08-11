@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.12.0-rc.1 — 2026-08-11
+
+- Froze the callable `0.12` public API carried by beta.2 and recorded both the
+  version-normalized and complete rc.1 reflection fingerprints.
+- Aligned library, CLI, package-consumer fallback and `Document.PortVersion`
+  metadata at `0.12.0-rc.1` without changing the feature surface.
+- Added a reusable MSBuild tag-version guard and made CI exercise its matching
+  and mismatching paths before applying the real GitHub release tag.
+- Audited release notes, changelog, compatibility/API documentation, GPL
+  license and notice metadata, package contents and prerelease wording.
+- Added the stable-release checklist covering version promotion, three-OS CI,
+  tag/release creation, NuGet publication and clean post-index consumers.
+
 ## 0.12.0-beta.2 — 2026-08-11
 
 - Added deterministic adversarial gates for decoded-stream growth, cumulative

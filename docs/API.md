@@ -1,5 +1,9 @@
 # API quick reference
 
+The callable `0.12` API is frozen at `0.12.0-rc.1`. See
+[API_FREEZE.md](API_FREEZE.md) for the approved fingerprints and post-RC
+change policy.
+
 ## Loading
 
 ```csharp

@@ -8,7 +8,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.12.0-beta.2` hardening release is not a complete replacement for
+> This `0.12.0-rc.1` release candidate is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -91,7 +91,8 @@ process invocation, or native NuGet dependency.
 > [docs/ROBUSTNESS.md](docs/ROBUSTNESS.md) for recovery and cache behavior. See
 > [docs/OUTLINES.md](docs/OUTLINES.md) for bookmark traversal and safety limits. See
 > [docs/RENDERING.md](docs/RENDERING.md) for stroke-outline and clipping behavior. See
-> [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it.
+> [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) before adopting it. The rc.1
+> public surface is recorded in [docs/API_FREEZE.md](docs/API_FREEZE.md).
 
 ## Build
 
