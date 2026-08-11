@@ -70,7 +70,7 @@ jobs:
           --noresult
 
   package:
-    name: Pack NuGet package
+    name: Pack NuGet packages
     needs: build-and-test
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -95,11 +95,14 @@ jobs:
       - name: Read package version
         id: package-version
         shell: bash
-        run: >-
-          echo "value=$(dotnet msbuild
-          src/Poppler.Net/Poppler.Net.csproj
-          -nologo
-          -getProperty:Version)" >> "${GITHUB_OUTPUT}"
+        run: |
+          library_version="$(dotnet msbuild src/Poppler.Net/Poppler.Net.csproj -nologo -getProperty:Version)"
+          tool_version="$(dotnet msbuild src/Poppler.Net.Cli/Poppler.Net.Cli.csproj -nologo -getProperty:Version)"
+          if [[ "${library_version}" != "${tool_version}" ]]; then
+            echo "Library version ${library_version} does not match CLI tool version ${tool_version}." >&2
+            exit 1
+          fi
+          echo "value=${library_version}" >> "${GITHUB_OUTPUT}"
 
       - name: Verify release tag guard
         shell: bash
@@ -130,23 +133,35 @@ jobs:
           -property:ReleaseTag="${RELEASE_TAG}"
 
       - name: Pack
-        run: >-
-          dotnet pack
-          src/Poppler.Net/Poppler.Net.csproj
-          --configuration Release
-          --no-build
-          --output artifacts
+        run: |
+          dotnet pack \
+            src/Poppler.Net/Poppler.Net.csproj \
+            --configuration Release \
+            --no-build \
+            --output artifacts
+          dotnet pack \
+            src/Poppler.Net.Cli/Poppler.Net.Cli.csproj \
+            --configuration Release \
+            --no-build \
+            --output artifacts
 
       - name: Verify package content and metadata
         shell: bash
-        run: >-
-          dotnet run
-          --project eng/Poppler.Net.PackageVerifier/Poppler.Net.PackageVerifier.csproj
-          --configuration Release
-          --no-build
-          --
-          "artifacts/Poppler.Net.${{ steps.package-version.outputs.value }}.nupkg"
-          "${{ steps.package-version.outputs.value }}"
+        run: |
+          dotnet run \
+            --project eng/Poppler.Net.PackageVerifier/Poppler.Net.PackageVerifier.csproj \
+            --configuration Release \
+            --no-build \
+            -- \
+            "artifacts/Poppler.Net.${{ steps.package-version.outputs.value }}.nupkg" \
+            "${{ steps.package-version.outputs.value }}"
+          dotnet run \
+            --project eng/Poppler.Net.PackageVerifier/Poppler.Net.PackageVerifier.csproj \
+            --configuration Release \
+            --no-build \
+            -- \
+            "artifacts/Poppler.Net.Cli.${{ steps.package-version.outputs.value }}.nupkg" \
+            "${{ steps.package-version.outputs.value }}"
 
       - name: Create source archive
         shell: bash
@@ -189,6 +204,20 @@ jobs:
             --no-build \
             -- \
             "${source_root}/package/Poppler.Net.${PACKAGE_VERSION}.nupkg" \
+            "${PACKAGE_VERSION}"
+
+          dotnet pack \
+            src/Poppler.Net.Cli/Poppler.Net.Cli.csproj \
+            --configuration Release \
+            --no-build \
+            -p:SourceRevisionId="${GITHUB_SHA}" \
+            --output "${source_root}/package"
+          dotnet run \
+            --project eng/Poppler.Net.PackageVerifier/Poppler.Net.PackageVerifier.csproj \
+            --configuration Release \
+            --no-build \
+            -- \
+            "${source_root}/package/Poppler.Net.Cli.${PACKAGE_VERSION}.nupkg" \
             "${PACKAGE_VERSION}"
 
       - name: Upload NuGet package
@@ -258,12 +287,67 @@ jobs:
           tests/fixtures/rendering-beta2.pdf
           ${{ needs.package.outputs.package-version }}
 
+  tool-consumer:
+    name: CLI tool consumer (${{ matrix.os }})
+    needs: package
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Download NuGet packages
+        uses: actions/download-artifact@v8
+        with:
+          name: nuget-package
+          path: artifacts
+
+      - name: Install and run packaged CLI tool
+        shell: pwsh
+        run: |
+          $toolPath = Join-Path "${{ github.workspace }}" "artifacts/tools"
+          dotnet tool install Poppler.Net.Cli `
+            --tool-path $toolPath `
+            --version "${{ needs.package.outputs.package-version }}" `
+            --add-source "${{ github.workspace }}/artifacts" `
+            --ignore-failed-sources
+          $command = Join-Path $toolPath $(if ($IsWindows) { "poppler-net.exe" } else { "poppler-net" })
+          & $command version
+          $html = Join-Path "${{ runner.temp }}" "poppler-net-tool-smoke.html"
+          & $command html `
+            "tests/fixtures/truetype-format0-subset.pdf" `
+            $html
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $html)) {
+            throw "The packaged CLI did not create HTML output."
+          }
+          $content = Get-Content -Raw -LiteralPath $html
+          if ($content.IndexOf("class=`"pdf-glyph ", [StringComparison]::Ordinal) -lt 0 -or
+              $content.IndexOf("pdf-managed-", [StringComparison]::Ordinal) -lt 0 -or
+              $content.IndexOf("<text ", [StringComparison]::Ordinal) -ge 0 -or
+              $content.IndexOf("ABCDEF+DejaVuSans", [StringComparison]::Ordinal) -ge 0) {
+            throw "The packaged CLI HTML smoke output is invalid."
+          }
+
   publish:
     name: Publish to NuGet.org
     if: github.event_name == 'release' && github.event.action == 'published'
     needs:
       - package
       - package-consumer
+      - tool-consumer
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: nuget.org

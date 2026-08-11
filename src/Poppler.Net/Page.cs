@@ -148,6 +148,20 @@ public sealed class Page
         File.WriteAllText(fileName, RenderToSvg(options));
     }
 
+    /// <summary>
+    /// Renders this page as a complete, self-contained fixed-layout HTML
+    /// document with a selectable text layer.
+    /// </summary>
+    public string RenderToHtml(HtmlRenderOptions? options = null) =>
+        HtmlDocumentRenderer.Render(this, options);
+
+    /// <summary>Saves this page as a self-contained fixed-layout HTML document.</summary>
+    public void SaveHtml(string fileName, HtmlRenderOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+        File.WriteAllText(fileName, RenderToHtml(options));
+    }
+
     public PdfBitmap Render(RasterRenderOptions? options = null)
     {
         if (_owner.Locked)
@@ -171,15 +185,29 @@ public sealed class Page
         optionalContentVisibility.Count == 0
             ? Graphics
             : ExtractGraphics(optionalContentVisibility);
+    internal IReadOnlyList<TextBox> TextFor(
+        TextLayout layout,
+        IReadOnlyDictionary<string, bool> optionalContentVisibility) =>
+        optionalContentVisibility.Count == 0
+            ? TextList(layout)
+            : Extract(layout, optionalContentVisibility);
 
-    private IReadOnlyList<TextBox> Extract(TextLayout layout)
+    private IReadOnlyList<TextBox> Extract(TextLayout layout) =>
+        Extract(
+            layout,
+            new Dictionary<string, bool>(StringComparer.Ordinal));
+
+    private IReadOnlyList<TextBox> Extract(
+        TextLayout layout,
+        IReadOnlyDictionary<string, bool> optionalContentVisibility)
     {
         if (_owner.Locked)
             throw new PdfEncryptedException();
         return new PdfTextExtractor(
                 _document,
                 _node,
-                _owner.OptionalContentModel.CreateEvaluator())
+                _owner.OptionalContentModel.CreateEvaluator(
+                    optionalContentVisibility))
             .Extract(layout);
     }
 

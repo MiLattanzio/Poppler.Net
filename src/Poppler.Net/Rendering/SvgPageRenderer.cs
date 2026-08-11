@@ -7,17 +7,24 @@ namespace Poppler.Rendering;
 internal static class SvgPageRenderer
 {
     public static string Render(Page page, SvgRenderOptions options)
+        => Render(page, options, textFilter: null);
+
+    internal static string Render(
+        Page page,
+        SvgRenderOptions options,
+        Func<PdfTextElement, bool>? textFilter)
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(options);
         options = options.Snapshot();
-        return new Writer(page, options).Render();
+        return new Writer(page, options, textFilter).Render();
     }
 
     private sealed class Writer
     {
         private readonly Page _page;
         private readonly SvgRenderOptions _options;
+        private readonly Func<PdfTextElement, bool>? _textFilter;
         private readonly PdfRectangle _crop;
         private readonly StringBuilder _svg = new();
         private readonly Dictionary<PdfClipPath, string> _clipIds =
@@ -27,10 +34,14 @@ internal static class SvgPageRenderer
         private readonly List<BrushKey> _brushes = new();
         private int _nextId;
 
-        public Writer(Page page, SvgRenderOptions options)
+        public Writer(
+            Page page,
+            SvgRenderOptions options,
+            Func<PdfTextElement, bool>? textFilter)
         {
             _page = page;
             _options = options;
+            _textFilter = textFilter;
             _crop = page.CropBox;
         }
 
@@ -95,7 +106,9 @@ internal static class SvgPageRenderer
             {
                 switch (element)
                 {
-                    case PdfTextElement when _options.IncludeText:
+                    case PdfTextElement text when
+                        _options.IncludeText &&
+                        (_textFilter is null || _textFilter(text)):
                         result.Add(element);
                         break;
                     case PdfImageElement when

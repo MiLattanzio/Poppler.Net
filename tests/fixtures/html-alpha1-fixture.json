@@ -1,0 +1,57 @@
+{
+  "format": "poppler-net-html-alpha1-corpus",
+  "version": 2,
+  "hashMode": "canonical-html-content-v1",
+  "reference": {
+    "upstream": "Poppler 26.07.0",
+    "sources": [
+      "utils/pdftohtml.cc",
+      "utils/HtmlOutputDev.cc",
+      "utils/HtmlFonts.cc",
+      "utils/HtmlLinks.cc"
+    ],
+    "alignedBehavior": [
+      "whole-document and first/last page selection",
+      "single self-contained HTML output",
+      "glyph-positioned Unicode text, managed web fonts, images and links",
+      "embedded data resources"
+    ],
+    "acceptedDifferences": [
+      "Poppler.Net uses one top-left fixed-layout document without viewer chrome instead of legacy frames",
+      "managed DOM glyphs are primary and SVG retains compositing-sensitive text",
+      "decoded outlines are rebuilt as managed TrueType fonts with private-use mappings",
+      "directory bundles use deterministic CSS/page/font paths plus manifest.json",
+      "only safe URI schemes and resolved internal GoTo links are emitted",
+      "PDF JavaScript and other executable actions are never copied or run"
+    ]
+  },
+  "cases": [
+    {
+      "fixture": "annotations-alpha1.pdf",
+      "firstPageIndex": 0,
+      "pageCount": 1,
+      "textLayerMode": "InvisibleOverlay",
+      "scale": 1.0,
+      "utf8Bytes": 6174,
+      "sha256": "e2b3edf03a2abb85b747a374c5abdc22d19bec9f02e9d17cfe02683e62d4db76"
+    },
+    {
+      "fixture": "truetype-format0-subset.pdf",
+      "firstPageIndex": 0,
+      "pageCount": 1,
+      "textLayerMode": "Visible",
+      "scale": 1.0,
+      "utf8Bytes": 5753,
+      "sha256": "9dd7c084fcdbbfaa0f30ff6909ee067c4d21bc551555ee7e9682464949ea7a68"
+    },
+    {
+      "fixture": "rendering-beta2.pdf",
+      "firstPageIndex": 1,
+      "pageCount": 2,
+      "textLayerMode": "InvisibleOverlay",
+      "scale": 1.25,
+      "utf8Bytes": 210342,
+      "sha256": "847b50b74d4a704c86dbc44ddb3ddf617b779987b1d337587c9fac0cf06ee135"
+    }
+  ]
+}

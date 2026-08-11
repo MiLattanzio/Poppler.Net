@@ -1,13 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <AssemblyName>poppler-net</AssemblyName>
     <RootNamespace>Poppler.Cli</RootNamespace>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>poppler-net</ToolCommandName>
-    <Version>0.12.0</Version>
+    <RollForward>Major</RollForward>
+    <PackageId>Poppler.Net.Cli</PackageId>
+    <Version>0.13.0-alpha.1</Version>
+    <Description>Managed Poppler.Net PDF inspection, rendering and conversion command-line tool.</Description>
+    <PackageTags>pdf;poppler;cli;dotnet-tool;html;svg</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Poppler.Net\Poppler.Net.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="README.md" Link="README.md" />
+    <None Include="..\..\RELEASE_NOTES.md" Pack="true" PackagePath="RELEASE_NOTES.md" Link="RELEASE_NOTES.md" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" Link="LICENSE" />
+    <None Include="..\..\NOTICE.md" Pack="true" PackagePath="" Link="NOTICE.md" />
   </ItemGroup>
 </Project>

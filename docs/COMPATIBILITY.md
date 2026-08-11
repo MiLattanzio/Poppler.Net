@@ -1,6 +1,22 @@
 # Compatibility matrix
 
-## Works in 0.12.0
+## Works in 0.13.0-alpha.1
+
+Everything qualified in stable `0.12.0` remains supported. Alpha.1 adds:
+
+- Managed fixed-layout HTML for a page, zero-based page range or complete
+  document, with selectable/searchable DOM text over an exact SVG background
+  and no viewer chrome, centering or inter-page decoration.
+- Visible browser-text mode with reusable embedded TrueType/OpenType programs,
+  normalized subset names and deterministic CSS fallbacks.
+- Safe external URI and internal GoTo link overlays; executable PDF actions
+  are never copied or run.
+- Self-contained HTML plus directory bundles containing stable CSS/page/font
+  paths and a versioned manifest.
+- CLI `html`, WebAssembly page/document/bundle downloads and a packaged
+  `Poppler.Net.Cli` dotnet tool.
+
+The stable 0.12 foundation includes:
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.

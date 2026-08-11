@@ -307,3 +307,59 @@ on CLR 8 and
 on CLR 10. PR CI, merge, stable tag/release, NuGet publication and the
 post-index consumer check remain publication gates; they are not claimed by
 this local qualification.
+
+## 0.13.0-alpha.1 local qualification
+
+Local qualification performed on 2026-08-11 uses .NET SDK 10.0.302 and CLR
+10.0.10. All solution projects build in Release with zero warnings; the
+library produces `net8.0` and `net10.0` assets, while the packaged CLI targets
+`net8.0` and uses major-version roll-forward. NUnitLite executes 296 tests:
+296 pass with no failure, warning or skip. The managed-only verifier accepts
+the production source and restored dependency graph.
+
+Alpha 1 adds managed fixed-layout HTML export for one page, page ranges and
+complete documents. Standalone output embeds SVG, fonts and selectable DOM
+text; the deterministic directory bundle contains an entry point, stylesheet,
+per-page SVG assets, deduplicated fonts and a JSON manifest. Safe URI and
+internal page links are retained, executable PDF actions are excluded, and
+configured output/font limits fail with `PdfLimitException`. The default text
+overlay retains visible SVG text when the PDF does not embed its fonts. Subset
+names such as `ABCDEF+DejaVuSans` are normalized to `DejaVuSans` in both text
+extraction and HTML output.
+
+The HTML reference corpus records the relevant Poppler 26.07.0
+`pdftohtml`/`HtmlOutputDev` sources and accepted managed-output differences.
+The two vector/text cases are frozen at 6,695 and 30,421 UTF-8 bytes. All
+three outputs use a canonical HTML hash that replaces embedded PNG streams
+with decompressed-content hashes, avoiding valid zlib differences between
+frameworks and operating systems. Their SHA-256 values are
+`a833b44d3666d22caa2414f60a16083e3afbe9f19eb0c3683f62d9ed1d985d79`,
+`1a0cd2e3459fec3657df4cca67f81f6995e0bf0f6f4b00479a1ea88609f4fce7`
+and
+`ec01ec44a777dc2043d512289c1bfc81d79762d996dfdb870e125a146f363f74`.
+
+The complete public-surface SHA-256 is
+`60cc6035fa66f40c032210a4a90db4b4e21d8bf880bb650236c5fd33c0ec40fe`;
+the version-normalized callable fingerprint is
+`819526578d13d8b08bacb377ae7df2260ad7f7f775bdd896652f39538422d69d`.
+Library metadata, CLI metadata, package-consumer fallback and
+`Document.PortVersion` all report `0.13.0-alpha.1`. The release-tag guard
+accepts `v0.13.0-alpha.1` and rejects an unrelated version.
+
+`Poppler.Net.0.13.0-alpha.1.nupkg` is 872,894 bytes with SHA-256
+`866bb25c713a37976dea6ddea735342266f518e3b8e63a1f57201ea1979bcf41`.
+`Poppler.Net.Cli.0.13.0-alpha.1.nupkg` is 822,567 bytes with SHA-256
+`7560ebfad201dbb1ac07f217f111da2b6c2b6e39608dafa67f57cadf5aead827`.
+Both pass their exact content, license, dependency, command and metadata
+allowlists. Clean package consumers load the library and render PNG, SVG and
+HTML on `net8.0` and `net10.0`. A temporary local installation of the CLI
+package reports the expected version and converts the TrueType subset fixture
+to selectable HTML without exposing the raw subset prefix.
+
+The CLI now exposes the same page/range/document HTML modes, including a
+multi-file bundle. The WebAssembly playground downloads current-page HTML,
+whole-document HTML and a ZIP bundle. CI packs and verifies both NuGet
+packages, repeats clean library consumption on all supported OS/framework
+combinations, and installs/runs the DotnetTool on Ubuntu, Windows and macOS.
+Those remote CI and publication results remain pending until this branch is
+pushed; they are not claimed by the local qualification.

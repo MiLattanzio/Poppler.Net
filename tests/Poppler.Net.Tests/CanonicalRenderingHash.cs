@@ -10,6 +10,7 @@ internal static partial class CanonicalRenderingHash
 {
     public const string PngMode = "canonical-png-content-v1";
     public const string SvgMode = "canonical-svg-content-v1";
+    public const string HtmlMode = "canonical-html-content-v1";
 
     private static readonly byte[] PngSignature =
     {
@@ -119,7 +120,18 @@ internal static partial class CanonicalRenderingHash
     public static string Svg(string svg)
     {
         ArgumentNullException.ThrowIfNull(svg);
-        string canonical = EmbeddedPng().Replace(svg, match =>
+        return EmbeddedPngContent(svg);
+    }
+
+    public static string Html(string html)
+    {
+        ArgumentNullException.ThrowIfNull(html);
+        return EmbeddedPngContent(html);
+    }
+
+    private static string EmbeddedPngContent(string value)
+    {
+        string canonical = EmbeddedPng().Replace(value, match =>
         {
             byte[] png = Convert.FromBase64String(match.Groups[1].Value);
             return "data:image/png;canonical-sha256," + Png(png);

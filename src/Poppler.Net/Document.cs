@@ -5,13 +5,14 @@ using Poppler.Annotations;
 using Poppler.Forms;
 using Poppler.OptionalContent;
 using Poppler.Outlines;
+using Poppler.Rendering;
 
 namespace Poppler;
 
 /// <summary>Read-only managed representation of a PDF document.</summary>
 public sealed class Document : IDisposable
 {
-    public const string PortVersion = "0.12.0";
+    public const string PortVersion = "0.13.0-alpha.1";
     public const string UpstreamVersion = "26.07.0";
 
     private readonly byte[] _data;
@@ -428,6 +429,39 @@ public sealed class Document : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
         File.WriteAllBytes(fileName, _core.OriginalBytes.ToArray());
     }
+
+    /// <summary>
+    /// Renders the selected pages as one self-contained fixed-layout HTML
+    /// document. Page indexes in <paramref name="options"/> are zero-based.
+    /// </summary>
+    public string RenderToHtml(HtmlExportOptions? options = null)
+    {
+        EnsureNotDisposed();
+        EnsureUnlocked();
+        return HtmlDocumentRenderer.Render(this, options);
+    }
+
+    /// <summary>Saves a self-contained fixed-layout HTML document.</summary>
+    public void SaveHtml(string fileName, HtmlExportOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+        File.WriteAllText(fileName, RenderToHtml(options));
+    }
+
+    /// <summary>
+    /// Creates a multi-file HTML bundle containing <c>index.html</c>, page SVG
+    /// backgrounds, reusable embedded fonts, CSS, and a deterministic manifest.
+    /// </summary>
+    public HtmlExportBundle CreateHtmlBundle(HtmlExportOptions? options = null)
+    {
+        EnsureNotDisposed();
+        EnsureUnlocked();
+        return HtmlDocumentRenderer.CreateBundle(this, options);
+    }
+
+    /// <summary>Creates and writes a multi-file HTML bundle to a directory.</summary>
+    public void SaveHtmlBundle(string directory, HtmlExportOptions? options = null) =>
+        CreateHtmlBundle(options).SaveToDirectory(directory);
 
     public void Dispose()
     {
