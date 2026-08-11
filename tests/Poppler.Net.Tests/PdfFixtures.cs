@@ -482,6 +482,25 @@ internal static class PdfFixtures
         return BreakStartXref(Create(compressContent: false));
     }
 
+    public static byte[] CreateWithMissingInformationObject()
+    {
+        byte[] content = Ascii("BT /F1 18 Tf 72 720 Td (Readable without metadata) Tj ET");
+        return BuildClassic(
+            new[]
+            {
+                Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+                Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+                Ascii(
+                    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] " +
+                    "/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"),
+                Stream($"<< /Length {content.Length} >>", content),
+                Ascii(
+                    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica " +
+                    "/Encoding /WinAnsiEncoding >>")
+            },
+            infoObject: 6);
+    }
+
     public static byte[] CreateXrefStreamWithBrokenStartXref()
     {
         return BreakStartXref(CreateWithXrefStream());

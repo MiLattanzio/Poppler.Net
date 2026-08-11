@@ -22,6 +22,23 @@ public sealed class DocumentTests
     }
 
     [Test]
+    public void IgnoresAMissingOptionalInformationObject()
+    {
+        using Document document = Document.LoadFromData(
+            PdfFixtures.CreateWithMissingInformationObject());
+
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(document.Information, Is.Empty);
+            Assert.That(document.Title, Is.Empty);
+            Assert.That(document.CreatePage(0).Text(), Does.Contain("Readable without metadata"));
+            Assert.That(
+                document.Diagnostics.Any(diagnostic => diagnostic.Code == "info.invalid"),
+                Is.True);
+        }));
+    }
+
+    [Test]
     public void ReadsPageGeometryLabelsAndText()
     {
         using Document document = Document.LoadFromData(PdfFixtures.Create(compressContent: false));

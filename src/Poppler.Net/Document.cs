@@ -494,23 +494,55 @@ public sealed class Document : IDisposable
 
     private IReadOnlyDictionary<string, string> ReadInformation()
     {
-        PdfDictionary? dictionary = _core.Trailer.GetValueOrNull("Info").AsDictionary(_core);
+        PdfObject? information = _core.Trailer.GetValueOrNull("Info");
+        if (information is null)
+            return EmptyInformation();
+
+        PdfDictionary? dictionary;
+        try
+        {
+            dictionary = information.AsDictionary(_core);
+        }
+        catch (PdfFormatException exception)
+        {
+            _core.AddDiagnosticOnce(
+                PdfDiagnosticSeverity.Warning,
+                "info.invalid",
+                $"The optional document information dictionary was ignored: {exception.Message}");
+            return EmptyInformation();
+        }
+
         if (dictionary is null)
-            return new ReadOnlyDictionary<string, string>(
-                new Dictionary<string, string>(StringComparer.Ordinal));
+        {
+            _core.AddDiagnosticOnce(
+                PdfDiagnosticSeverity.Warning,
+                "info.invalid",
+                "The optional trailer /Info value is not a dictionary and was ignored.");
+            return EmptyInformation();
+        }
 
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach ((string key, PdfObject value) in dictionary)
         {
-            PdfObject resolved = value.Resolve(_core);
-            result[key] = resolved switch
+            try
             {
-                PdfString text => text.Text,
-                PdfName name => name.Value,
-                PdfNumber number => number.ToString(),
-                PdfBoolean boolean => boolean.ToString(),
-                _ => resolved.ToString() ?? ""
-            };
+                PdfObject resolved = value.Resolve(_core);
+                result[key] = resolved switch
+                {
+                    PdfString text => text.Text,
+                    PdfName name => name.Value,
+                    PdfNumber number => number.ToString(),
+                    PdfBoolean boolean => boolean.ToString(),
+                    _ => resolved.ToString() ?? ""
+                };
+            }
+            catch (PdfFormatException exception)
+            {
+                _core.AddDiagnosticOnce(
+                    PdfDiagnosticSeverity.Warning,
+                    "info.entry.invalid",
+                    $"An invalid document information entry was ignored: {exception.Message}");
+            }
         }
 
         return new ReadOnlyDictionary<string, string>(result);
