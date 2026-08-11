@@ -1,21 +1,19 @@
-# Poppler.Net 0.12.0-rc.1
+# Poppler.Net 0.12.0
 
 Release date: 2026-08-11
 
-`0.12.0-rc.1` is the publication-ready release candidate for the managed-only,
-read-only Poppler 26.07.0 port. The callable `0.12` API is frozen; this release
-qualifies the beta.2 implementation and distribution without adding a new
-feature family.
+`0.12.0` is the stable release of the managed-only, read-only Poppler 26.07.0
+port. It promotes the qualified RC 1 implementation without adding a new
+feature family or changing the frozen callable `0.12` API.
 
 ## API freeze
 
 - The version-normalized callable API SHA-256 is
   `ce87b22579e9458c3c1dcdb1aa01790f15d13006ad177ad4815f1e974e63b527`.
-- The complete rc.1 public-surface SHA-256 is
-  `dae14d92c94ed709bf9012ebe977e24779aa317b2be5a1cdca317f5bbcc83711`.
-- Promotion to `0.12.0` may change only `Document.PortVersion` and version
-  metadata unless a documented release blocker requires an explicitly
-  approved API re-baseline.
+- The complete stable public-surface SHA-256 is
+  `c72005f9c1bd3418c1a7fd00c582c8ccc88ba7e3beedd65e815a45861b72655b`.
+- The only public-surface change from RC 1 is `Document.PortVersion`; no
+  callable member was added, removed or changed.
 
 See `docs/API_FREEZE.md` for the fingerprint scope and change policy.
 
@@ -32,25 +30,22 @@ See `docs/API_FREEZE.md` for the fingerprint scope and change policy.
 - Clean consumers restore the produced package and render PNG/SVG output as
   `net8.0` and `net10.0` on Ubuntu, Windows and macOS.
 - CI exercises both the accepting and rejecting paths of the release
-  tag-version guard before an RC package can be published.
+  tag-version guard before the stable package can be published.
 
-## Compatibility with beta.2
+## Compatibility
 
-There are no intentional source or binary breaking changes from
-`0.12.0-beta.2`. Update the package reference to:
+There are no intentional source or binary breaking changes from beta.2 or RC
+1. Install the stable package with:
 
 ```xml
-<PackageReference Include="Poppler.Net" Version="0.12.0-rc.1" />
+<PackageReference Include="Poppler.Net" Version="0.12.0" />
 ```
 
-The candidate retains beta.2 hostile-input limits, shared-document
+The stable release retains beta.2 hostile-input limits, shared-document
 determinism, immutable decoded-image reuse, dual-target packaging and the
 beta.1 Poppler differential baseline.
 
-## Prerelease status and limits
-
-This is a prerelease. Stable `0.12.0` is published only after the RC gates and
-the checklist in `docs/RELEASE_CHECKLIST.md` remain green.
+## Scope limits
 
 Advanced ICC LUT/device-link profiles, proofing, rendering intents, spot-color
 overprint, native SVG mesh primitives and complex-script shaping remain

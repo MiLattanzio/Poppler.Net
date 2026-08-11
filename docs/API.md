@@ -1,8 +1,8 @@
 # API quick reference
 
-The callable `0.12` API is frozen at `0.12.0-rc.1`. See
-[API_FREEZE.md](API_FREEZE.md) for the approved fingerprints and post-RC
-change policy.
+The callable `0.12` API was frozen at RC 1 and is stable in `0.12.0`. See
+[API_FREEZE.md](API_FREEZE.md) for the approved fingerprints and change
+policy.
 
 ## Loading
 
