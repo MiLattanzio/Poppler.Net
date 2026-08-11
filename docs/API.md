@@ -1,8 +1,9 @@
 # API quick reference
 
-The callable `0.12` API was frozen at RC 1 and is stable in `0.12.0`. See
-[API_FREEZE.md](API_FREEZE.md) for the approved fingerprints and change
-policy.
+The callable `0.12` API was frozen at RC 1 and is stable in `0.12.0`.
+`0.13.0-alpha.1` intentionally expands it with fixed-layout HTML conversion
+types and page/document methods. See [API_FREEZE.md](API_FREEZE.md) for both
+approved fingerprints and the change policy.
 
 ## Loading
 
@@ -356,6 +357,34 @@ unsupported constructs. Fallbacks never reference external resources and are
 bounded by `PdfReadOptions.MaximumSvgFallbackPixels`. Alpha 3 computes a
 conservative effective support for the graphics being flattened, aligns it to
 the full-page raster pixel grid and embeds only that cropped region.
+
+## Fixed-layout HTML
+
+```csharp
+using Poppler.Rendering;
+
+string pageHtml = page.RenderToHtml();
+document.SaveHtml("document.html", new HtmlExportOptions
+{
+    FirstPageIndex = 0,
+    PageCount = document.Pages,
+    PageOptions = new HtmlRenderOptions
+    {
+        TextLayerMode = HtmlTextLayerMode.InvisibleOverlay,
+        EmbedFonts = true
+    }
+});
+
+HtmlExportBundle bundle = document.CreateHtmlBundle();
+bundle.SaveToDirectory("html-bundle");
+```
+
+Single-file output inlines CSS, SVG and reusable TrueType/OpenType programs.
+The directory bundle exposes immutable `HtmlExportFile` values and includes an
+entry point, CSS, page SVGs, deduplicated fonts and a versioned manifest. DOM
+text is always emitted; the default transparent overlay keeps SVG visual
+fidelity, while `HtmlTextLayerMode.Visible` lets browsers paint the text.
+See [HTML_EXPORT.md](HTML_EXPORT.md) for range, link, font and security rules.
 
 ## Managed page raster
 

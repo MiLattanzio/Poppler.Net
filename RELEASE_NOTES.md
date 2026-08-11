@@ -1,52 +1,63 @@
-# Poppler.Net 0.12.0
+# Poppler.Net 0.13.0-alpha.1
 
 Release date: 2026-08-11
 
-`0.12.0` is the stable release of the managed-only, read-only Poppler 26.07.0
-port. It promotes the qualified RC 1 implementation without adding a new
-feature family or changing the frozen callable `0.12` API.
+`0.13.0-alpha.1` begins the managed conversion/export line with fixed-layout
+HTML for individual pages, page ranges and complete documents. Poppler 26.07
+`pdftohtml`/`HtmlOutputDev` behavior is a development reference; the runtime
+remains managed-only and invokes no Poppler binary or subprocess.
 
-## API freeze
+## HTML API
 
-- The version-normalized callable API SHA-256 is
-  `ce87b22579e9458c3c1dcdb1aa01790f15d13006ad177ad4815f1e974e63b527`.
-- The complete stable public-surface SHA-256 is
-  `c72005f9c1bd3418c1a7fd00c582c8ccc88ba7e3beedd65e815a45861b72655b`.
-- The only public-surface change from RC 1 is `Document.PortVersion`; no
-  callable member was added, removed or changed.
+- Added `Page.RenderToHtml`/`SaveHtml` for self-contained single-page output.
+- Added `Document.RenderToHtml`/`SaveHtml` with zero-based range selection.
+- Added `Document.CreateHtmlBundle`/`SaveHtmlBundle` and immutable
+  `HtmlExportBundle` files for `index.html`, CSS, page SVGs, reusable fonts and
+  `manifest.json`.
+- Added `HtmlRenderOptions`, `HtmlExportOptions` and
+  `HtmlTextLayerMode.InvisibleOverlay|Visible`.
+- Preserved exact managed SVG rendering by default while always emitting a
+  selectable/searchable Unicode DOM text layer.
+- Converted visible URI/GoTo link annotations into safe HTML anchors without
+  copying PDF JavaScript or other executable actions.
+- Applied optional-content visibility to both page backgrounds and text.
 
-See `docs/API_FREEZE.md` for the fingerprint scope and change policy.
+## Fonts and packaging
 
-## Release qualification
+- Normalized six-letter PDF subset prefixes in text-box font names, so values
+  such as `ABCDEF+DejaVuSans` are exposed as `DejaVuSans`.
+- Embedded reusable TrueType/OpenType programs in single-file output and
+  deduplicated them into hash-named files in directory bundles.
+- Retained CSS fallback families and selectable text when fonts are absent or
+  unsupported by browsers.
+- Added deterministic bundle paths and a versioned manifest.
 
-- The complete historical and `0.12` corpus, managed-only verifier and
-  bounded performance/concurrency gates remain active.
-- The package contains library assets for both `net8.0` and `net10.0`; tools,
-  tests, engineering utilities and the WebAssembly playground use .NET 10.
-- NuGet content, GPL license metadata, repository revision and the pinned
-  managed dependency graph are inspected before publication.
-- The tracked source archive is restored, rebuilt, tested, repacked and
-  verified from a clean extraction.
-- Clean consumers restore the produced package and render PNG/SVG output as
-  `net8.0` and `net10.0` on Ubuntu, Windows and macOS.
-- CI exercises both the accepting and rejecting paths of the release
-  tag-version guard before the stable package can be published.
+## CLI and playground
 
-## Compatibility
+- Added `poppler-net html` with page/range, bundle, text-mode, scale, embedded
+  font, image/vector, fallback, title, layer and password options.
+- Added current-page HTML, complete-document HTML and directory-bundle ZIP
+  downloads to the WebAssembly playground. All processing remains local.
+- `Poppler.Net.Cli` is now a `net8.0` dotnet-tool package with major-version
+  roll-forward and command name `poppler-net`:
 
-There are no intentional source or binary breaking changes from beta.2 or RC
-1. Install the stable package with:
+  ```bash
+  dotnet tool install --global Poppler.Net.Cli --version 0.13.0-alpha.1
+  ```
 
-```xml
-<PackageReference Include="Poppler.Net" Version="0.12.0" />
-```
+## CI and publication
 
-The stable release retains beta.2 hostile-input limits, shared-document
-determinism, immutable decoded-image reuse, dual-target packaging and the
-beta.1 Poppler differential baseline.
+- The package job now produces and inspects both `Poppler.Net` and
+  `Poppler.Net.Cli` with one synchronized version.
+- Ubuntu, Windows and macOS install the locally produced CLI package, run its
+  version command and convert a subset-font fixture to HTML.
+- GitHub Release publication pushes both `.nupkg` files to NuGet.org through
+  the existing trusted-publishing environment.
+- Source-archive verification rebuilds, repacks and validates both packages.
 
 ## Scope limits
 
-Advanced ICC LUT/device-link profiles, proofing, rendering intents, spot-color
-overprint, native SVG mesh primitives and complex-script shaping remain
-outside `0.12`. The project does not write, edit or sign PDFs.
+HTML is fixed-layout rather than semantic reflow. Page merge/split writing,
+OCR, PDF JavaScript execution, arbitrary mutation, signing and output
+encryption remain outside alpha.1. Standalone PDF page extraction is planned
+for `0.13.0-alpha.2`.

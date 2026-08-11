@@ -247,7 +247,7 @@ internal sealed class PdfTextExtractor
                     new PdfRectangle(minX, minY, maxX, maxY),
                     rotation,
                     text.Length > 0 && char.IsWhiteSpace(text[^1]),
-                    state.Font.Name,
+                    state.Font.Info.Name,
                     state.FontSize)
                 {
                     WritingMode = state.Font.WritingMode,

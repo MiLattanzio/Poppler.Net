@@ -44,6 +44,17 @@ internal static partial class Program
         if (string.IsNullOrWhiteSpace(expectedVersion))
             throw new ArgumentException("Expected version cannot be empty.");
 
+        if (Path.GetFileName(path).StartsWith("Poppler.Net.Cli.", StringComparison.Ordinal))
+        {
+            VerifyTool(path, expectedVersion);
+            return;
+        }
+
+        VerifyLibrary(path, expectedVersion);
+    }
+
+    private static void VerifyLibrary(string path, string expectedVersion)
+    {
         using ZipArchive archive = ZipFile.OpenRead(path);
         Dictionary<string, ZipArchiveEntry> entries = archive.Entries
             .ToDictionary(entry => entry.FullName, StringComparer.Ordinal);
@@ -170,6 +181,117 @@ internal static partial class Program
         Console.WriteLine(
             $"Package {Path.GetFileName(path)} passed content, license, " +
             "dependency and metadata verification.");
+    }
+
+    private static void VerifyTool(string path, string expectedVersion)
+    {
+        using ZipArchive archive = ZipFile.OpenRead(path);
+        Dictionary<string, ZipArchiveEntry> entries = archive.Entries
+            .ToDictionary(entry => entry.FullName, StringComparer.Ordinal);
+        string[] requiredEntries =
+        [
+            "_rels/.rels",
+            "Poppler.Net.Cli.nuspec",
+            "LICENSE",
+            "NOTICE.md",
+            "README.md",
+            "RELEASE_NOTES.md",
+            "tools/net8.0/any/CoreJ2K.dll",
+            "tools/net8.0/any/DotnetToolSettings.xml",
+            "tools/net8.0/any/JBig2Decoder.NETStandard.dll",
+            "tools/net8.0/any/Poppler.Net.dll",
+            "tools/net8.0/any/Poppler.Net.xml",
+            "tools/net8.0/any/StbImageSharp.dll",
+            "tools/net8.0/any/poppler-net.deps.json",
+            "tools/net8.0/any/poppler-net.dll",
+            "tools/net8.0/any/poppler-net.runtimeconfig.json",
+            "[Content_Types].xml"
+        ];
+        foreach (string required in requiredEntries)
+        {
+            if (!entries.ContainsKey(required))
+                throw new InvalidDataException($"Required tool package entry '{required}' is missing.");
+        }
+
+        ZipArchiveEntry[] coreProperties = archive.Entries
+            .Where(entry => entry.FullName.StartsWith(
+                "package/services/metadata/core-properties/",
+                StringComparison.Ordinal))
+            .ToArray();
+        if (coreProperties.Length != 1)
+        {
+            throw new InvalidDataException(
+                $"Expected one tool package core-properties entry, found {coreProperties.Length}.");
+        }
+        var allowed = new HashSet<string>(requiredEntries, StringComparer.Ordinal)
+        {
+            coreProperties[0].FullName
+        };
+        foreach (ZipArchiveEntry entry in archive.Entries)
+        {
+            if (!allowed.Contains(entry.FullName))
+                throw new InvalidDataException($"Unexpected tool package entry '{entry.FullName}'.");
+            if (entry.FullName.Contains("..", StringComparison.Ordinal) ||
+                entry.FullName.StartsWith("/", StringComparison.Ordinal) ||
+                entry.FullName.Contains('\\'))
+            {
+                throw new InvalidDataException($"Unsafe tool package entry '{entry.FullName}'.");
+            }
+        }
+
+        XDocument nuspec = ReadXml(entries["Poppler.Net.Cli.nuspec"]);
+        XNamespace ns = nuspec.Root?.Name.Namespace ??
+            throw new InvalidDataException("Tool NuSpec root is missing.");
+        XElement metadata = nuspec.Root?.Element(ns + "metadata") ??
+            throw new InvalidDataException("Tool NuSpec metadata is missing.");
+        RequireValue(metadata, ns, "id", "Poppler.Net.Cli");
+        RequireValue(metadata, ns, "version", expectedVersion);
+        RequireValue(metadata, ns, "authors", "Mi Lattanzio");
+        RequireValue(metadata, ns, "readme", "README.md");
+        RequireValue(metadata, ns, "projectUrl", RepositoryUrl);
+        XElement packageType = metadata
+            .Element(ns + "packageTypes")?
+            .Element(ns + "packageType") ??
+            throw new InvalidDataException("DotnetTool package type is missing.");
+        if ((string?)packageType.Attribute("name") != "DotnetTool")
+            throw new InvalidDataException("Tool package type is not DotnetTool.");
+        XElement license = metadata.Element(ns + "license") ??
+            throw new InvalidDataException("Tool NuSpec license is missing.");
+        if ((string?)license.Attribute("type") != "expression" ||
+            license.Value != "GPL-2.0-or-later")
+        {
+            throw new InvalidDataException("Tool NuSpec license metadata is not GPL-2.0-or-later.");
+        }
+        XElement repository = metadata.Element(ns + "repository") ??
+            throw new InvalidDataException("Tool NuSpec repository metadata is missing.");
+        string commit = (string?)repository.Attribute("commit") ?? "";
+        if ((string?)repository.Attribute("type") != "git" ||
+            (string?)repository.Attribute("url") != RepositoryUrl ||
+            !GitCommit().IsMatch(commit))
+        {
+            throw new InvalidDataException("Tool NuSpec repository metadata is incomplete.");
+        }
+
+        XDocument settings = ReadXml(entries["tools/net8.0/any/DotnetToolSettings.xml"]);
+        XElement command = settings.Root?
+            .Element("Commands")?
+            .Element("Command") ??
+            throw new InvalidDataException("DotnetToolSettings command is missing.");
+        if ((string?)command.Attribute("Name") != "poppler-net" ||
+            (string?)command.Attribute("EntryPoint") != "poppler-net.dll" ||
+            (string?)command.Attribute("Runner") != "dotnet")
+        {
+            throw new InvalidDataException("DotnetToolSettings command metadata changed.");
+        }
+        RequireText(entries["tools/net8.0/any/poppler-net.runtimeconfig.json"], "\"rollForward\": \"Major\"");
+        RequireText(entries["README.md"], "dotnet tool install");
+        RequireText(entries["RELEASE_NOTES.md"], expectedVersion);
+        RequireText(entries["LICENSE"], "GNU GENERAL PUBLIC LICENSE");
+        RequireText(entries["NOTICE.md"], "poppler-26.07.0.tar.xz");
+
+        Console.WriteLine(
+            $"Tool package {Path.GetFileName(path)} passed content, command, " +
+            "license and metadata verification.");
     }
 
     private static XDocument ReadXml(ZipArchiveEntry entry)

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.13.0-alpha.1 — 2026-08-11
+
+- Added deterministic fixed-layout HTML export for individual pages, page
+  ranges and complete documents through page/document render and save APIs.
+- Added exact SVG-background plus selectable DOM-text output, an optional
+  visible browser-text mode, safe URI/internal links and layer-aware text.
+- Added self-contained HTML and immutable directory bundles with CSS, stable
+  page SVG paths, deduplicated TrueType/OpenType files and a versioned manifest.
+- Normalized PDF subset prefixes in `TextBox.FontName` and retained CSS
+  fallbacks when an embedded browser font is unavailable.
+- Added `poppler-net html` plus page, range, bundle, visible-text, scale,
+  fallback, font, image/vector and layer options.
+- Added page/document HTML and bundle ZIP downloads to the WebAssembly
+  playground.
+- Began publishing `Poppler.Net.Cli` as a net8.0 dotnet tool with
+  major-version roll-forward and synchronized library/tool versions.
+- Extended CI, package/source verification and local build scripts to inspect,
+  install and exercise both NuGet packages across Ubuntu, Windows and macOS.
+
 ## 0.12.0 — 2026-08-11
 
 - Promoted the qualified RC 1 implementation to stable without adding a new

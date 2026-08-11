@@ -335,6 +335,9 @@
                                 <div class="export-actions">
                                     <button type="button" class="download-action" @onclick="DownloadSourcePdfAsync" disabled="@(_selectedBytes is null || _isBusy)">PDF originale</button>
                                     <button type="button" class="download-action" @onclick="DownloadPreviewAsync" disabled="@(_previewBytes is null || _isBusy)">Anteprima @(_previewFormat == PreviewFormat.Png ? "PNG" : "SVG")</button>
+                                    <button type="button" class="download-action" @onclick="DownloadPageHtmlAsync" disabled="@_isBusy">Pagina HTML</button>
+                                    <button type="button" class="download-action" @onclick="DownloadDocumentHtmlAsync" disabled="@_isBusy">Documento HTML</button>
+                                    <button type="button" class="download-action" @onclick="DownloadHtmlBundleAsync" disabled="@_isBusy">Bundle HTML .zip</button>
                                     <button type="button" class="download-action" @onclick="DownloadDocumentTextAsync" disabled="@_isBusy">Testo completo</button>
                                     <button type="button" class="download-action" @onclick="DownloadMetadataAsync" disabled="@_isBusy">Metadati JSON</button>
                                 </div>
@@ -580,7 +583,7 @@
 
     <footer>
         <span>Poppler.Net @Document.PortVersion · upstream @Document.UpstreamVersion</span>
-        <span>Blazor WebAssembly · .NET 8</span>
+        <span>Blazor WebAssembly · .NET 10</span>
     </footer>
 </div>
 
@@ -955,6 +958,53 @@
         });
     }
 
+    private Task DownloadPageHtmlAsync()
+    {
+        return RunDownloadAsync(() =>
+        {
+            Page page = _page ?? throw new InvalidOperationException("Nessuna pagina disponibile.");
+            string html = page.RenderToHtml(HtmlPageOptions());
+            return new DownloadArtifact(
+                $"{DocumentStem}-pagina-{_pageIndex + 1}.html",
+                "text/html;charset=utf-8",
+                Encoding.UTF8.GetBytes(html));
+        });
+    }
+
+    private Task DownloadDocumentHtmlAsync()
+    {
+        return RunDownloadAsync(() =>
+        {
+            Document document = _document ?? throw new InvalidOperationException("Nessun PDF caricato.");
+            string html = document.RenderToHtml(new HtmlExportOptions
+            {
+                Title = DisplayTitle,
+                PageOptions = HtmlPageOptions()
+            });
+            return new DownloadArtifact(
+                $"{DocumentStem}.html",
+                "text/html;charset=utf-8",
+                Encoding.UTF8.GetBytes(html));
+        });
+    }
+
+    private Task DownloadHtmlBundleAsync()
+    {
+        return RunDownloadAsync(() =>
+        {
+            Document document = _document ?? throw new InvalidOperationException("Nessun PDF caricato.");
+            HtmlExportBundle bundle = document.CreateHtmlBundle(new HtmlExportOptions
+            {
+                Title = DisplayTitle,
+                PageOptions = HtmlPageOptions()
+            });
+            return new DownloadArtifact(
+                $"{DocumentStem}-html.zip",
+                "application/zip",
+                CreateBundleZip(bundle));
+        });
+    }
+
     private Task DownloadPageTextAsync() => RunDownloadAsync(() =>
         new DownloadArtifact(
             $"{DocumentStem}-pagina-{_pageIndex + 1}.txt",
@@ -1191,6 +1241,18 @@
         return $"{DocumentStem}-pagina-{_pageIndex + 1}-{resource}.png";
     }
 
+    private HtmlRenderOptions HtmlPageOptions() => new()
+    {
+        Scale = _svgScale,
+        TextLayerMode = HtmlTextLayerMode.InvisibleOverlay,
+        EmbedFonts = true,
+        FallbackMode = _svgFallback,
+        RasterFallbackDpi = Math.Clamp(_dpi, 1, 2400),
+        OptionalContentVisibility = new Dictionary<string, bool>(
+            _layerVisibility,
+            StringComparer.Ordinal)
+    };
+
     private static FontDownload FontDownloadFor(FontInfo font)
     {
         (string extension, string mimeType) = font.EmbeddedFormat switch
@@ -1217,6 +1279,23 @@
                 ZipArchiveEntry entry = archive.CreateEntry(name, CompressionLevel.Fastest);
                 using Stream destination = entry.Open();
                 destination.Write(item.Data);
+            }
+        }
+        return output.ToArray();
+    }
+
+    private static byte[] CreateBundleZip(HtmlExportBundle bundle)
+    {
+        using var output = new MemoryStream();
+        using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (HtmlExportFile file in bundle.Files)
+            {
+                ZipArchiveEntry entry = archive.CreateEntry(
+                    file.RelativePath,
+                    CompressionLevel.Fastest);
+                using Stream destination = entry.Open();
+                destination.Write(file.Data.Span);
             }
         }
         return output.ToArray();

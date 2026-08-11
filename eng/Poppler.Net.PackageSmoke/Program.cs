@@ -45,10 +45,21 @@ internal static class Program
             });
             if (!svg.Contains("<svg", StringComparison.Ordinal))
                 throw new InvalidDataException("The package did not produce SVG output.");
+            string html = page.RenderToHtml(new HtmlRenderOptions
+            {
+                RasterFallbackDpi = 36
+            });
+            if (!html.Contains("class=\"pdf-text-layer\"", StringComparison.Ordinal) ||
+                !html.Contains("<svg", StringComparison.Ordinal))
+            {
+                throw new InvalidDataException(
+                    "The package did not produce a fixed-layout HTML text layer.");
+            }
 
             Console.WriteLine(
                 $"Poppler.Net {Document.PortVersion} clean consumer rendered " +
-                $"PNG {Convert.ToHexString(SHA256.HashData(png)).ToLowerInvariant()}.");
+                $"PNG {Convert.ToHexString(SHA256.HashData(png)).ToLowerInvariant()} " +
+                $"and {html.Length} HTML characters.");
             return 0;
         }
         catch (Exception exception)

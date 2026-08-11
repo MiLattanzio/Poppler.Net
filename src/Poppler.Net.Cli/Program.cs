@@ -30,6 +30,7 @@ internal static class Cli
                 "render" => Render(args),
                 "attachments" => Attachments(args),
                 "svg" => Svg(args),
+                "html" => Html(args),
                 "version" or "--version" => Version(),
                 _ => UsageError($"Unknown command '{args[0]}'.")
             };
@@ -417,6 +418,72 @@ internal static class Cli
         return 0;
     }
 
+    private static int Html(string[] args)
+    {
+        RequireCount(args, 3, "html requires an input PDF and output file or directory.");
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
+
+        int? page = GetPageOption(args);
+        int? firstOption = GetIntegerOption(args, "--first-page");
+        int? lastOption = GetIntegerOption(args, "--last-page");
+        if (page is not null && (firstOption is not null || lastOption is not null))
+        {
+            throw new ArgumentException(
+                "--page cannot be combined with --first-page or --last-page.");
+        }
+
+        int firstPage = page ?? firstOption ?? 1;
+        int lastPage = page ?? lastOption ?? document.Pages;
+        if (firstPage < 1 || lastPage < firstPage || lastPage > document.Pages)
+        {
+            throw new ArgumentException(
+                $"HTML page range must be between 1 and {document.Pages}.");
+        }
+
+        string fallbackValue = GetStringOption(args, "--fallback");
+        SvgFallbackMode fallback = fallbackValue switch
+        {
+            "" or "rasterize" => SvgFallbackMode.Rasterize,
+            "omit" => SvgFallbackMode.Omit,
+            _ => throw new ArgumentException("--fallback must be 'rasterize' or 'omit'.")
+        };
+        string title = GetStringOption(args, "--title");
+        var options = new HtmlExportOptions
+        {
+            FirstPageIndex = firstPage - 1,
+            PageCount = lastPage - firstPage + 1,
+            Title = string.IsNullOrWhiteSpace(title) ? null : title,
+            PageOptions = new HtmlRenderOptions
+            {
+                Scale = GetDoubleOption(args, "--scale") ?? 1,
+                TextLayerMode = args.Contains("--visible-text", StringComparer.Ordinal)
+                    ? HtmlTextLayerMode.Visible
+                    : HtmlTextLayerMode.InvisibleOverlay,
+                IncludeVectorGraphics =
+                    !args.Contains("--no-vector", StringComparer.Ordinal),
+                IncludeImages = !args.Contains("--no-images", StringComparer.Ordinal),
+                EmbedFonts =
+                    !args.Contains("--no-embed-fonts", StringComparer.Ordinal),
+                FallbackMode = fallback,
+                RasterFallbackDpi = GetDoubleOption(args, "--fallback-dpi") ?? 144,
+                OptionalContentVisibility = GetLayerOverrides(args)
+            }
+        };
+
+        if (args.Contains("--bundle", StringComparer.Ordinal))
+        {
+            document.SaveHtmlBundle(args[2], options);
+            Console.WriteLine(Path.Combine(Path.GetFullPath(args[2]), "index.html"));
+        }
+        else
+        {
+            document.SaveHtml(args[2], options);
+            Console.WriteLine(Path.GetFullPath(args[2]));
+        }
+        return 0;
+    }
+
     private static int Render(string[] args)
     {
         RequireCount(args, 3, "render requires an input PDF and output PNG.");
@@ -716,6 +783,7 @@ internal static class Cli
               poppler-net render <input.pdf> <output.png> [--page N] [--dpi N] [--antialias 1|2|4|8] [--transparent] [--font-dir PATH] [--layer ID=on|off] [--no-font-substitution] [common options]
               poppler-net attachments <input.pdf> <output-dir> [password options]
               poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds] [--image-bounds] [--layer ID=on|off] [password options]
+              poppler-net html <input.pdf> <output.html|output-dir> [--page N|--first-page N --last-page N] [--bundle] [--visible-text] [--scale N] [--no-embed-fonts] [--no-images] [--no-vector] [--fallback rasterize|omit] [--fallback-dpi N] [--title VALUE] [--layer ID=on|off] [password options]
               poppler-net version
 
             Password options:

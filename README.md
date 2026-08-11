@@ -2,14 +2,18 @@
 
 [![CI](https://github.com/MiLattanzio/Poppler.Net/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/MiLattanzio/Poppler.Net/actions/workflows/ci.yml)
 [![NuGet](https://img.shields.io/nuget/vpre/Poppler.Net?label=NuGet&logo=nuget)](https://www.nuget.org/packages/Poppler.Net/)
+[![NuGet CLI](https://img.shields.io/nuget/vpre/Poppler.Net.Cli?label=dotnet%20tool&logo=nuget)](https://www.nuget.org/packages/Poppler.Net.Cli/)
 [![WebAssembly playground](https://img.shields.io/badge/WebAssembly-Playground-654ff0?logo=webassembly&logoColor=white)](https://milattanzio.github.io/Poppler.Net/)
 
 `Poppler.Net` is an **in-progress, source-level managed C# port** of Poppler
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.12.0` stable release is not a complete replacement for
-> libpoppler.
+> This `0.13.0-alpha.1` prerelease builds on stable `0.12.0` and is not a
+> complete replacement for libpoppler. It adds deterministic fixed-layout
+> HTML conversion for pages, ranges and complete documents, including
+> selectable DOM text, safe links, normalized subset-font names, embedded
+> TrueType/OpenType data, self-contained output and directory bundles.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
 > extraction, a backend-neutral vector display list and an SVG vector
@@ -97,8 +101,9 @@ process invocation, or native NuGet dependency.
 ## Build
 
 Requirements: .NET SDK 10.0.302. `global.json` pins the selected feature band.
-The NuGet library targets both `net8.0` and `net10.0`; command-line, test,
-engineering and WebAssembly projects use `net10.0`.
+The NuGet library targets both `net8.0` and `net10.0`; the packaged CLI tool
+targets `net8.0` with major-version roll-forward, while test, engineering and
+WebAssembly projects use `net10.0`.
 
 ```bash
 dotnet build Poppler.Net.sln
@@ -120,16 +125,18 @@ or any native cryptography asset.
 
 ## CI and NuGet publishing
 
-The GitHub Actions workflow builds, tests and verifies the .NET 10 solution on
-Ubuntu, Windows and macOS for pushes to `master` and pull requests. It inspects
-the dual-target `.nupkg`, rebuilds and tests an extracted source archive, then
-restores and renders through clean `net8.0` and `net10.0` package consumers on
-all three systems. The package and source archive are stored as workflow
-artifacts. Every push to `master` publishes the .NET 10 WebAssembly playground
-to GitHub Pages.
+The GitHub Actions workflow builds, tests and verifies the solution on Ubuntu,
+Windows and macOS for pushes to `master` and pull requests. It inspects both
+the dual-target `Poppler.Net` package and the `Poppler.Net.Cli` dotnet-tool
+package, rebuilds and tests an extracted source archive, restores clean
+`net8.0`/`net10.0` library consumers, and installs/runs the packaged CLI on all
+three systems. Both NuGet packages and the source archive are stored as
+workflow artifacts. Every push to `master` publishes the .NET 10 WebAssembly
+playground to GitHub Pages.
 
-Publishing a GitHub Release runs the same gates and then publishes the package
-to NuGet.org through OIDC Trusted Publishing. Configure a nuget.org trusted
+Publishing a GitHub Release runs the same gates and then publishes both the
+library and CLI tool packages to NuGet.org through OIDC Trusted Publishing.
+Configure a nuget.org trusted
 publishing policy for repository owner `MiLattanzio`, repository `Poppler.Net`,
 workflow `ci.yml` and environment `nuget.org`. Add a `NUGET_USER` secret
 containing the nuget.org profile username (not the email address) to the
@@ -146,7 +153,9 @@ The [online playground](https://milattanzio.github.io/Poppler.Net/) is a
 Blazor WebAssembly application that runs Poppler.Net entirely in the browser.
 PDF files and passwords never leave the device. It exposes PNG and SVG page
 rendering, text extraction and search, font and image inspection, annotations,
-outlines, optional-content layers and parser diagnostics.
+outlines, optional-content layers and parser diagnostics. HTML downloads are
+available for the current page, the complete document and a ZIP directory
+bundle containing `index.html`, CSS, page SVGs, reusable fonts and a manifest.
 
 Run it locally with the pinned SDK:
 
@@ -158,6 +167,18 @@ The sample references the source project directly, so local library changes
 are immediately visible in the playground.
 
 ## CLI
+
+Starting with `0.13.0-alpha.1`, the CLI is published as the
+[`Poppler.Net.Cli`](https://www.nuget.org/packages/Poppler.Net.Cli/) dotnet
+tool. Install or update it with:
+
+```bash
+dotnet tool install --global Poppler.Net.Cli --version 0.13.0-alpha.1
+dotnet tool update --global Poppler.Net.Cli --version 0.13.0-alpha.1
+poppler-net version
+```
+
+Source-tree invocation remains available for contributors:
 
 ```bash
 dotnet run --project src/Poppler.Net.Cli -- info input.pdf
@@ -175,7 +196,17 @@ dotnet run --project src/Poppler.Net.Cli -- render input.pdf page.png --cmap-dir
 dotnet run --project src/Poppler.Net.Cli -- render input.pdf page.png --layer 17:0=off
 dotnet run --project src/Poppler.Net.Cli -- attachments input.pdf output-dir
 dotnet run --project src/Poppler.Net.Cli -- svg input.pdf page.svg --page 1
+dotnet run --project src/Poppler.Net.Cli -- html input.pdf document.html
+dotnet run --project src/Poppler.Net.Cli -- html input.pdf page.html --page 1
+dotnet run --project src/Poppler.Net.Cli -- html input.pdf selected.html --first-page 2 --last-page 5
+dotnet run --project src/Poppler.Net.Cli -- html input.pdf html-bundle --bundle
 ```
+
+Installed-tool commands use the same arguments without the `dotnet run ... --`
+prefix. HTML defaults to an exact SVG background plus a transparent selectable
+text layer. `--visible-text` switches to browser-rendered text;
+`--no-embed-fonts`, `--fallback omit`, `--scale`, page-range and layer options
+are also available.
 
 Encrypted input accepts `--user-password VALUE` or `--owner-password VALUE`.
 Command-line values may be visible to other local processes; applications
@@ -230,9 +261,23 @@ page.SaveSvg("page.svg", new SvgRenderOptions
     FallbackMode = SvgFallbackMode.Rasterize,
     RasterFallbackDpi = 144
 });
+page.SaveHtml("page.html");
+document.SaveHtml("document.html", new HtmlExportOptions
+{
+    FirstPageIndex = 0,
+    PageCount = document.Pages,
+    PageOptions = new HtmlRenderOptions
+    {
+        TextLayerMode = HtmlTextLayerMode.InvisibleOverlay,
+        EmbedFonts = true
+    }
+});
+document.SaveHtmlBundle("html-bundle");
 ```
 
 All page indices in the API are zero-based. CLI page numbers are one-based.
+See [docs/HTML_EXPORT.md](docs/HTML_EXPORT.md) for layout, packaging, font,
+link and security behavior.
 
 Encrypted files can be opened directly:
 
@@ -272,9 +317,9 @@ matching Poppler's C++ API, returns the document's new locking status
 - `Color/` ports calibrated, ICC matrix/shaper and special color conversion.
 - `Images/` decodes Image XObjects, masks and common PDF image codecs into
   tightly packed managed pixel buffers.
-- `Rendering/` consumes that display list in managed SVG and RGBA/PNG
-  backends; its raster core maps the initial Splash path, image, antialiasing,
-  blend and transparency-group responsibilities.
+- `Rendering/` consumes that display list in managed SVG, RGBA/PNG and
+  fixed-layout HTML backends; its raster core maps the initial Splash path,
+  image, antialiasing, blend and transparency-group responsibilities.
 
 The implementation uses bounded allocations, recursion limits and decoded
 stream limits because PDFs are untrusted input. Defaults can be changed with

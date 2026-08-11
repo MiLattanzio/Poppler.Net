@@ -22,6 +22,11 @@ dotnet pack \
   --configuration "$configuration" \
   --no-build \
   --output artifacts
+dotnet pack \
+  src/Poppler.Net.Cli/Poppler.Net.Cli.csproj \
+  --configuration "$configuration" \
+  --no-build \
+  --output artifacts
 package_version="$(dotnet msbuild \
   src/Poppler.Net/Poppler.Net.csproj \
   -nologo \
@@ -33,6 +38,14 @@ dotnet run \
   --no-build \
   -- \
   "$package_path" \
+  "$package_version"
+tool_package_path="${repository_root}/artifacts/Poppler.Net.Cli.${package_version}.nupkg"
+dotnet run \
+  --project eng/Poppler.Net.PackageVerifier/Poppler.Net.PackageVerifier.csproj \
+  --configuration "$configuration" \
+  --no-build \
+  -- \
+  "$tool_package_path" \
   "$package_version"
 dotnet restore \
   eng/Poppler.Net.PackageSmoke/Poppler.Net.PackageSmoke.csproj \
@@ -50,3 +63,24 @@ for framework in net8.0 net10.0; do
     tests/fixtures/rendering-beta2.pdf \
     "$package_version"
 done
+
+tool_root="$(mktemp -d)"
+cleanup_tool() {
+  rm -rf -- "$tool_root"
+}
+trap cleanup_tool EXIT
+dotnet tool install Poppler.Net.Cli \
+  --tool-path "$tool_root" \
+  --version "$package_version" \
+  --add-source "${repository_root}/artifacts" \
+  --ignore-failed-sources
+"${tool_root}/poppler-net" version
+"${tool_root}/poppler-net" html \
+  tests/fixtures/truetype-format0-subset.pdf \
+  "${tool_root}/tool-smoke.html" \
+  --visible-text
+grep -F 'class="pdf-text"' "${tool_root}/tool-smoke.html" >/dev/null
+if grep -F 'ABCDEF+DejaVuSans' "${tool_root}/tool-smoke.html" >/dev/null; then
+  echo "The packaged CLI HTML smoke output contains an unnormalized subset font name." >&2
+  exit 1
+fi

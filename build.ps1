@@ -21,6 +21,11 @@ try {
         --configuration $configuration `
         --no-build `
         --output artifacts
+    dotnet pack `
+        src/Poppler.Net.Cli/Poppler.Net.Cli.csproj `
+        --configuration $configuration `
+        --no-build `
+        --output artifacts
     $packageVersion = dotnet msbuild `
         src/Poppler.Net/Poppler.Net.csproj `
         -nologo `
@@ -34,6 +39,16 @@ try {
         --no-build `
         -- `
         $packagePath `
+        $packageVersion
+    $toolPackagePath = Join-Path `
+        $repositoryRoot `
+        "artifacts/Poppler.Net.Cli.$packageVersion.nupkg"
+    dotnet run `
+        --project eng/Poppler.Net.PackageVerifier/Poppler.Net.PackageVerifier.csproj `
+        --configuration $configuration `
+        --no-build `
+        -- `
+        $toolPackagePath `
         $packageVersion
     dotnet restore `
         eng/Poppler.Net.PackageSmoke/Poppler.Net.PackageSmoke.csproj `
@@ -50,6 +65,33 @@ try {
             -- `
             tests/fixtures/rendering-beta2.pdf `
             $packageVersion
+    }
+    $toolRoot = Join-Path `
+        ([IO.Path]::GetTempPath()) `
+        "poppler-net-tool-$([Guid]::NewGuid().ToString('N'))"
+    try {
+        dotnet tool install Poppler.Net.Cli `
+            --tool-path $toolRoot `
+            --version $packageVersion `
+            --add-source (Join-Path $repositoryRoot "artifacts") `
+            --ignore-failed-sources
+        $toolCommand = Join-Path $toolRoot "poppler-net.exe"
+        & $toolCommand version
+        $htmlOutput = Join-Path $toolRoot "tool-smoke.html"
+        & $toolCommand html `
+            tests/fixtures/truetype-format0-subset.pdf `
+            $htmlOutput `
+            --visible-text
+        $html = Get-Content -Raw -LiteralPath $htmlOutput
+        if ($html.IndexOf('class="pdf-text"', [StringComparison]::Ordinal) -lt 0 -or
+            $html.IndexOf('ABCDEF+DejaVuSans', [StringComparison]::Ordinal) -ge 0) {
+            throw "The packaged CLI HTML smoke output is invalid."
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $toolRoot) {
+            Remove-Item -LiteralPath $toolRoot -Recurse -Force
+        }
     }
 }
 finally {
