@@ -186,7 +186,7 @@ internal static class HtmlDocumentRenderer
         html.AppendLine("  </main>");
         html.AppendLine("</body>");
         html.AppendLine("</html>");
-        return html.ToString();
+        return CanonicalText(html);
     }
 
     private static void WritePage(
@@ -458,8 +458,11 @@ internal static class HtmlDocumentRenderer
         css.AppendLine(".pdf-link{position:absolute;display:block;pointer-events:auto;border:0;text-decoration:none}");
         css.AppendLine(".pdf-link:focus-visible{outline:2px solid #0277bd;outline-offset:-2px;background:rgba(2,119,189,.12)}");
         css.AppendLine("@media print{.pdf-page{break-after:page}.pdf-page:last-child{break-after:auto}}\n");
-        return css.ToString();
+        return CanonicalText(css);
     }
+
+    private static string CanonicalText(StringBuilder value) =>
+        value.ToString().ReplaceLineEndings("\n");
 
     private static byte[] BuildManifest(
         string title,

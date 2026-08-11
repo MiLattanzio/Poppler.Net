@@ -100,7 +100,8 @@ fallback family.
 
 `Page.RenderToHtml` and `Document.RenderToHtml` return a single HTML document.
 CSS, page SVG and supported embedded fonts are inlined, so the output can be
-opened or transferred without companion files.
+opened or transferred without companion files. HTML and CSS always use LF line
+endings so byte counts and hashes remain deterministic across operating systems.
 
 `Document.CreateHtmlBundle` returns immutable files with stable relative paths:
 

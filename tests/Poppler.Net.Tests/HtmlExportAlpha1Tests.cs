@@ -23,6 +23,7 @@ public sealed class HtmlExportAlpha1Tests
         {
             Assert.That(second, Is.EqualTo(first));
             Assert.That(first, Does.StartWith("<!doctype html>"));
+            Assert.That(first, Does.Not.Contain("\r"));
             Assert.That(first, Does.Contain("<svg xmlns=\"http://www.w3.org/2000/svg\""));
             Assert.That(first, Does.Contain("class=\"pdf-glyph "));
             Assert.That(first, Does.Contain("data-source-text=\"Hello managed PDF "));
@@ -169,6 +170,9 @@ public sealed class HtmlExportAlpha1Tests
                 Assert.That(secondFiles[path], Is.EqualTo(data), path);
             string index = Encoding.UTF8.GetString(firstFiles["index.html"]);
             Assert.That(index, Does.Contain("src=\"pages/page-0001.svg\""));
+            Assert.That(index, Does.Not.Contain("\r"));
+            string styles = Encoding.UTF8.GetString(firstFiles["styles.css"]);
+            Assert.That(styles, Does.Not.Contain("\r"));
             string manifest = Encoding.UTF8.GetString(firstFiles["manifest.json"]);
             Assert.That(manifest, Does.Contain("\"format\": \"poppler-net-html-bundle\""));
             Assert.That(manifest, Does.Contain("\"entryPoint\": \"index.html\""));
