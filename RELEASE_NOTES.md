@@ -16,6 +16,8 @@ remains managed-only and invokes no Poppler binary or subprocess.
   `manifest.json`.
 - Added `HtmlRenderOptions`, `HtmlExportOptions` and
   `HtmlTextLayerMode.InvisibleOverlay|Visible`.
+- Emitted only the requested page or page range at the top-left origin, without
+  viewer toolbar, labels, centering, inter-page gaps or decorative shadows.
 - Preserved exact managed SVG rendering by default while always emitting a
   selectable/searchable Unicode DOM text layer.
 - Converted visible URI/GoTo link annotations into safe HTML anchors without

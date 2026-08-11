@@ -5,7 +5,8 @@
 Everything qualified in stable `0.12.0` remains supported. Alpha.1 adds:
 
 - Managed fixed-layout HTML for a page, zero-based page range or complete
-  document, with selectable/searchable DOM text over an exact SVG background.
+  document, with selectable/searchable DOM text over an exact SVG background
+  and no viewer chrome, centering or inter-page decoration.
 - Visible browser-text mode with reusable embedded TrueType/OpenType programs,
   normalized subset names and deterministic CSS fallbacks.
 - Safe external URI and internal GoTo link overlays; executable PDF actions

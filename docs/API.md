@@ -380,7 +380,8 @@ bundle.SaveToDirectory("html-bundle");
 ```
 
 Single-file output inlines CSS, SVG and managed TrueType programs generated
-from the decoded PDF glyph outlines.
+from the decoded PDF glyph outlines. It renders only the selected page or page
+range from the top-left origin, without toolbar, centering, spacing or shadow.
 The directory bundle exposes immutable `HtmlExportFile` values and includes an
 entry point, CSS, page SVGs, deduplicated fonts and a versioned manifest. DOM
 text is always emitted; `HtmlTextLayerMode.Visible` is the default glyph-level

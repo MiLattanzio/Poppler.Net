@@ -17,7 +17,7 @@
       "embedded data resources"
     ],
     "acceptedDifferences": [
-      "Poppler.Net uses one fixed-layout document instead of legacy frames",
+      "Poppler.Net uses one top-left fixed-layout document without viewer chrome instead of legacy frames",
       "managed DOM glyphs are primary and SVG retains compositing-sensitive text",
       "decoded outlines are rebuilt as managed TrueType fonts with private-use mappings",
       "directory bundles use deterministic CSS/page/font paths plus manifest.json",
@@ -32,8 +32,8 @@
       "pageCount": 1,
       "textLayerMode": "InvisibleOverlay",
       "scale": 1.0,
-      "utf8Bytes": 7311,
-      "sha256": "4d51ee91b2d756f168a470ead9ffb25e0a2a3cb4e50a39dd9d3195e0b7345e05"
+      "utf8Bytes": 6251,
+      "sha256": "103b28eb54c98cf7719fcfb24c42c5a61684c0ee03a432dce3bec257682289ac"
     },
     {
       "fixture": "truetype-format0-subset.pdf",
@@ -41,8 +41,8 @@
       "pageCount": 1,
       "textLayerMode": "Visible",
       "scale": 1.0,
-      "utf8Bytes": 6871,
-      "sha256": "23ebde19427f2d223bd0b7d952bea4aba38f429c8ccfb017cdd8569724e55b1e"
+      "utf8Bytes": 5811,
+      "sha256": "77e30fbb0402bd09cc206f2de05f208c6225c3ee0695dbb974f4fc294c426d5d"
     },
     {
       "fixture": "rendering-beta2.pdf",
@@ -50,8 +50,8 @@
       "pageCount": 2,
       "textLayerMode": "InvisibleOverlay",
       "scale": 1.25,
-      "utf8Bytes": 211538,
-      "sha256": "b50f0235d13b3051d9235db175f0c766eff09f425440249c294651f600085366"
+      "utf8Bytes": 210421,
+      "sha256": "9835e185df1cca9fbc16a2e963e843c307e7a5f22b442951c34678a06970362e"
     }
   ]
 }

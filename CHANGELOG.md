@@ -4,6 +4,8 @@
 
 - Added deterministic fixed-layout HTML export for individual pages, page
   ranges and complete documents through page/document render and save APIs.
+- Kept exported HTML as a pure top-left rendering artifact containing only the
+  requested pages, without viewer toolbar, labels, centering, gaps or shadows.
 - Added glyph-level native DOM text with deduplicated affine/paint CSS states,
   exact SVG fallbacks, safe URI/internal links and layer-aware text.
 - Added self-contained HTML and immutable directory bundles with CSS, stable

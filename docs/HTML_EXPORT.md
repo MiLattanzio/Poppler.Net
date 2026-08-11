@@ -21,6 +21,12 @@ Each selected page is represented by a fixed-size `<section>` containing:
    normalized font names and the complete affine transform;
 3. safe URI and internal-destination link rectangles.
 
+The exported HTML is the rendering artifact itself, not a document viewer. It
+contains no toolbar, page navigation, page labels, viewport padding, centering
+or decorative shadow. A single-page export starts at the top-left origin and
+contains only that page. Range and complete-document exports contain only the
+selected pages, stacked in order at their exact PDF dimensions without gaps.
+
 The default `HtmlTextLayerMode.Visible` reconstructs supported glyphs in HTML.
 Poppler.Net decodes each embedded TrueType, OpenType, CFF or Type 1 outline and
 builds a small deterministic TrueType web font entirely in managed code. Its

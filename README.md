@@ -156,6 +156,8 @@ rendering, text extraction and search, font and image inspection, annotations,
 outlines, optional-content layers and parser diagnostics. HTML downloads are
 available for the current page, the complete document and a ZIP directory
 bundle containing `index.html`, CSS, page SVGs, reusable fonts and a manifest.
+The generated HTML contains only the requested page or the complete stack of
+pages at the top-left origin, without viewer toolbar, centering or decoration.
 
 Run it locally with the pinned SDK:
 

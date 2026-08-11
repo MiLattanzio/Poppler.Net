@@ -178,20 +178,9 @@ internal static class HtmlDocumentRenderer
                 ? "pdf-invisible-text"
                 : "pdf-native-text")
             .AppendLine("\">");
-        html.AppendLine("  <header class=\"pdf-document-header\">");
-        html.Append("    <h1>").Append(Encode(title)).AppendLine("</h1>");
-        html.AppendLine("    <nav aria-label=\"PDF pages\">");
-        foreach (PageAsset page in assets.Pages)
-        {
-            html.Append("      <a href=\"#page-")
-                .Append(page.Page.Number.ToString(CultureInfo.InvariantCulture))
-                .Append("\">")
-                .Append(page.Page.Number.ToString(CultureInfo.InvariantCulture))
-                .AppendLine("</a>");
-        }
-        html.AppendLine("    </nav>");
-        html.AppendLine("  </header>");
-        html.AppendLine("  <main class=\"pdf-document\">");
+        html.Append("  <main class=\"pdf-document\" aria-label=\"")
+            .Append(Encode(title))
+            .AppendLine("\">");
         foreach (PageAsset page in assets.Pages)
             WritePage(html, page, options, inline);
         html.AppendLine("  </main>");
@@ -216,6 +205,8 @@ internal static class HtmlDocumentRenderer
         double height = swapDimensions ? sourceWidth : sourceHeight;
         html.Append("    <section class=\"pdf-page\" id=\"page-")
             .Append(page.Number.ToString(CultureInfo.InvariantCulture))
+            .Append("\" aria-label=\"Page ")
+            .Append(page.Number.ToString(CultureInfo.InvariantCulture))
             .Append("\" data-page-number=\"")
             .Append(page.Number.ToString(CultureInfo.InvariantCulture))
             .Append("\" data-page-label=\"")
@@ -227,11 +218,6 @@ internal static class HtmlDocumentRenderer
             .Append("px;--pdf-page-height:")
             .Append(Format(height))
             .AppendLine("px\">");
-        html.Append("      <h2 class=\"pdf-page-label\">Page ")
-            .Append(page.Number.ToString(CultureInfo.InvariantCulture));
-        if (!string.IsNullOrWhiteSpace(page.Label) && page.Label != page.Number.ToString(CultureInfo.InvariantCulture))
-            html.Append(" · ").Append(Encode(page.Label));
-        html.AppendLine("</h2>");
         html.AppendLine("      <div class=\"pdf-page-canvas\">");
         html.Append("        <div class=\"pdf-page-content\" style=\"width:")
             .Append(Format(sourceWidth)).Append("px;height:")
@@ -449,18 +435,14 @@ internal static class HtmlDocumentRenderer
                 .Append(rule.Declarations).AppendLine("}");
         }
         css.AppendLine("*{box-sizing:border-box}");
-        css.Append("html,body{margin:0;min-height:100%;background:#eceff1;color:")
+        css.Append("html,body{margin:0;padding:0;min-height:0;background:")
+            .Append(CssValue(options.Background)).Append(";color:")
             .Append(CssValue(options.Foreground)).AppendLine("}");
-        css.AppendLine("body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif}");
-        css.AppendLine(".pdf-document-header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:1rem;padding:.6rem 1rem;background:rgba(255,255,255,.96);border-bottom:1px solid #cfd8dc}");
-        css.AppendLine(".pdf-document-header h1{margin:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:1rem}");
-        css.AppendLine(".pdf-document-header nav{display:flex;gap:.35rem;overflow:auto;margin-left:auto}");
-        css.AppendLine(".pdf-document-header a{display:inline-flex;min-width:1.8rem;height:1.8rem;align-items:center;justify-content:center;border:1px solid #b0bec5;border-radius:.25rem;color:#263238;text-decoration:none}");
-        css.AppendLine(".pdf-document{display:grid;gap:2rem;justify-content:center;padding:2rem}");
-        css.AppendLine(".pdf-page{margin:0;max-width:100%}");
-        css.AppendLine(".pdf-page-label{margin:0 0 .35rem;color:#455a64;font-size:.8rem;font-weight:600}");
-        css.Append(".pdf-page-canvas{position:relative;width:var(--pdf-page-width);height:var(--pdf-page-height);max-width:none;overflow:hidden;background:")
-            .Append(CssValue(options.Background)).AppendLine(";box-shadow:0 .25rem 1rem rgba(0,0,0,.2)}");
+        css.AppendLine("body{width:max-content;font-family:system-ui,-apple-system,'Segoe UI',sans-serif}");
+        css.AppendLine(".pdf-document{display:block;width:max-content;margin:0;padding:0}");
+        css.AppendLine(".pdf-page{display:block;width:var(--pdf-page-width);height:var(--pdf-page-height);margin:0;overflow:hidden}");
+        css.Append(".pdf-page-canvas{position:relative;width:var(--pdf-page-width);height:var(--pdf-page-height);overflow:hidden;background:")
+            .Append(CssValue(options.Background)).AppendLine("}");
         css.AppendLine(".pdf-page-content{position:absolute;left:0;top:0;transform-origin:0 0}");
         css.AppendLine(".pdf-page-background,.pdf-text-layer,.pdf-link-layer{position:absolute;inset:0;width:100%;height:100%}");
         css.AppendLine(".pdf-page-background svg,.pdf-page-background img{display:block;width:100%;height:100%}");
@@ -475,8 +457,7 @@ internal static class HtmlDocumentRenderer
         css.AppendLine(".pdf-link-layer{pointer-events:none}");
         css.AppendLine(".pdf-link{position:absolute;display:block;pointer-events:auto;border:0;text-decoration:none}");
         css.AppendLine(".pdf-link:focus-visible{outline:2px solid #0277bd;outline-offset:-2px;background:rgba(2,119,189,.12)}");
-        css.AppendLine("@media(max-width:720px){.pdf-document{justify-content:start;padding:1rem;overflow:auto}.pdf-document-header{position:relative}.pdf-document-header h1{display:none}}");
-        css.AppendLine("@media print{html,body{background:#fff}.pdf-document-header,.pdf-page-label{display:none}.pdf-document{display:block;padding:0}.pdf-page{break-after:page}.pdf-page-canvas{box-shadow:none}}\n");
+        css.AppendLine("@media print{.pdf-page{break-after:page}.pdf-page:last-child{break-after:auto}}\n");
         return css.ToString();
     }
 

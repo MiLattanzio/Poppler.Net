@@ -28,7 +28,20 @@ public sealed class HtmlExportAlpha1Tests
             Assert.That(first, Does.Contain("data-source-text=\"Hello managed PDF "));
             Assert.That(first, Does.Contain("data-font-name=\"Helvetica\""));
             Assert.That(first, Does.Contain("class=\"pdf-native-text\""));
+            Assert.That(first, Does.Contain(
+                ".pdf-document{display:block;width:max-content;margin:0;padding:0}"));
+            Assert.That(first, Does.Contain(
+                ".pdf-page{display:block;width:var(--pdf-page-width);" +
+                "height:var(--pdf-page-height);margin:0;overflow:hidden}"));
+            Assert.That(first, Does.Not.Contain("<header"));
+            Assert.That(first, Does.Not.Contain("<nav"));
+            Assert.That(first, Does.Not.Contain("pdf-page-label"));
+            Assert.That(first, Does.Not.Contain("justify-content:center"));
+            Assert.That(first, Does.Not.Contain("box-shadow"));
             Assert.That(first, Does.Not.Contain("<text "));
+            Assert.That(
+                first.Split("<section class=\"pdf-page\"", StringSplitOptions.None),
+                Has.Length.EqualTo(2));
         }));
     }
 
@@ -52,6 +65,9 @@ public sealed class HtmlExportAlpha1Tests
             Assert.That(html, Does.Contain("<section class=\"pdf-page\" id=\"page-3\""));
             Assert.That(html, Does.Not.Contain("<section class=\"pdf-page\" id=\"page-1\""));
             Assert.That(html, Does.Not.Contain("<section class=\"pdf-page\" id=\"page-4\""));
+            Assert.That(
+                html.Split("<section class=\"pdf-page\"", StringSplitOptions.None),
+                Has.Length.EqualTo(3));
         }));
     }
 
