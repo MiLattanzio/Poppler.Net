@@ -166,3 +166,36 @@ the version-normalized callable fingerprint remains
 The pull-request gate repeats build, tests, managed-only verification and
 packaging on Ubuntu, Windows and macOS. Publishing a matching GitHub
 prerelease tag repeats those gates before NuGet.org trusted publishing.
+
+## Beta 2 hardening qualification
+
+Local qualification performed on 2026-08-11 for implementation commit
+`f88b095792b44008bb780a82678df07587735465` uses .NET SDK 8.0.423 with
+warnings treated as errors. The six solution projects build in Release and the
+managed-only verifier accepts production source plus every restored dependency.
+NUnitLite executes 285 tests: 285 pass with no failure, warning or skip.
+
+The adversarial additions cover pre-growth ASCIIHex, ASCII85 and RunLength
+limits, combined content separators, cumulative clip/image/mesh budgets,
+reused Image XObjects, extreme finite page boxes and oversized working arrays.
+A 16-operation shared-document stress gate produces identical font, image,
+text, display-list and raster summaries. The six-page Release smoke allocates
+10.1 MiB and completes in 29–163 ms across repeated local runs, below the new
+32 MiB and 5 second gates. The complete public-surface SHA-256 is
+`334fb37308370eb72515706bdbb25727670a1bcf8498d530c355eea6eafba432`;
+the version-normalized callable fingerprint is
+`ce87b22579e9458c3c1dcdb1aa01790f15d13006ad177ad4815f1e974e63b527`.
+
+`Poppler.Net.PackageVerifier` accepts the beta.2 NuGet content allowlist,
+GPL-2.0-or-later metadata, repository commit and the pinned CoreJ2K,
+JBig2Decoder.NETStandard and StbImageSharp dependency set. A project with no
+source reference restores that local package and renders PNG hash
+`288113db35fd02ced30e623e8ac7f2a58055a4607c311850f26a43e23de7af03`
+plus SVG output.
+
+`git archive` produces a single `Poppler.Net/` root from tracked files. A new
+directory extracted from that archive restores, builds all six projects, runs
+all 285 tests, passes the managed-only verifier, repacks beta.2 with the source
+revision and passes package verification again. GitHub Actions repeats the
+package consumer on Ubuntu, Windows and macOS; the remaining roadmap checkbox
+is intentionally left open until that remote matrix is green.

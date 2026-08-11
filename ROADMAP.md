@@ -88,7 +88,7 @@ Beta.2 begins only after the beta.1 tracker is complete.
   bounded diagnostics.
 - [x] Performance and allocation gates pass without unexplained regression.
 - [ ] Full CI and managed-only verification pass on all supported runners.
-- [ ] NuGet consumer smoke and extracted-source gates pass.
+- [x] NuGet consumer smoke and extracted-source gates pass.
 - [x] Documentation reflects the final beta behavior and limits.
 
 ## 0.12.0-rc.1: release qualification
