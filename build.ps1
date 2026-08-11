@@ -37,17 +37,20 @@ try {
         $packageVersion
     dotnet restore `
         eng/Poppler.Net.PackageSmoke/Poppler.Net.PackageSmoke.csproj `
-        --source (Join-Path $repositoryRoot "artifacts") `
-        --source "https://api.nuget.org/v3/index.json" `
+        --configfile NuGet.Config `
+        "-p:RestoreAdditionalProjectSources=$(Join-Path $repositoryRoot 'artifacts')" `
         "-p:PopplerPackageVersion=$packageVersion"
-    dotnet run `
-        --project eng/Poppler.Net.PackageSmoke/Poppler.Net.PackageSmoke.csproj `
-        --configuration $configuration `
-        --no-restore `
-        "-p:PopplerPackageVersion=$packageVersion" `
-        -- `
-        tests/fixtures/rendering-beta2.pdf `
-        $packageVersion
+    foreach ($framework in @("net8.0", "net10.0")) {
+        dotnet run `
+            --project eng/Poppler.Net.PackageSmoke/Poppler.Net.PackageSmoke.csproj `
+            --configuration $configuration `
+            --framework $framework `
+            --no-restore `
+            "-p:PopplerPackageVersion=$packageVersion" `
+            -- `
+            tests/fixtures/rendering-beta2.pdf `
+            $packageVersion
+    }
 }
 finally {
     Pop-Location

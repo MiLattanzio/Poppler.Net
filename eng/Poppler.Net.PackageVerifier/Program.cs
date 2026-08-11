@@ -53,6 +53,8 @@ internal static partial class Program
             "Poppler.Net.nuspec",
             "lib/net8.0/Poppler.Net.dll",
             "lib/net8.0/Poppler.Net.xml",
+            "lib/net10.0/Poppler.Net.dll",
+            "lib/net10.0/Poppler.Net.xml",
             "README.md",
             "RELEASE_NOTES.md",
             "LICENSE",
@@ -91,7 +93,8 @@ internal static partial class Program
                 throw new InvalidDataException($"Unexpected package entry '{name}'.");
             }
             if (NativeExtension().IsMatch(name) &&
-                name != "lib/net8.0/Poppler.Net.dll")
+                name != "lib/net8.0/Poppler.Net.dll" &&
+                name != "lib/net10.0/Poppler.Net.dll")
                 throw new InvalidDataException($"Native package entry '{name}' is forbidden.");
         }
 
@@ -124,31 +127,39 @@ internal static partial class Program
             throw new InvalidDataException("NuSpec repository metadata is incomplete.");
         }
 
-        XElement group = metadata
+        XElement[] groups = metadata
             .Element(ns + "dependencies")?
             .Elements(ns + "group")
-            .SingleOrDefault() ??
-            throw new InvalidDataException("NuSpec dependency group is missing or ambiguous.");
-        if ((string?)group.Attribute("targetFramework") != "net8.0")
-            throw new InvalidDataException("NuSpec dependency target must be net8.0.");
-        Dictionary<string, string> actualDependencies = group
-            .Elements(ns + "dependency")
-            .ToDictionary(
-                element => (string?)element.Attribute("id") ?? "",
-                element => (string?)element.Attribute("version") ?? "",
-                StringComparer.Ordinal);
-        if (actualDependencies.Count != Dependencies.Count ||
-            Dependencies.Any(expected =>
-                !actualDependencies.TryGetValue(expected.Key, out string? version) ||
-                version != expected.Value))
+            .ToArray() ?? [];
+        string[] targetFrameworks = ["net8.0", "net10.0"];
+        if (groups.Length != targetFrameworks.Length)
+            throw new InvalidDataException("NuSpec dependency group count changed.");
+        foreach (string targetFramework in targetFrameworks)
         {
-            throw new InvalidDataException("NuSpec runtime dependency set changed.");
-        }
-        if (group.Elements(ns + "dependency").Any(element =>
-                (string?)element.Attribute("exclude") != "Build,Analyzers"))
-        {
-            throw new InvalidDataException(
-                "NuSpec dependencies must exclude build and analyzer assets.");
+            XElement group = groups.SingleOrDefault(candidate =>
+                (string?)candidate.Attribute("targetFramework") == targetFramework) ??
+                throw new InvalidDataException(
+                    $"NuSpec dependency target '{targetFramework}' is missing or ambiguous.");
+            Dictionary<string, string> actualDependencies = group
+                .Elements(ns + "dependency")
+                .ToDictionary(
+                    element => (string?)element.Attribute("id") ?? "",
+                    element => (string?)element.Attribute("version") ?? "",
+                    StringComparer.Ordinal);
+            if (actualDependencies.Count != Dependencies.Count ||
+                Dependencies.Any(expected =>
+                    !actualDependencies.TryGetValue(expected.Key, out string? version) ||
+                    version != expected.Value))
+            {
+                throw new InvalidDataException(
+                    $"NuSpec runtime dependency set changed for {targetFramework}.");
+            }
+            if (group.Elements(ns + "dependency").Any(element =>
+                    (string?)element.Attribute("exclude") != "Build,Analyzers"))
+            {
+                throw new InvalidDataException(
+                    "NuSpec dependencies must exclude build and analyzer assets.");
+            }
         }
 
         RequireText(entries["README.md"], "Poppler.Net");

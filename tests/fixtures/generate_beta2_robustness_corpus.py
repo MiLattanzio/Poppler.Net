@@ -192,12 +192,13 @@ def main() -> None:
                     "recovered-stream-length",
                     "miter-round-and-bevel-joins",
                 ],
-                "managed_png_sha256": [
-                    "970bb5cc1c22475f6b70bf7e6ae7ac4f1326076a1de8ad09770460c327c3a948",
-                    "b9c85729a4a0cd3f242765221a8f2a8f036a2fb2bfa1012d570f05970125818d",
-                    "68ea4e8840c19625bbce95a1e7f31b2b072dcb875206af7f85b6186041cae22f",
-                    "a9a5984fa72cf5733efc2186eed9ca840571de33482a6b0df49739686e5fdeaf",
-                    "85b2fc31ef8f6483ce736b4ecc7d0959b0a61812f795ccc5570a7e6c4d62c909",
+                "png_hash_mode": "canonical-png-content-v1",
+                "managed_png_canonical_sha256": [
+                    "00f5e999bffecba213d2931958497a2104aa1d64a61a6d9165979a3385685ef7",
+                    "ec1e410c3b047808abcc2253fbc05ce7d049aa020441247c23d03f6a76cd2938",
+                    "01d8a58bb5279a11053ed74df2bd4fdbb25e15dd7a345a1b443aa320dbd286e3",
+                    "5b15972a7776eddb6fd83af8019d736cc3db6f4f81f49a81dff65ad442274310",
+                    "cdbc4d6657923f537a36ee763e17933ed785c3d4629b648ed6d0754d45b207d7",
                 ],
                 "intentional_raster_changes_0_12_0_alpha_1": [
                     {

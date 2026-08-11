@@ -2,7 +2,7 @@
   "CoreJ2K": {
     "version": "2.3.3.91",
     "scope": "runtime",
-    "reason": "BSD-3-Clause pure C# JPEG 2000 Part 1 decoder; net8.0 has no transitive package dependency."
+    "reason": "BSD-3-Clause pure C# JPEG 2000 Part 1 decoder; the net8.0/net10.0 package graph has no transitive package dependency."
   },
   "JBig2Decoder.NETStandard": {
     "version": "1.5.2",

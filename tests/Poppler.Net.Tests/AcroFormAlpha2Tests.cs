@@ -238,17 +238,15 @@ public sealed class AcroFormAlpha2Tests
     {
         using JsonDocument manifest = Manifest();
         string[] expected = manifest.RootElement
-            .GetProperty("managed_png_sha256")
+            .GetProperty("managed_png_canonical_sha256")
             .EnumerateArray()
             .Select(value => value.GetString()!)
             .ToArray();
         using Document document = Load();
 
         string[] actual = Enumerable.Range(0, document.Pages)
-            .Select(index => Convert.ToHexString(
-                    SHA256.HashData(
-                        document.CreatePage(index).RenderToPng(RenderOptions())))
-                .ToLowerInvariant())
+            .Select(index => CanonicalRenderingHash.Png(
+                document.CreatePage(index).RenderToPng(RenderOptions())))
             .ToArray();
 
         Assert.That(actual, Is.EqualTo(expected));

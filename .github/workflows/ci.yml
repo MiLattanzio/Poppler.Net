@@ -192,7 +192,7 @@ jobs:
           retention-days: 14
 
   package-consumer:
-    name: Package consumer (${{ matrix.os }})
+    name: Package consumer (${{ matrix.os }}, ${{ matrix.framework }})
     needs: package
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
@@ -203,6 +203,9 @@ jobs:
           - ubuntu-latest
           - windows-latest
           - macos-latest
+        framework:
+          - net8.0
+          - net10.0
 
     steps:
       - name: Check out repository
@@ -223,8 +226,8 @@ jobs:
         run: >-
           dotnet restore
           eng/Poppler.Net.PackageSmoke/Poppler.Net.PackageSmoke.csproj
-          --source "${{ github.workspace }}/artifacts"
-          --source "https://api.nuget.org/v3/index.json"
+          --configfile NuGet.Config
+          -p:RestoreAdditionalProjectSources="${{ github.workspace }}/artifacts"
           -p:PopplerPackageVersion=${{ needs.package.outputs.package-version }}
 
       - name: Build and render from package
@@ -232,6 +235,7 @@ jobs:
           dotnet run
           --project eng/Poppler.Net.PackageSmoke/Poppler.Net.PackageSmoke.csproj
           --configuration Release
+          --framework ${{ matrix.framework }}
           --no-restore
           -p:PopplerPackageVersion=${{ needs.package.outputs.package-version }}
           --
@@ -255,7 +259,7 @@ jobs:
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: 8.0.423
+          global-json-file: global.json
 
       - name: Download NuGet package
         uses: actions/download-artifact@v8

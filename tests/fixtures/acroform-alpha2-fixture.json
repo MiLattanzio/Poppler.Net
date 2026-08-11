@@ -7,11 +7,12 @@
     "choice-fields-and-signature",
     "inheritance-cycle-and-orphan-widget"
   ],
-  "managed_png_sha256": [
-    "b8459dc201c595b58ae81e1a53d3d6bf2dc24428b1289e00368cfe146a2380b8",
-    "00380c0e7526af1a69c090abdc5cc73dbebec36a582ff905cecbfc052930dd6a",
-    "6354619df4500aa939c3ebd24849fcd274f95741f470ebba22170bd71797aca2",
-    "80bcdbb957481fc5409b56aaf67af6d93b61750ce25f65b020059afbee6c1017"
+  "png_hash_mode": "canonical-png-content-v1",
+  "managed_png_canonical_sha256": [
+    "b7ca1acfc0d9bcfc5e01017502082af023154de21fb544a7c1e5b425338060e1",
+    "3de92a1466b2de3e586554726382f8586057a560722af92bedfe9f05881915d6",
+    "1bfb2a8815568103cd9f21fc763303117fef9e42969f4f9f0ee210d2432d33e7",
+    "ff79aec4fd0aa087aff64ddb62303fefd292dea6bb810971194bf093cce49ce1"
   ],
   "intentional_raster_changes_0_12_0_alpha_1": {
     "page": 2,

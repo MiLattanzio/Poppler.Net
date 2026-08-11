@@ -95,7 +95,9 @@ process invocation, or native NuGet dependency.
 
 ## Build
 
-Requirements: .NET SDK 8.0.423. `global.json` pins the selected feature band.
+Requirements: .NET SDK 10.0.302. `global.json` pins the selected feature band.
+The NuGet library targets both `net8.0` and `net10.0`; command-line, test,
+engineering and WebAssembly projects use `net10.0`.
 
 ```bash
 dotnet build Poppler.Net.sln
@@ -117,12 +119,13 @@ or any native cryptography asset.
 
 ## CI and NuGet publishing
 
-The GitHub Actions workflow builds, tests and verifies the solution on Ubuntu,
-Windows and macOS for pushes to `master` and pull requests. It inspects the
-produced `.nupkg`, rebuilds and tests an extracted source archive, then restores
-and renders through a clean package consumer on all three systems. The package
-and source archive are stored as workflow artifacts. Every push to `master`
-publishes the WebAssembly playground to GitHub Pages.
+The GitHub Actions workflow builds, tests and verifies the .NET 10 solution on
+Ubuntu, Windows and macOS for pushes to `master` and pull requests. It inspects
+the dual-target `.nupkg`, rebuilds and tests an extracted source archive, then
+restores and renders through clean `net8.0` and `net10.0` package consumers on
+all three systems. The package and source archive are stored as workflow
+artifacts. Every push to `master` publishes the .NET 10 WebAssembly playground
+to GitHub Pages.
 
 Publishing a GitHub Release runs the same gates and then publishes the package
 to NuGet.org through OIDC Trusted Publishing. Configure a nuget.org trusted

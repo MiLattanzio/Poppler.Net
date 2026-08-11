@@ -36,14 +36,17 @@ dotnet run \
   "$package_version"
 dotnet restore \
   eng/Poppler.Net.PackageSmoke/Poppler.Net.PackageSmoke.csproj \
-  --source artifacts \
-  --source "https://api.nuget.org/v3/index.json" \
+  --configfile NuGet.Config \
+  -p:RestoreAdditionalProjectSources="${repository_root}/artifacts" \
   -p:PopplerPackageVersion="$package_version"
-dotnet run \
-  --project eng/Poppler.Net.PackageSmoke/Poppler.Net.PackageSmoke.csproj \
-  --configuration "$configuration" \
-  --no-restore \
-  -p:PopplerPackageVersion="$package_version" \
-  -- \
-  tests/fixtures/rendering-beta2.pdf \
-  "$package_version"
+for framework in net8.0 net10.0; do
+  dotnet run \
+    --project eng/Poppler.Net.PackageSmoke/Poppler.Net.PackageSmoke.csproj \
+    --configuration "$configuration" \
+    --framework "$framework" \
+    --no-restore \
+    -p:PopplerPackageVersion="$package_version" \
+    -- \
+    tests/fixtures/rendering-beta2.pdf \
+    "$package_version"
+done

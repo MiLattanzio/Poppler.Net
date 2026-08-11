@@ -173,7 +173,7 @@ def main() -> int:
         / "Poppler.Net.Cli"
         / "bin"
         / args.configuration
-        / "net8.0"
+        / "net10.0"
         / "poppler-net.dll"
     )
     if not args.no_build:

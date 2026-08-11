@@ -46,12 +46,17 @@ making the gate too broad to catch a material regression.
 CI now inspects the produced NuGet archive for an exact managed package shape,
 GPL license metadata, repository commit metadata and the pinned three-package
 runtime dependency set. A clean project restores the produced package and
-renders PNG/SVG output on Ubuntu, Windows and macOS.
+renders PNG/SVG output as both `net8.0` and `net10.0` on Ubuntu, Windows and
+macOS. The library package contains assemblies for both target frameworks;
+the CLI, test, engineering and WebAssembly projects run on .NET 10.
+Historical raster gates now hash canonical decompressed PNG content, avoiding
+false failures when .NET 8 and .NET 10 emit different valid zlib streams for
+identical pixels.
 
 CI also creates a tracked-file source archive, extracts it into a clean
 directory, restores, builds, runs the complete tests and managed-only verifier,
 repacks the library and rechecks package metadata. NuGet publication waits for
-all three consumer jobs.
+all six operating-system/framework consumer jobs.
 
 ## Installation
 

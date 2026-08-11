@@ -15,6 +15,11 @@
 - Added NuGet content/license/dependency/metadata inspection, three-OS clean
   package consumers and a restore/build/test/repack gate from the extracted
   source archive.
+- Moved the build, tools, tests and WebAssembly playground to .NET 10 while
+  multi-targeting the library and clean package consumer for `net8.0` and
+  `net10.0`.
+- Migrated the remaining raw PNG golden checks to canonical decompressed-pixel
+  hashes so the .NET 8 and .NET 10 zlib implementations share one baseline.
 
 ## 0.12.0-beta.1 — 2026-08-10
 
