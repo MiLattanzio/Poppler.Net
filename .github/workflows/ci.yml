@@ -329,13 +329,14 @@ jobs:
           $html = Join-Path "${{ runner.temp }}" "poppler-net-tool-smoke.html"
           & $command html `
             "tests/fixtures/truetype-format0-subset.pdf" `
-            $html `
-            --visible-text
+            $html
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $html)) {
             throw "The packaged CLI did not create HTML output."
           }
           $content = Get-Content -Raw -LiteralPath $html
-          if ($content.IndexOf("class=`"pdf-text`"", [StringComparison]::Ordinal) -lt 0 -or
+          if ($content.IndexOf("class=`"pdf-glyph ", [StringComparison]::Ordinal) -lt 0 -or
+              $content.IndexOf("pdf-managed-", [StringComparison]::Ordinal) -lt 0 -or
+              $content.IndexOf("<text ", [StringComparison]::Ordinal) -ge 0 -or
               $content.IndexOf("ABCDEF+DejaVuSans", [StringComparison]::Ordinal) -ge 0) {
             throw "The packaged CLI HTML smoke output is invalid."
           }

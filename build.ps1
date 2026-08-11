@@ -80,10 +80,11 @@ try {
         $htmlOutput = Join-Path $toolRoot "tool-smoke.html"
         & $toolCommand html `
             tests/fixtures/truetype-format0-subset.pdf `
-            $htmlOutput `
-            --visible-text
+            $htmlOutput
         $html = Get-Content -Raw -LiteralPath $htmlOutput
-        if ($html.IndexOf('class="pdf-text"', [StringComparison]::Ordinal) -lt 0 -or
+        if ($html.IndexOf('class="pdf-glyph ', [StringComparison]::Ordinal) -lt 0 -or
+            $html.IndexOf('pdf-managed-', [StringComparison]::Ordinal) -lt 0 -or
+            $html.IndexOf('<text ', [StringComparison]::Ordinal) -ge 0 -or
             $html.IndexOf('ABCDEF+DejaVuSans', [StringComparison]::Ordinal) -ge 0) {
             throw "The packaged CLI HTML smoke output is invalid."
         }

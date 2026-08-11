@@ -5,28 +5,40 @@ complete PDF. Poppler 26.07 `pdftohtml` and `HtmlOutputDev` are behavioral
 references only; export runs through Poppler.Net's managed parser, display
 list, SVG renderer and text extractor.
 
+The glyph/state/font architecture was also compared behaviorally with
+pdf2htmlEX. No pdf2htmlEX C/C++ implementation is copied or shipped: its
+FontForge, FreeType, Cairo and native Poppler dependencies are replaced by the
+existing Poppler.Net decoders plus the managed TrueType builder in this
+release.
+
 ## Output model
 
 Each selected page is represented by a fixed-size `<section>` containing:
 
-1. a managed SVG background for supported text, vectors, images, annotations
-   and bounded raster fallbacks;
-2. absolutely positioned DOM text spans carrying Unicode, font name,
-   direction, writing mode and rotation;
+1. a managed SVG background for vectors, images, text that requires PDF paint
+   ordering, and bounded raster fallbacks;
+2. glyph-level, absolutely positioned DOM text carrying source Unicode,
+   normalized font names and the complete affine transform;
 3. safe URI and internal-destination link rectangles.
 
-The default `HtmlTextLayerMode.InvisibleOverlay` retains SVG text for visual
-fidelity and makes the DOM text transparent but selectable and searchable.
-This is also the safest mode for missing or unsupported browser fonts: the
-visible rendering does not depend on a platform font, while the extracted text
-remains in the document.
+The default `HtmlTextLayerMode.Visible` reconstructs supported glyphs in HTML.
+Poppler.Net decodes each embedded TrueType, OpenType, CFF or Type 1 outline and
+builds a small deterministic TrueType web font entirely in managed code. Its
+`cmap` uses supplementary private-use scalars, so PDF character codes and
+ligatures cannot collide with browser Unicode shaping. A separate transparent,
+selectable span retains the original Unicode for copy, search and accessibility.
 
-`HtmlTextLayerMode.Visible` removes text from the SVG background and uses the
-browser text layer visually. Reusable embedded TrueType/OpenType programs are
-loaded with `@font-face`; missing, Type 1 and standalone CFF programs fall back
-to CSS serif, sans-serif or monospace families. Six-uppercase-letter PDF
-subset prefixes such as `ABCDEF+DejaVuSans` are removed from the exposed font
-family name.
+When no usable outline is available, the source Unicode is still rendered at
+the exact PDF glyph origin using a CSS serif, sans-serif or monospace fallback.
+Type 3 glyphs, complex clips, soft masks, non-solid text brushes, transparency
+groups and text covered by a later graphical operation remain in SVG, with the
+Unicode copy layer retained above them. This conservative split preserves PDF
+paint order without turning text into unavailable data.
+
+`HtmlTextLayerMode.InvisibleOverlay` is the compatibility mode: every visual
+text operation remains in SVG and word-level transparent DOM text provides
+selection. Six-uppercase-letter PDF subset prefixes such as
+`ABCDEF+DejaVuSans` are removed from every exposed font-family name.
 
 This release does not attempt semantic reflow. Paragraph reconstruction,
 office-format conversion and browser-perfect line breaking are outside the
@@ -68,12 +80,15 @@ bundle.SaveToDirectory("html-bundle");
 
 `HtmlExportOptions.PageOptions` applies the same `HtmlRenderOptions` snapshot
 to every selected page. Optional-content visibility overrides are applied to
-both the SVG background and DOM text extraction.
+both the SVG background and DOM text extraction. Native glyphs retain display-
+list paint order; `TextLayout` controls the word-level compatibility overlay.
 
 `MaximumOutputBytes` bounds the UTF-8 single-file result or the total bundle
 payload (256 MiB by default). `MaximumEmbeddedFontBytes` independently bounds
-deduplicated reusable font programs (64 MiB by default); use
-`EmbedFonts = false` when font assets must not be included.
+deduplicated generated font programs (64 MiB by default). Each managed web
+font is internally bounded to 32,768 glyphs. Use `EmbedFonts = false` to keep
+exact glyph positioning while rendering every native glyph through a browser
+fallback family.
 
 ## Packaging modes
 
@@ -86,7 +101,8 @@ opened or transferred without companion files.
 - `index.html` entry point;
 - `styles.css`;
 - `pages/page-NNNN.svg` for each original PDF page number;
-- deduplicated `fonts/<sha256-prefix>.ttf|otf` assets when reusable;
+- deduplicated `fonts/<sha256-prefix>.ttf` managed web fonts when outlines are
+  reusable;
 - `manifest.json` with format version, generator/upstream versions, page
   geometry, rotation, background mapping and file sizes.
 
@@ -108,7 +124,8 @@ poppler-net html input.pdf document.html
 poppler-net html input.pdf page-4.html --page 4
 poppler-net html input.pdf selected.html --first-page 2 --last-page 5
 poppler-net html input.pdf output-directory --bundle
-poppler-net html input.pdf visible.html --visible-text --scale 1.25
+poppler-net html input.pdf native.html --scale 1.25
+poppler-net html input.pdf svg-text.html --svg-text
 poppler-net html input.pdf layers.html --layer 17:0=off
 ```
 
@@ -133,7 +150,7 @@ No PDF, password, font or generated HTML is uploaded to a server.
 `tests/fixtures/html-alpha1-fixture.json` records the Poppler 26.07 source
 components used as the semantic reference, the aligned behaviors and accepted
 product differences. It freezes deterministic HTML byte counts and SHA-256
-values for link annotations, an embedded TrueType subset in visible-text mode,
+values for link annotations, an embedded TrueType subset in native-text mode,
 and a scaled two-page graphics range. The corpus is run by
 `HtmlExportAlpha1Tests`; Poppler is not a runtime or CI dependency.
 
@@ -150,11 +167,13 @@ statement/block delimiters. The generated document contains no script.
 ## Known alpha.1 limits
 
 - Fixed layout preserves page geometry; it is not responsive semantic reflow.
-- Browser text metrics may differ in visible-text mode when an embedded font
-  cannot be reused. Invisible-overlay mode preserves the SVG visual result.
+- Browser glyph shapes may differ when the PDF has no decodable outline; each
+  fallback glyph still retains its exact origin and source Unicode.
+- Occlusion detection is intentionally conservative: overlapping later
+  graphics can keep a complete PDF text-showing operation in SVG.
 - Link rectangles are axis-aligned, matching the public annotation rectangle.
 - Cross-page links can target a page omitted from a selected range; the href is
   retained but has no target element in that output.
 - HTML currently uses the CropBox, matching the SVG renderer.
-- Embedded Type 1/raw CFF programs are downloadable through existing APIs and
-  playground tools but are not registered as browser fonts.
+- Type 3 programs remain graphical. Managed TrueType web fonts are generated
+  for decoded TrueType, OpenType, CFF and Type 1 outlines.

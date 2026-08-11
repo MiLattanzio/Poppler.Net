@@ -229,6 +229,10 @@ all later HTML modes.
 - Support a single page, page ranges, and complete documents.
 - Emit selectable positioned text, normalized font families with fallbacks,
   links/destinations, images, page boxes, rotation, and supported graphics.
+- Reconstruct decodable glyph outlines as pure-managed TrueType web fonts with
+  collision-free private-use mappings and a separate source-Unicode copy layer.
+- Keep missing-font text visible through exact-origin CSS fallbacks and retain
+  clip/mask/transparency/occlusion-sensitive text in the SVG background.
 - Support a self-contained HTML document and a multi-file directory bundle
   with stable names and a manifest.
 - Use SVG/raster backgrounds only as bounded fallbacks while retaining text in
@@ -240,14 +244,14 @@ all later HTML modes.
 
 #### Exit criteria
 
-- [ ] Whole-document, page-range, and single-page output is deterministic.
-- [ ] Text remains selectable/searchable through every rendering fallback.
-- [ ] Links, images, fonts, rotation, page boxes, and supported graphics pass
+- [x] Whole-document, page-range, and single-page output is deterministic.
+- [x] Text remains selectable/searchable through every rendering fallback.
+- [x] Links, images, fonts, rotation, page boxes, and supported graphics pass
   focused tests.
-- [ ] Self-contained and directory-bundle modes open in current browsers.
-- [ ] API, CLI, and playground expose equivalent options and stable downloads.
+- [x] Self-contained and directory-bundle modes open in current Chromium.
+- [x] API, CLI, and playground expose equivalent options and stable downloads.
 - [ ] Managed-only verification and Ubuntu, Windows, and macOS CI pass.
-- [ ] Public documentation records options, fallbacks, limits, and known
+- [x] Public documentation records options, fallbacks, limits, and known
   differences from Poppler.
 
 ### 0.13.0-alpha.2: standalone PDF page extraction

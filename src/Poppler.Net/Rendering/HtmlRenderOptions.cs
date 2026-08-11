@@ -12,8 +12,8 @@ public enum HtmlTextLayerMode
     InvisibleOverlay,
 
     /// <summary>
-    /// Omit text from the SVG background and render it with browser fonts.
-    /// Embedded TrueType and OpenType programs are used when available.
+    /// Reconstruct supported glyphs as positioned HTML using managed web fonts.
+    /// Text that needs PDF compositing remains in the graphical background.
     /// </summary>
     Visible
 }
@@ -27,14 +27,17 @@ public sealed record HtmlRenderOptions
     /// <summary>Page background used by the managed SVG renderer.</summary>
     public string Background { get; init; } = "#ffffff";
 
-    /// <summary>Browser text color used by the visible text-layer mode.</summary>
+    /// <summary>Fallback browser text color used when PDF paint cannot be recovered.</summary>
     public string Foreground { get; init; } = "#111111";
 
-    /// <summary>Determines whether browser text is visible or an invisible selection layer.</summary>
+    /// <summary>Determines whether glyphs use the native HTML reconstruction pipeline.</summary>
     public HtmlTextLayerMode TextLayerMode { get; init; } =
-        HtmlTextLayerMode.InvisibleOverlay;
+        HtmlTextLayerMode.Visible;
 
-    /// <summary>Ordering used when the text layer is emitted.</summary>
+    /// <summary>
+    /// Ordering used by the compatibility overlay. Native glyphs retain PDF
+    /// paint order so visual stacking remains deterministic.
+    /// </summary>
     public TextLayout TextLayout { get; init; } = TextLayout.Physical;
 
     /// <summary>Include supported vector graphics in the page background.</summary>
@@ -44,8 +47,8 @@ public sealed record HtmlRenderOptions
     public bool IncludeImages { get; init; } = true;
 
     /// <summary>
-    /// Embed reusable TrueType/OpenType programs for visible browser text.
-    /// Unsupported or missing fonts always retain CSS fallback families.
+    /// Generate reusable TrueType web fonts from the outlines decoded by the
+    /// managed PDF font pipeline. Missing outlines retain CSS fallbacks.
     /// </summary>
     public bool EmbedFonts { get; init; } = true;
 

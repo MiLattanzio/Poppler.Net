@@ -42,6 +42,25 @@ internal static class PdfFixtures
         return BuildClassic(objects);
     }
 
+    public static byte[] CreateCoveredTextFixture()
+    {
+        var objects = new[]
+        {
+            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+            Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] " +
+                "/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>"),
+            ContentStream(
+                "BT /F1 18 Tf 72 120 Td (Covered text) Tj ET " +
+                "0 0 0 rg 70 112 140 28 re f"),
+            Ascii(
+                "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica " +
+                "/Encoding /WinAnsiEncoding >>")
+        };
+        return BuildClassic(objects, infoObject: null);
+    }
+
     public static byte[] CreateFunctionShadingFixture()
     {
         byte[] sampledRgb =

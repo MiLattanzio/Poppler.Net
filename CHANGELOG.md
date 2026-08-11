@@ -4,13 +4,16 @@
 
 - Added deterministic fixed-layout HTML export for individual pages, page
   ranges and complete documents through page/document render and save APIs.
-- Added exact SVG-background plus selectable DOM-text output, an optional
-  visible browser-text mode, safe URI/internal links and layer-aware text.
+- Added glyph-level native DOM text with deduplicated affine/paint CSS states,
+  exact SVG fallbacks, safe URI/internal links and layer-aware text.
 - Added self-contained HTML and immutable directory bundles with CSS, stable
-  page SVG paths, deduplicated TrueType/OpenType files and a versioned manifest.
-- Normalized PDF subset prefixes in `TextBox.FontName` and retained CSS
-  fallbacks when an embedded browser font is unavailable.
-- Added `poppler-net html` plus page, range, bundle, visible-text, scale,
+  page SVG paths, managed TrueType web fonts and a versioned manifest.
+- Added a pure-managed outline-to-TrueType builder with private-use glyph
+  remapping plus separate source-Unicode spans for reliable copy and search.
+- Normalized PDF subset prefixes in `TextBox.FontName`, retained positioned CSS
+  fallbacks when fonts are absent, and conservatively kept clipped, masked,
+  transparent or subsequently covered text in the graphical background.
+- Added `poppler-net html` plus page, range, bundle, SVG-text compatibility, scale,
   fallback, font, image/vector and layer options.
 - Added page/document HTML and bundle ZIP downloads to the WebAssembly
   playground.

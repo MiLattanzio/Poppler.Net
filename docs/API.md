@@ -370,7 +370,7 @@ document.SaveHtml("document.html", new HtmlExportOptions
     PageCount = document.Pages,
     PageOptions = new HtmlRenderOptions
     {
-        TextLayerMode = HtmlTextLayerMode.InvisibleOverlay,
+        TextLayerMode = HtmlTextLayerMode.Visible,
         EmbedFonts = true
     }
 });
@@ -379,11 +379,12 @@ HtmlExportBundle bundle = document.CreateHtmlBundle();
 bundle.SaveToDirectory("html-bundle");
 ```
 
-Single-file output inlines CSS, SVG and reusable TrueType/OpenType programs.
+Single-file output inlines CSS, SVG and managed TrueType programs generated
+from the decoded PDF glyph outlines.
 The directory bundle exposes immutable `HtmlExportFile` values and includes an
 entry point, CSS, page SVGs, deduplicated fonts and a versioned manifest. DOM
-text is always emitted; the default transparent overlay keeps SVG visual
-fidelity, while `HtmlTextLayerMode.Visible` lets browsers paint the text.
+text is always emitted; `HtmlTextLayerMode.Visible` is the default glyph-level
+managed renderer, while `InvisibleOverlay` retains all visual text in SVG.
 See [HTML_EXPORT.md](HTML_EXPORT.md) for range, link, font and security rules.
 
 ## Managed page raster

@@ -77,9 +77,13 @@ dotnet tool install Poppler.Net.Cli \
 "${tool_root}/poppler-net" version
 "${tool_root}/poppler-net" html \
   tests/fixtures/truetype-format0-subset.pdf \
-  "${tool_root}/tool-smoke.html" \
-  --visible-text
-grep -F 'class="pdf-text"' "${tool_root}/tool-smoke.html" >/dev/null
+  "${tool_root}/tool-smoke.html"
+grep -F 'class="pdf-glyph ' "${tool_root}/tool-smoke.html" >/dev/null
+grep -F 'pdf-managed-' "${tool_root}/tool-smoke.html" >/dev/null
+if grep -F '<text ' "${tool_root}/tool-smoke.html" >/dev/null; then
+  echo "The packaged CLI HTML smoke output unexpectedly retained native text in SVG." >&2
+  exit 1
+fi
 if grep -F 'ABCDEF+DejaVuSans' "${tool_root}/tool-smoke.html" >/dev/null; then
   echo "The packaged CLI HTML smoke output contains an unnormalized subset font name." >&2
   exit 1

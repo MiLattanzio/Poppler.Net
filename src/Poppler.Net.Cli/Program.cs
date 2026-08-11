@@ -457,9 +457,9 @@ internal static class Cli
             PageOptions = new HtmlRenderOptions
             {
                 Scale = GetDoubleOption(args, "--scale") ?? 1,
-                TextLayerMode = args.Contains("--visible-text", StringComparer.Ordinal)
-                    ? HtmlTextLayerMode.Visible
-                    : HtmlTextLayerMode.InvisibleOverlay,
+                TextLayerMode = args.Contains("--svg-text", StringComparer.Ordinal)
+                    ? HtmlTextLayerMode.InvisibleOverlay
+                    : HtmlTextLayerMode.Visible,
                 IncludeVectorGraphics =
                     !args.Contains("--no-vector", StringComparer.Ordinal),
                 IncludeImages = !args.Contains("--no-images", StringComparer.Ordinal),
@@ -783,7 +783,7 @@ internal static class Cli
               poppler-net render <input.pdf> <output.png> [--page N] [--dpi N] [--antialias 1|2|4|8] [--transparent] [--font-dir PATH] [--layer ID=on|off] [--no-font-substitution] [common options]
               poppler-net attachments <input.pdf> <output-dir> [password options]
               poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds] [--image-bounds] [--layer ID=on|off] [password options]
-              poppler-net html <input.pdf> <output.html|output-dir> [--page N|--first-page N --last-page N] [--bundle] [--visible-text] [--scale N] [--no-embed-fonts] [--no-images] [--no-vector] [--fallback rasterize|omit] [--fallback-dpi N] [--title VALUE] [--layer ID=on|off] [password options]
+              poppler-net html <input.pdf> <output.html|output-dir> [--page N|--first-page N --last-page N] [--bundle] [--svg-text] [--scale N] [--no-embed-fonts] [--no-images] [--no-vector] [--fallback rasterize|omit] [--fallback-dpi N] [--title VALUE] [--layer ID=on|off] [password options]
               poppler-net version
 
             Password options:

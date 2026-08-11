@@ -1,7 +1,9 @@
+using System.Buffers.Binary;
 using System.Text;
 using System.Text.Json;
 using Poppler;
 using Poppler.Rendering;
+using Poppler.Text;
 
 namespace Poppler.Net.Tests;
 
@@ -22,10 +24,11 @@ public sealed class HtmlExportAlpha1Tests
             Assert.That(second, Is.EqualTo(first));
             Assert.That(first, Does.StartWith("<!doctype html>"));
             Assert.That(first, Does.Contain("<svg xmlns=\"http://www.w3.org/2000/svg\""));
-            Assert.That(first, Does.Contain("class=\"pdf-text\""));
-            Assert.That(first, Does.Contain("Hello managed PDF"));
+            Assert.That(first, Does.Contain("class=\"pdf-glyph "));
+            Assert.That(first, Does.Contain("data-source-text=\"Hello managed PDF "));
             Assert.That(first, Does.Contain("data-font-name=\"Helvetica\""));
-            Assert.That(first, Does.Contain("class=\"pdf-invisible-text\""));
+            Assert.That(first, Does.Contain("class=\"pdf-native-text\""));
+            Assert.That(first, Does.Not.Contain("<text "));
         }));
     }
 
@@ -53,7 +56,7 @@ public sealed class HtmlExportAlpha1Tests
     }
 
     [Test]
-    public void VisibleTextModeKeepsTextInTheDom()
+    public void NativeTextModeKeepsGlyphsInTheDom()
     {
         using Document document = Document.LoadFromData(
             PdfFixtures.Create(compressContent: false));
@@ -66,9 +69,29 @@ public sealed class HtmlExportAlpha1Tests
 
         Assert.Multiple((Action)(() =>
         {
-            Assert.That(html, Does.Contain("class=\"pdf-visible-text\""));
-            Assert.That(html, Does.Contain("Hello managed PDF"));
+            Assert.That(html, Does.Contain("class=\"pdf-native-text\""));
+            Assert.That(html, Does.Contain("data-source-text=\"Hello managed PDF "));
+            Assert.That(html, Does.Contain("<span class=\"pdf-glyph-visual\""));
             Assert.That(html, Does.Contain("color:#123456"));
+        }));
+    }
+
+    [Test]
+    public void LegacyOverlayModeKeepsTextInTheSvgBackground()
+    {
+        using Document document = Document.LoadFromData(
+            PdfFixtures.Create(compressContent: false));
+
+        string html = document.CreatePage(0).RenderToHtml(new HtmlRenderOptions
+        {
+            TextLayerMode = HtmlTextLayerMode.InvisibleOverlay
+        });
+
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(html, Does.Contain("class=\"pdf-invisible-text\""));
+            Assert.That(html, Does.Contain("<text "));
+            Assert.That(html, Does.Contain("class=\"pdf-text\""));
         }));
     }
 
@@ -162,9 +185,70 @@ public sealed class HtmlExportAlpha1Tests
                 Has.Some.EqualTo("DejaVuSans"));
             Assert.That(html, Does.Contain("data-font-name=\"DejaVuSans\""));
             Assert.That(html, Does.Not.Contain("ABCDEF+DejaVuSans"));
-            Assert.That(bundle.Files.Any(file =>
+            HtmlExportFile fontFile = bundle.Files.Single(file =>
                 file.RelativePath.StartsWith("fonts/", StringComparison.Ordinal) &&
-                file.MediaType == "font/ttf"), Is.True);
+                file.MediaType == "font/ttf");
+            byte[] font = fontFile.Data.ToArray();
+            Assert.That(TableLength(font, "hhea"), Is.EqualTo(36));
+            Assert.That(TableLength(font, "maxp"), Is.EqualTo(32));
+            PdfOpenTypeCmap? cmap = PdfOpenTypeCmap.TryParse(font, 16);
+            Assert.That(cmap, Is.Not.Null);
+            Assert.That(cmap!.TryGetGlyph(0xF0000, out uint glyph), Is.True);
+            Assert.That(glyph, Is.EqualTo(1));
+            PdfTrueTypeFont? outlines = PdfTrueTypeFont.TryParse(font);
+            Assert.That(outlines, Is.Not.Null);
+            Assert.That(outlines!.TryGetGlyph(
+                glyph,
+                out PdfGraphicsPath path,
+                out double advance), Is.True);
+            Assert.That(path.IsEmpty, Is.False);
+            Assert.That(advance, Is.GreaterThan(0));
+            Assert.That(html, Does.Contain("&#983040;"));
+        }));
+    }
+
+    [Test]
+    public void DisabledWebFontsKeepSubsetTextVisibleThroughCssFallback()
+    {
+        using Document document = Document.LoadFromFile(
+            Path.Combine(FixtureDirectory(), "truetype-format0-subset.pdf"));
+        Page page = document.CreatePage(0);
+
+        string html = page.RenderToHtml(new HtmlRenderOptions
+        {
+            EmbedFonts = false
+        });
+
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(html, Does.Not.Contain("@font-face"));
+            Assert.That(html, Does.Not.Contain("&#983040;"));
+            Assert.That(html, Does.Contain("data-source-text=\"ABC\""));
+            Assert.That(html, Does.Contain("<span class=\"pdf-glyph-visual\""));
+            Assert.That(html, Does.Not.Contain("<text "));
+            Assert.That(
+                () => page.RenderToHtml(new HtmlRenderOptions
+                {
+                    MaximumEmbeddedFontBytes = 0
+                }),
+                Throws.TypeOf<PdfLimitException>());
+        }));
+    }
+
+    [Test]
+    public void LaterGraphicsKeepCoveredTextInTheSvgBackground()
+    {
+        using Document document = Document.LoadFromData(
+            PdfFixtures.CreateCoveredTextFixture());
+
+        string html = document.CreatePage(0).RenderToHtml();
+
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(html, Does.Contain("pdf-background-text"));
+            Assert.That(html, Does.Contain("data-source-text=\"Covered text\""));
+            Assert.That(html, Does.Contain("<text "));
+            Assert.That(html, Does.Not.Contain("<span class=\"pdf-glyph-visual\""));
         }));
     }
 
@@ -278,6 +362,21 @@ public sealed class HtmlExportAlpha1Tests
             file => file.RelativePath,
             file => file.Data.ToArray(),
             StringComparer.Ordinal);
+
+    private static int TableLength(byte[] font, string tag)
+    {
+        int tableCount = BinaryPrimitives.ReadUInt16BigEndian(font.AsSpan(4));
+        for (int index = 0; index < tableCount; index++)
+        {
+            int record = 12 + index * 16;
+            if (Encoding.ASCII.GetString(font, record, 4) == tag)
+            {
+                return checked((int)BinaryPrimitives.ReadUInt32BigEndian(
+                    font.AsSpan(record + 12)));
+            }
+        }
+        return -1;
+    }
 
     private static string FixtureDirectory() =>
         Path.Combine(AppContext.BaseDirectory, "Fixtures");

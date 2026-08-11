@@ -203,10 +203,12 @@ dotnet run --project src/Poppler.Net.Cli -- html input.pdf html-bundle --bundle
 ```
 
 Installed-tool commands use the same arguments without the `dotnet run ... --`
-prefix. HTML defaults to an exact SVG background plus a transparent selectable
-text layer. `--visible-text` switches to browser-rendered text;
-`--no-embed-fonts`, `--fallback omit`, `--scale`, page-range and layer options
-are also available.
+prefix. HTML defaults to glyph-level native DOM text. Managed TrueType web
+fonts are generated from decoded PDF outlines, while the original Unicode is
+kept in a transparent selectable layer. Missing fonts use positioned browser
+fallbacks and text requiring PDF compositing remains in SVG. `--svg-text`
+selects the legacy all-SVG visual text mode; `--no-embed-fonts`,
+`--fallback omit`, `--scale`, page-range and layer options are also available.
 
 Encrypted input accepts `--user-password VALUE` or `--owner-password VALUE`.
 Command-line values may be visible to other local processes; applications
@@ -268,7 +270,7 @@ document.SaveHtml("document.html", new HtmlExportOptions
     PageCount = document.Pages,
     PageOptions = new HtmlRenderOptions
     {
-        TextLayerMode = HtmlTextLayerMode.InvisibleOverlay,
+        TextLayerMode = HtmlTextLayerMode.Visible,
         EmbedFonts = true
     }
 });

@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Net;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -54,7 +53,11 @@ internal static class HtmlDocumentRenderer
             TextFile(
                 "styles.css",
                 CssMediaType,
-                BuildStyles(assets.Fonts, effective.PageOptions, inline: false))
+                BuildStyles(
+                    assets.Fonts,
+                    assets.CssRules,
+                    effective.PageOptions,
+                    inline: false))
         };
         files.AddRange(assets.Pages.Select(page =>
             TextFile(page.BackgroundPath, "image/svg+xml", page.Svg)));
@@ -89,60 +92,58 @@ internal static class HtmlDocumentRenderer
         IReadOnlyList<Page> pages,
         HtmlRenderOptions options)
     {
-        var fontsByHash = new Dictionary<string, EmbeddedFont>(StringComparer.Ordinal);
+        var fontsByHash = new Dictionary<string, ManagedHtmlWebFont>(StringComparer.Ordinal);
         var pageAssets = new List<PageAsset>(pages.Count);
+        var styles = new HtmlCssCatalog();
         long embeddedFontBytes = 0;
         foreach (Page page in pages)
         {
-            var fontAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            if (options.EmbedFonts)
+            ManagedHtmlPageLayout? textLayout =
+                options.TextLayerMode == HtmlTextLayerMode.InvisibleOverlay
+                    ? null
+                    : ManagedHtmlTextLayout.Create(page, options, styles);
+            if (textLayout is not null)
             {
-                foreach (FontInfo font in page.Fonts
-                             .OrderBy(value => value.ResourceName, StringComparer.Ordinal))
+                foreach (ManagedHtmlWebFont font in textLayout.Fonts)
                 {
-                    if (!TryEmbeddedFont(font, out byte[] data, out string extension, out string mediaType))
+                    if (!fontsByHash.TryAdd(font.Hash, font))
                         continue;
-
-                    string hash = Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant();
-                    if (!fontsByHash.TryGetValue(hash, out EmbeddedFont? embedded))
+                    embeddedFontBytes = checked(embeddedFontBytes + font.Data.LongLength);
+                    if (embeddedFontBytes > options.MaximumEmbeddedFontBytes)
                     {
-                        embedded = new EmbeddedFont(
-                            $"pdf-font-{hash[..16]}",
-                            $"fonts/{hash[..24]}.{extension}",
-                            mediaType,
-                            data);
-                        embeddedFontBytes = checked(embeddedFontBytes + data.LongLength);
-                        if (embeddedFontBytes > options.MaximumEmbeddedFontBytes)
-                        {
-                            throw new PdfLimitException(
-                                $"Embedded HTML fonts exceed the configured " +
-                                $"{options.MaximumEmbeddedFontBytes}-byte limit.");
-                        }
-                        fontsByHash.Add(hash, embedded);
+                        throw new PdfLimitException(
+                            $"Generated HTML fonts exceed the configured " +
+                            $"{options.MaximumEmbeddedFontBytes}-byte limit.");
                     }
-                    fontAliases.TryAdd(NormalizeFontName(font.Name), embedded.Alias);
                 }
             }
 
-            string svg = page.RenderToSvg(new SvgRenderOptions
+            var svgOptions = new SvgRenderOptions
             {
                 Scale = options.Scale,
                 Background = options.Background,
                 Foreground = options.Foreground,
                 IncludeVectorGraphics = options.IncludeVectorGraphics,
                 IncludeImages = options.IncludeImages,
-                IncludeText = options.TextLayerMode == HtmlTextLayerMode.InvisibleOverlay,
+                IncludeText = true,
                 FallbackMode = options.FallbackMode,
                 RasterFallbackDpi = options.RasterFallbackDpi,
                 OptionalContentVisibility = options.OptionalContentVisibility
-            });
+            };
+            string svg = textLayout is null
+                ? SvgPageRenderer.Render(page, svgOptions)
+                : SvgPageRenderer.Render(
+                    page,
+                    svgOptions,
+                    text => textLayout.BackgroundText.Contains(text));
             string backgroundPath = $"pages/page-{page.Number:0000}.svg";
-            pageAssets.Add(new PageAsset(page, svg, backgroundPath, fontAliases));
+            pageAssets.Add(new PageAsset(page, svg, backgroundPath, textLayout));
         }
 
         return new ExportAssets(
             pageAssets,
-            fontsByHash.Values.OrderBy(font => font.Path, StringComparer.Ordinal).ToArray());
+            fontsByHash.Values.OrderBy(font => font.Path, StringComparer.Ordinal).ToArray(),
+            styles.Rules.ToArray());
     }
 
     private static string BuildHtml(
@@ -164,7 +165,7 @@ internal static class HtmlDocumentRenderer
         if (inline)
         {
             html.AppendLine("  <style>");
-            html.Append(BuildStyles(assets.Fonts, options, inline: true));
+            html.Append(BuildStyles(assets.Fonts, assets.CssRules, options, inline: true));
             html.AppendLine("  </style>");
         }
         else
@@ -173,9 +174,9 @@ internal static class HtmlDocumentRenderer
         }
         html.AppendLine("</head>");
         html.Append("<body class=\"")
-            .Append(options.TextLayerMode == HtmlTextLayerMode.Visible
-                ? "pdf-visible-text"
-                : "pdf-invisible-text")
+            .Append(options.TextLayerMode == HtmlTextLayerMode.InvisibleOverlay
+                ? "pdf-invisible-text"
+                : "pdf-native-text")
             .AppendLine("\">");
         html.AppendLine("  <header class=\"pdf-document-header\">");
         html.Append("    <h1>").Append(Encode(title)).AppendLine("</h1>");
@@ -272,6 +273,13 @@ internal static class HtmlDocumentRenderer
         html.Append("        <div class=\"pdf-text-layer\" role=\"group\" aria-label=\"Text layer for page ")
             .Append(asset.Page.Number.ToString(CultureInfo.InvariantCulture))
             .AppendLine("\">");
+        if (asset.TextLayout is not null)
+        {
+            WriteNativeTextLayer(html, asset.TextLayout);
+            html.AppendLine("        </div>");
+            return;
+        }
+
         IReadOnlyList<TextBox> boxes = asset.Page.TextFor(
             options.TextLayout,
             options.OptionalContentVisibility);
@@ -285,9 +293,7 @@ internal static class HtmlDocumentRenderer
             double height = Math.Max(0.1, box.BoundingBox.Height * options.Scale);
             double fontSize = Math.Max(0.1, box.FontSize * options.Scale);
             string normalizedName = NormalizeFontName(box.FontName);
-            string family = asset.FontAliases.TryGetValue(normalizedName, out string? alias)
-                ? $"'{alias}',{FallbackFamily(normalizedName)}"
-                : $"'{CssString(normalizedName)}',{FallbackFamily(normalizedName)}";
+            string family = $"'{CssString(normalizedName)}',{FallbackFamily(normalizedName)}";
 
             html.Append("          <span class=\"pdf-text\" data-font-name=\"")
                 .Append(Encode(normalizedName))
@@ -315,6 +321,47 @@ internal static class HtmlDocumentRenderer
                 .AppendLine("</span>");
         }
         html.AppendLine("        </div>");
+    }
+
+    private static void WriteNativeTextLayer(
+        StringBuilder html,
+        ManagedHtmlPageLayout layout)
+    {
+        foreach (ManagedHtmlTextRun run in layout.Runs)
+        {
+            html.Append("<span class=\"pdf-text-run")
+                .Append(run.UsesGraphicalBackground ? " pdf-background-text" : "")
+                .Append("\" data-font-name=\"")
+                .Append(Encode(run.FontName))
+                .Append("\" data-source-text=\"")
+                .Append(Encode(run.Text))
+                .Append("\">");
+            foreach (ManagedHtmlGlyph glyph in run.Glyphs)
+            {
+                html.Append("<span class=\"pdf-glyph ")
+                    .Append(glyph.MatrixClass).Append(' ')
+                    .Append(glyph.FontClass);
+                if (glyph.PaintClass is not null)
+                    html.Append(' ').Append(glyph.PaintClass);
+                html.Append("\" data-font-name=\"")
+                    .Append(Encode(glyph.FontName))
+                    .Append("\" data-source-text=\"")
+                    .Append(Encode(glyph.ActualText))
+                    .Append("\" style=\"left:")
+                    .Append(Format(glyph.Left)).Append("px;top:")
+                    .Append(Format(glyph.Top)).Append("px\">");
+                if (glyph.VisibleText is not null)
+                {
+                    html.Append("<span class=\"pdf-glyph-visual\" aria-hidden=\"true\">")
+                        .Append(Encode(glyph.VisibleText))
+                        .Append("</span>");
+                }
+                html.Append("<span class=\"pdf-glyph-copy\">")
+                    .Append(Encode(glyph.ActualText))
+                    .Append("</span></span>");
+            }
+            html.AppendLine("</span>");
+        }
     }
 
     private static void WriteLinkLayer(
@@ -381,12 +428,13 @@ internal static class HtmlDocumentRenderer
     }
 
     private static string BuildStyles(
-        IReadOnlyList<EmbeddedFont> fonts,
+        IReadOnlyList<ManagedHtmlWebFont> fonts,
+        IReadOnlyList<ManagedHtmlCssRule> rules,
         HtmlRenderOptions options,
         bool inline)
     {
         var css = new StringBuilder();
-        foreach (EmbeddedFont font in fonts)
+        foreach (ManagedHtmlWebFont font in fonts)
         {
             string source = inline
                 ? $"data:{font.MediaType};base64,{Convert.ToBase64String(font.Data)}"
@@ -394,6 +442,11 @@ internal static class HtmlDocumentRenderer
             css.Append("@font-face{font-family:'").Append(font.Alias)
                 .Append("';src:url('").Append(source)
                 .Append("');font-display:block;}\n");
+        }
+        foreach (ManagedHtmlCssRule rule in rules)
+        {
+            css.Append('.').Append(rule.ClassName).Append('{')
+                .Append(rule.Declarations).AppendLine("}");
         }
         css.AppendLine("*{box-sizing:border-box}");
         css.Append("html,body{margin:0;min-height:100%;background:#eceff1;color:")
@@ -413,8 +466,12 @@ internal static class HtmlDocumentRenderer
         css.AppendLine(".pdf-page-background svg,.pdf-page-background img{display:block;width:100%;height:100%}");
         css.AppendLine(".pdf-text{position:absolute;display:block;margin:0;padding:0;white-space:pre;overflow:visible;transform-origin:0 100%;font-weight:400;font-style:normal;font-kerning:none}");
         css.AppendLine(".pdf-invisible-text .pdf-text{color:transparent;-webkit-text-fill-color:transparent}");
-        css.Append(".pdf-visible-text .pdf-text{color:").Append(CssValue(options.Foreground))
-            .AppendLine(";-webkit-text-fill-color:currentColor}");
+        css.AppendLine(".pdf-text-run{display:contents}");
+        css.AppendLine(".pdf-glyph{position:absolute;display:block;width:0;height:0;transform-origin:0 0;font-size:1px;line-height:1px;white-space:pre;font-style:normal;font-weight:400;font-kerning:none;font-variant-ligatures:none}");
+        css.AppendLine(".pdf-glyph-visual,.pdf-glyph-copy{position:absolute;display:block;left:0;top:-.8px;height:1px;line-height:1px;white-space:pre}");
+        css.AppendLine(".pdf-glyph-visual{user-select:none;pointer-events:none}");
+        css.AppendLine(".pdf-glyph-copy{z-index:1;color:transparent!important;-webkit-text-fill-color:transparent!important;-webkit-text-stroke:0 transparent!important;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;user-select:text}");
+        css.AppendLine(".pdf-background-text .pdf-glyph-copy{z-index:0}");
         css.AppendLine(".pdf-link-layer{pointer-events:none}");
         css.AppendLine(".pdf-link{position:absolute;display:block;pointer-events:auto;border:0;text-decoration:none}");
         css.AppendLine(".pdf-link:focus-visible{outline:2px solid #0277bd;outline-offset:-2px;background:rgba(2,119,189,.12)}");
@@ -467,29 +524,6 @@ internal static class HtmlDocumentRenderer
         }
         output.WriteByte((byte)'\n');
         return output.ToArray();
-    }
-
-    private static bool TryEmbeddedFont(
-        FontInfo font,
-        out byte[] data,
-        out string extension,
-        out string mediaType)
-    {
-        ReadOnlyMemory<byte> program = font.GetEmbeddedData();
-        if (program.IsEmpty ||
-            font.EmbeddedFormat is not (EmbeddedFontFormat.TrueType or EmbeddedFontFormat.OpenType))
-        {
-            data = [];
-            extension = "";
-            mediaType = "";
-            return false;
-        }
-
-        data = program.ToArray();
-        bool openType = font.EmbeddedFormat == EmbeddedFontFormat.OpenType;
-        extension = openType ? "otf" : "ttf";
-        mediaType = openType ? "font/otf" : "font/ttf";
-        return true;
     }
 
     private static HtmlExportFile TextFile(string path, string mediaType, string text) =>
@@ -581,17 +615,12 @@ internal static class HtmlDocumentRenderer
 
     private sealed record ExportAssets(
         IReadOnlyList<PageAsset> Pages,
-        IReadOnlyList<EmbeddedFont> Fonts);
+        IReadOnlyList<ManagedHtmlWebFont> Fonts,
+        IReadOnlyList<ManagedHtmlCssRule> CssRules);
 
     private sealed record PageAsset(
         Page Page,
         string Svg,
         string BackgroundPath,
-        IReadOnlyDictionary<string, string> FontAliases);
-
-    private sealed record EmbeddedFont(
-        string Alias,
-        string Path,
-        string MediaType,
-        byte[] Data);
+        ManagedHtmlPageLayout? TextLayout);
 }
