@@ -208,3 +208,50 @@ package consumer for both `net8.0` and `net10.0` on Ubuntu, Windows and macOS;
 pull-request [CI run 48](https://github.com/MiLattanzio/Poppler.Net/actions/runs/31508463279)
 passes all three build/test and managed-only jobs, the package/extracted-source
 job, and all six operating-system/framework consumer jobs.
+
+## RC 1 local release qualification
+
+Local qualification performed on 2026-08-11 for candidate commit
+`9f4be4714a5b19b891400380ea4da776145af5d3` uses .NET SDK 10.0.302 and CLR
+10.0.10 with warnings treated as errors. All six solution projects build in
+Release; the library produces `net8.0` and `net10.0` assets. NUnitLite executes
+285 tests: 285 pass with no failure, warning or skip. The managed-only verifier
+accepts production source and the restored dependency graph. The six-page
+Release smoke completes in 43.1 ms with 7.6 MiB allocated.
+
+The callable API is frozen without a beta.2 surface change. Its
+version-normalized SHA-256 remains
+`ce87b22579e9458c3c1dcdb1aa01790f15d13006ad177ad4815f1e974e63b527`;
+the complete rc.1 surface, including `Document.PortVersion`, is
+`dae14d92c94ed709bf9012ebe977e24779aa317b2be5a1cdca317f5bbcc83711`.
+Library, CLI, package-consumer fallback and public port metadata all report
+`0.12.0-rc.1`. The reusable MSBuild guard accepts `v0.12.0-rc.1`, classifies
+the stable `v0.12.0` tag as a mismatch and fails when that mismatch is not
+explicitly expected. CI runs both classifications before checking the actual
+GitHub release tag.
+
+Package verification accepts the GPL-2.0-or-later metadata, repository commit,
+two framework assemblies, audited README/release/license/notice payload and
+the pinned three-package managed dependency graph. Clean local consumers
+restore the produced package and render the beta.2 smoke PDF on both targets.
+The PNG hashes remain
+`288113db35fd02ced30e623e8ac7f2a58055a4607c311850f26a43e23de7af03`
+on CLR 8 and
+`578873f57b3a0125e4a6b7da9baf37ebe685393e402a6aea0a7c078eba5aefc2`
+on CLR 10.
+
+The tracked source archive is 858,865 bytes with SHA-256
+`ba5a9dbc7f5df908590a2cb10c361a6fc8d4e5512e6fab68e7f8793d2091f53e`.
+An independent temporary extraction restores, builds, passes managed-only
+verification and all 285 tests, then repacks and verifies an 834,044-byte
+NuGet package with SHA-256
+`d1e6d968881efbe7f4c98342a52d6b48ff8bf209b617da8cf62bb4d46365ba39`.
+The extracted-copy Release smoke completes in 24.1 ms with 7.6 MiB allocated.
+
+The optional Poppler differential runner uses Poppler 26.05.0 as the local
+renderer and Poppler 26.07.0 as the semantic source reference. All 22 geometry,
+transparency, shading and cross-feature comparisons reproduce within their
+approved normalized RGB error budgets. The GitHub tracker contains only the
+active rc.1 qualification issue and its dependent stable-release issue; no
+separate P0/P1 blocker is open. Three-operating-system CI remains the external
+promotion gate before issue #22 can close.
