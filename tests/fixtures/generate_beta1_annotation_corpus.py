@@ -324,10 +324,11 @@ def main() -> None:
                     "safe-action-inspection-and-circular-next",
                     "multimedia-and-production-subtypes",
                 ],
-                "managed_png_sha256": [
-                    "967de55f26d9117d2ea37aa274f59fc4113a63ef905b067d53fa9e48dbd1fa0f",
-                    "14056e286b72f7171e498abe2d432f93109da481e4a907acb48c49c563b98fde",
-                    "14b74e3517b0f21e65f9db1b9e5787e7889579f0515e1988df82752a397f59fc",
+                "png_hash_mode": "canonical-png-content-v1",
+                "managed_png_canonical_sha256": [
+                    "006af939f511f7c98c4402b54cf8a0e47cac8ec8356bb4c4e5a8d4af8c3de7f2",
+                    "182414f32599f927399a16f176104a50c36e122a50bf10d4b9c36362ef510253",
+                    "df5ac5f5c04706459e0f39392fbbab9b845c717195bab4b44d5935bdfadff2fd",
                 ],
             },
             indent=2,

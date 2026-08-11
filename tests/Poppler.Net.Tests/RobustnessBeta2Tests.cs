@@ -180,7 +180,7 @@ public sealed class RobustnessBeta2Tests
     {
         using JsonDocument manifest = Manifest();
         string[] expected = manifest.RootElement
-            .GetProperty("managed_png_sha256")
+            .GetProperty("managed_png_canonical_sha256")
             .EnumerateArray()
             .Select(value => value.GetString()!)
             .ToArray();
@@ -245,8 +245,7 @@ public sealed class RobustnessBeta2Tests
     }
 
     private static string RenderHash(Page page) =>
-        Convert.ToHexString(SHA256.HashData(page.RenderToPng(RenderOptions())))
-            .ToLowerInvariant();
+        CanonicalRenderingHash.Png(page.RenderToPng(RenderOptions()));
 
     private static RasterRenderOptions RenderOptions() => new()
     {

@@ -82,14 +82,14 @@ Beta.2 begins only after the beta.1 tracker is complete.
 
 ### Exit criteria
 
-- [ ] No known P0/P1 robustness, resource-exhaustion, concurrency, or packaging
+- [x] No known P0/P1 robustness, resource-exhaustion, concurrency, or packaging
   defect remains.
-- [ ] Safety-limit and malformed-input cases fail deterministically with
+- [x] Safety-limit and malformed-input cases fail deterministically with
   bounded diagnostics.
-- [ ] Performance and allocation gates pass without unexplained regression.
-- [ ] Full CI and managed-only verification pass on all supported runners.
-- [ ] NuGet consumer smoke and extracted-source gates pass.
-- [ ] Documentation reflects the final beta behavior and limits.
+- [x] Performance and allocation gates pass without unexplained regression.
+- [x] Full CI and managed-only verification pass on all supported runners.
+- [x] NuGet consumer smoke and extracted-source gates pass.
+- [x] Documentation reflects the final beta behavior and limits.
 
 ## 0.12.0-rc.1: release qualification
 

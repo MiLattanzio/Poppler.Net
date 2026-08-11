@@ -78,8 +78,14 @@ internal sealed class RasterSurface : IDisposable
             throw new ArgumentOutOfRangeException(nameof(height));
         ArgumentNullException.ThrowIfNull(budget);
 
-        int componentCount = checked(width * height * ComponentsPerPixel);
-        _reservedBytes = checked((long)componentCount * sizeof(float));
+        long componentCount64 = checked((long)width * height * ComponentsPerPixel);
+        if (componentCount64 > Array.MaxLength)
+        {
+            throw new PdfLimitException(
+                "Raster working surface exceeds the supported array length.");
+        }
+        int componentCount = (int)componentCount64;
+        _reservedBytes = checked(componentCount64 * sizeof(float));
         _budget = budget;
         _quantizeComposite = quantizeComposite;
         _budget.Reserve(_reservedBytes);

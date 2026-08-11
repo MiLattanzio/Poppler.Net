@@ -139,6 +139,11 @@ internal static class PdfMeshShadingReader
         {
             reader.Align();
             int flag = (int)rawFlag;
+            if (vertices.Count >= document.Options.MaximumCollectionItems)
+            {
+                throw new PdfLimitException(
+                    "Mesh vertex count exceeds the configured collection limit.");
+            }
             vertices.Add(vertex);
             if (state is 0 or 1)
             {
@@ -216,10 +221,10 @@ internal static class PdfMeshShadingReader
                    document,
                    out PdfMeshVertex vertex))
         {
+            if (vertices.Count >= document.Options.MaximumCollectionItems)
+                throw new PdfLimitException("Mesh vertex count exceeds the configured limit.");
             vertices.Add(vertex);
             reader.Align();
-            if (vertices.Count > document.Options.MaximumCollectionItems)
-                throw new PdfLimitException("Mesh vertex count exceeds the configured limit.");
         }
 
         int rows = vertices.Count / verticesPerRow;

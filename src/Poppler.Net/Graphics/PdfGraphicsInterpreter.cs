@@ -21,6 +21,9 @@ internal sealed class PdfGraphicsInterpreter
     private readonly PdfPageNode _page;
     private readonly PdfOptionalContentEvaluator _optionalContent;
     private readonly Dictionary<PdfReference, PdfBrush> _patternCache = new();
+    private readonly Dictionary<
+        (PdfReference Reference, PdfDictionary? Resources, string ResourceName),
+        PdfImage> _imageCache = new();
     private readonly HashSet<PdfReference> _activePatterns = new();
     private readonly HashSet<PdfReference> _activeForms = new();
     private readonly HashSet<PdfReference> _activeSoftMasks = new();
@@ -29,6 +32,8 @@ internal sealed class PdfGraphicsInterpreter
     private int _operationCount;
     private int _elementCount;
     private int _inlineImageCount;
+    private int _meshTriangleCount;
+    private long _imagePixelCount;
     private static readonly IReadOnlyDictionary<char, byte[]> AnnotationGlyphs =
         CreateAnnotationGlyphs();
 
@@ -450,7 +455,7 @@ internal sealed class PdfGraphicsInterpreter
                     break;
                 case "ET":
                     context.Text.InTextObject = false;
-                    context.Clips.AddRange(context.Text.PendingClips);
+                    AddClips(context.Clips, context.Text.PendingClips);
                     context.Text.PendingClips.Clear();
                     break;
                 case "Tf" when values.Count >= 2 &&
@@ -635,7 +640,7 @@ internal sealed class PdfGraphicsInterpreter
                     out _,
                     out _))
             {
-                context.Text.PendingClips.Add(new PdfClipPath(
+                AddClip(context.Text.PendingClips, new PdfClipPath(
                     outline,
                     transform,
                     PdfFillRule.NonZero));
@@ -812,6 +817,7 @@ internal sealed class PdfGraphicsInterpreter
         PdfImage? image = null;
         try
         {
+            AccountImagePixels(width, height);
             PdfColor maskColor = context.Graphics.Fill is PdfSolidBrush solid
                 ? solid.Color
                 : PdfColor.Black;
@@ -937,7 +943,7 @@ internal sealed class PdfGraphicsInterpreter
 
             if (pendingClip is { } clipRule)
             {
-                context.Clips.Add(new PdfClipPath(
+                AddClip(context.Clips, new PdfClipPath(
                     path,
                     context.Graphics.Transform,
                     clipRule));
@@ -983,15 +989,31 @@ internal sealed class PdfGraphicsInterpreter
             PdfImage? image = null;
             try
             {
-                PdfColor maskColor = context.Graphics.Fill is PdfSolidBrush solid
-                    ? solid.Color
-                    : PdfColor.Black;
-                image = PdfImageDecoder.Decode(
-                    resourceName,
-                    stream,
-                    resources,
-                    _document,
-                    maskColor);
+                PdfReference? imageReference = stream.SourceReference;
+                var cacheKey = (
+                    Reference: imageReference!,
+                    Resources: resources,
+                    ResourceName: resourceName);
+                if (!imageMask && imageReference is not null &&
+                    _imageCache.TryGetValue(cacheKey, out PdfImage? cachedImage))
+                {
+                    image = cachedImage;
+                }
+                else
+                {
+                    AccountImagePixels(width, height);
+                    PdfColor maskColor = context.Graphics.Fill is PdfSolidBrush solid
+                        ? solid.Color
+                        : PdfColor.Black;
+                    image = PdfImageDecoder.Decode(
+                        resourceName,
+                        stream,
+                        resources,
+                        _document,
+                        maskColor);
+                    if (!imageMask && imageReference is not null)
+                        _imageCache.Add(cacheKey, image);
+                }
             }
             catch (PdfUnsupportedFeatureException exception)
             {
@@ -1046,7 +1068,7 @@ internal sealed class PdfGraphicsInterpreter
             };
             if (stream.Dictionary.GetValueOrNull("BBox").AsRectangle(_document) is { } box)
             {
-                child.Clips.Add(new PdfClipPath(
+                AddClip(child.Clips, new PdfClipPath(
                     RectanglePath(box),
                     child.Graphics.Transform,
                     PdfFillRule.NonZero));
@@ -1065,7 +1087,7 @@ internal sealed class PdfGraphicsInterpreter
                 child.Clips.Clear();
                 if (stream.Dictionary.GetValueOrNull("BBox").AsRectangle(_document) is { } groupBox)
                 {
-                    child.Clips.Add(new PdfClipPath(
+                    AddClip(child.Clips, new PdfClipPath(
                         RectanglePath(groupBox),
                         child.Graphics.Transform,
                         PdfFillRule.NonZero));
@@ -1211,11 +1233,11 @@ internal sealed class PdfGraphicsInterpreter
             {
                 Transform = transform
             };
-            context.Clips.Add(new PdfClipPath(
+            AddClip(context.Clips, new PdfClipPath(
                 RectanglePath(box),
                 transform,
                 PdfFillRule.NonZero));
-            context.Clips.Add(new PdfClipPath(
+            AddClip(context.Clips, new PdfClipPath(
                 RectanglePath(annotation.Rectangle),
                 PdfMatrix.Identity,
                 PdfFillRule.NonZero));
@@ -2322,6 +2344,7 @@ internal sealed class PdfGraphicsInterpreter
         }
         else if (brush is PdfMeshShadingBrush mesh)
         {
+            AccountMesh(mesh);
             Emit(
                 output,
                 new PdfMeshShadingElement(
@@ -2403,6 +2426,7 @@ internal sealed class PdfGraphicsInterpreter
                 out PdfBrush? shading))
         {
             result = shading;
+            AccountBrush(result);
         }
         else if (patternType == 1 && resolved is PdfStream patternStream)
         {
@@ -2631,7 +2655,7 @@ internal sealed class PdfGraphicsInterpreter
             };
             if (stream.Dictionary.GetValueOrNull("BBox").AsRectangle(_document) is { } box)
             {
-                child.Clips.Add(new PdfClipPath(
+                AddClip(child.Clips, new PdfClipPath(
                     RectanglePath(box),
                     child.Graphics.Transform,
                     PdfFillRule.NonZero));
@@ -2831,6 +2855,64 @@ internal sealed class PdfGraphicsInterpreter
     {
         if (path.Count > _document.Options.MaximumPathSegments)
             throw new PdfLimitException("Path segment count exceeds the configured limit.");
+    }
+
+    private void AddClip(List<PdfClipPath> clips, PdfClipPath clip)
+    {
+        if (clips.Count >= _document.Options.MaximumClipPaths)
+        {
+            throw new PdfLimitException(
+                "Clip path count exceeds the configured limit.");
+        }
+
+        clips.Add(clip);
+    }
+
+    private void AddClips(
+        List<PdfClipPath> clips,
+        IReadOnlyCollection<PdfClipPath> additions)
+    {
+        if (additions.Count > _document.Options.MaximumClipPaths - clips.Count)
+        {
+            throw new PdfLimitException(
+                "Clip path count exceeds the configured limit.");
+        }
+
+        clips.AddRange(additions);
+    }
+
+    private void AccountBrush(PdfBrush? brush)
+    {
+        if (brush is PdfMeshShadingBrush mesh)
+            AccountMesh(mesh);
+    }
+
+    private void AccountMesh(PdfMeshShadingBrush mesh)
+    {
+        int triangles = mesh.Triangles.Count;
+        if (triangles >
+            _document.Options.MaximumPageMeshTriangles - _meshTriangleCount)
+        {
+            throw new PdfLimitException(
+                "Page mesh triangles exceed the configured cumulative limit.");
+        }
+
+        _meshTriangleCount += triangles;
+    }
+
+    private void AccountImagePixels(int width, int height)
+    {
+        if (width < 1 || height < 1)
+            return;
+        long pixels = (long)width * height;
+        if (pixels >
+            _document.Options.MaximumPageImagePixels - _imagePixelCount)
+        {
+            throw new PdfLimitException(
+                "Page images exceed the configured cumulative pixel limit.");
+        }
+
+        _imagePixelCount += pixels;
     }
 
     private void ReportOnce(string code, string message)

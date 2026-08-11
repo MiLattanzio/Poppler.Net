@@ -176,8 +176,8 @@ internal static class SvgPageRenderer
 
             PdfRectangle source = fallback.Value;
             double scale = _options.RasterFallbackDpi / 72.0;
-            int width = Math.Max(1, checked((int)Math.Ceiling(source.Width * scale)));
-            int height = Math.Max(1, checked((int)Math.Ceiling(source.Height * scale)));
+            int width = PixelDimension(source.Width * scale);
+            int height = PixelDimension(source.Height * scale);
             long pixels = checked((long)width * height);
             if (pixels > _page.ReadOptions.MaximumSvgFallbackPixels)
             {
@@ -203,6 +203,18 @@ internal static class SvgPageRenderer
             _svg.Append("\" preserveAspectRatio=\"none\" href=\"data:image/png;base64,");
             _svg.Append(Convert.ToBase64String(bitmap.ToPngBytes()));
             AppendLine("\"/>");
+        }
+
+        private static int PixelDimension(double value)
+        {
+            double rounded = Math.Ceiling(value);
+            if (!double.IsFinite(rounded) || rounded > int.MaxValue)
+            {
+                throw new PdfLimitException(
+                    "SVG raster fallback dimensions exceed the supported pixel range.");
+            }
+
+            return Math.Max(1, (int)rounded);
         }
 
         private static bool TryParseBackground(

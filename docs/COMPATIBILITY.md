@@ -1,6 +1,6 @@
 # Compatibility matrix
 
-## Works in 0.12.0-beta.1
+## Works in 0.12.0-beta.2
 
 - PDF 1.x and 2.0 header discovery.
 - Classic xref tables and trailers.
@@ -248,11 +248,14 @@ stream cache, 10,000 content streams per page, 250,000 pending content
 operands, 16 MiB per external CMap, 16 inherited CMaps, 1,000,000 indirect
 objects, 1,000,000 direct collection items, 250,000 CMap mappings,
 1,000,000 graphics operations, 250,000 display-list elements, 1,000,000 path
-segments, 100,000,000 decoded pixels per image, 32 image components, 16 MiB
+segments, 4,096 retained clip paths per graphics state, 100,000,000 decoded
+pixels per image, 200,000,000 cumulative image pixels per page, 32 image
+components, 16 MiB
 per ICC profile, 1,000,000 sampled-function samples, graphics stack depth 256,
 XObject depth 32, transparency-group depth 32, 100,000,000 rendered pixels,
 1 GiB of simultaneously live render surfaces, 25,000,000 SVG fallback pixels,
-33 shading stops, 65,536 mesh triangles, 100,000 annotations per page,
+33 shading stops, 65,536 triangles per mesh, 262,144 cumulative mesh triangles
+per page, 100,000 annotations per page,
 250,000 annotation geometry points, annotation-appearance depth 16,
 10,000 actions per page, action-chain depth 32, 1 MiB per action script,
 100,000 outline items, outline depth 128, 64 KiB per outline title,

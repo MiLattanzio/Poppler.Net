@@ -1,6 +1,6 @@
 # Managed raster rendering in 0.12
 
-Release `0.12.0-beta.1` retains the pure-C# counterpart of Poppler's
+Release `0.12.0-beta.2` retains the pure-C# counterpart of Poppler's
 `SplashOutputDev`, path scanner, compositing and font-outline responsibilities.
 It consumes the backend-neutral `Page.Graphics` display list and never loads
 Splash, Cairo, Skia, FreeType, a platform drawing API or another native
@@ -173,9 +173,12 @@ defaults to 32 and bounds both intermediate groups and soft masks.
 live high-precision surfaces, including saved initial backdrops, knockout
 children and cached soft masks. A reservation is made before each allocation
 and released deterministically when its surface is disposed.
-`MaximumMeshTriangles` defaults to 65,536 and bounds decoded/tessellated mesh
-data before adaptive output growth. `MaximumRasterGeometrySegments` defaults
-to 4,000,000 and cumulatively
+`MaximumMeshTriangles` defaults to 65,536 per mesh and
+`MaximumPageMeshTriangles` defaults to 262,144 across a page display list;
+both are checked before decoded or adaptive triangle output grows.
+`MaximumPageImagePixels` similarly caps cumulative decoded Image XObject
+pixels at 200,000,000 while repeated immutable non-mask resources are reused.
+`MaximumRasterGeometrySegments` defaults to 4,000,000 and cumulatively
 bounds flattening, dash fragments, stroke-outline edges and temporary clip
 geometry for one render. It is charged before temporary collections grow.
 Existing graphics-operation, path-segment, XObject, image and decoded-stream

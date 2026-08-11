@@ -166,3 +166,45 @@ the version-normalized callable fingerprint remains
 The pull-request gate repeats build, tests, managed-only verification and
 packaging on Ubuntu, Windows and macOS. Publishing a matching GitHub
 prerelease tag repeats those gates before NuGet.org trusted publishing.
+
+## Beta 2 hardening qualification
+
+Local qualification performed on 2026-08-11 for implementation commit
+`4aa7bfc0b35110225981682d400827e4ae987364` uses .NET SDK 10.0.302 with
+warnings treated as errors. The library builds `net8.0` and `net10.0` assets;
+the other five solution projects build as `net10.0`. The managed-only verifier
+accepts production source plus every restored dependency. NUnitLite on CLR
+10.0.10 executes 285 tests: 285 pass with no failure, warning or skip. The five
+historical PNG gates migrated to canonical decompressed-content hashes also
+pass when the test assembly and library run on CLR 8.0.29.
+
+The adversarial additions cover pre-growth ASCIIHex, ASCII85 and RunLength
+limits, combined content separators, cumulative clip/image/mesh budgets,
+reused Image XObjects, extreme finite page boxes and oversized working arrays.
+A 16-operation shared-document stress gate produces identical font, image,
+text, display-list and raster summaries. The six-page Release smoke allocates
+7.6 MiB and completes in 24–40 ms across repeated local runs, below the new
+32 MiB and 5 second gates. The complete public-surface SHA-256 is
+`334fb37308370eb72515706bdbb25727670a1bcf8498d530c355eea6eafba432`;
+the version-normalized callable fingerprint is
+`ce87b22579e9458c3c1dcdb1aa01790f15d13006ad177ad4815f1e974e63b527`.
+
+`Poppler.Net.PackageVerifier` accepts the beta.2 NuGet content allowlist,
+GPL-2.0-or-later metadata, repository commit and the pinned CoreJ2K,
+JBig2Decoder.NETStandard and StbImageSharp dependency set for both `net8.0`
+and `net10.0`. A project with no source reference restores that local package
+from an isolated cache and renders PNG/SVG output on both targets. The PNG
+file hashes are
+`288113db35fd02ced30e623e8ac7f2a58055a4607c311850f26a43e23de7af03`
+on CLR 8 and
+`578873f57b3a0125e4a6b7da9baf37ebe685393e402a6aea0a7c078eba5aefc2`
+on CLR 10; their difference is the valid zlib stream, not pixel content.
+
+`git archive` produces a single `Poppler.Net/` root from tracked files. A new
+directory extracted from that archive restores, builds all six projects, runs
+all 285 tests, passes the managed-only verifier, repacks beta.2 with the source
+revision and passes package verification again. GitHub Actions repeats the
+package consumer for both `net8.0` and `net10.0` on Ubuntu, Windows and macOS;
+pull-request [CI run 48](https://github.com/MiLattanzio/Poppler.Net/actions/runs/31508463279)
+passes all three build/test and managed-only jobs, the package/extracted-source
+job, and all six operating-system/framework consumer jobs.

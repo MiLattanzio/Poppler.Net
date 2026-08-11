@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.12.0-beta.2 — 2026-08-11
+
+- Added deterministic adversarial gates for decoded-stream growth, cumulative
+  clips, repeated/distinct image resources, cumulative page mesh triangles,
+  oversized page boxes and raster working arrays.
+- Moved ASCIIHex, ASCII85, RunLength and combined-content limit checks ahead
+  of output growth and normalized hostile raster dimensions to bounded
+  `PdfLimitException` diagnostics.
+- Added cumulative per-page image-pixel and mesh-triangle budgets, a per-state
+  clip-path budget and immutable Image XObject reuse within one display list.
+- Tightened the six-page Release performance baseline to 5 seconds and 32 MiB
+  of managed allocations from a measured 0.2 seconds and 10.1 MiB on Windows.
+- Added NuGet content/license/dependency/metadata inspection, three-OS clean
+  package consumers and a restore/build/test/repack gate from the extracted
+  source archive.
+- Moved the build, tools, tests and WebAssembly playground to .NET 10 while
+  multi-targeting the library and clean package consumer for `net8.0` and
+  `net10.0`.
+- Migrated the remaining raw PNG golden checks to canonical decompressed-pixel
+  hashes so the .NET 8 and .NET 10 zlib implementations share one baseline.
+
 ## 0.12.0-beta.1 — 2026-08-10
 
 - Added a reproducible Poppler differential gate with per-page error budgets

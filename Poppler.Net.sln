@@ -10,6 +10,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poppler.Net.Tests", "tests\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poppler.Net.ManagedOnlyVerifier", "eng\Poppler.Net.ManagedOnlyVerifier\Poppler.Net.ManagedOnlyVerifier.csproj", "{C6BA8CE9-7DD6-4E9A-8D1A-5A3D4FD7BE80}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poppler.Net.PackageVerifier", "eng\Poppler.Net.PackageVerifier\Poppler.Net.PackageVerifier.csproj", "{ED46EC22-C7CF-43CE-A075-BE62972086C8}"
+EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Poppler.Net.Playground", "samples\Poppler.Net.Playground\Poppler.Net.Playground.csproj", "{B2C14E6D-1B68-4AC4-9DCE-1972C11B9A62}"
 EndProject
 Global
@@ -34,6 +36,10 @@ Global
 		{C6BA8CE9-7DD6-4E9A-8D1A-5A3D4FD7BE80}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C6BA8CE9-7DD6-4E9A-8D1A-5A3D4FD7BE80}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C6BA8CE9-7DD6-4E9A-8D1A-5A3D4FD7BE80}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ED46EC22-C7CF-43CE-A075-BE62972086C8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED46EC22-C7CF-43CE-A075-BE62972086C8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED46EC22-C7CF-43CE-A075-BE62972086C8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED46EC22-C7CF-43CE-A075-BE62972086C8}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B2C14E6D-1B68-4AC4-9DCE-1972C11B9A62}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B2C14E6D-1B68-4AC4-9DCE-1972C11B9A62}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B2C14E6D-1B68-4AC4-9DCE-1972C11B9A62}.Release|Any CPU.ActiveCfg = Release|Any CPU

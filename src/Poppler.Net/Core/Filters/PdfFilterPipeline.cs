@@ -185,14 +185,17 @@ internal static class PdfFilterPipeline
                 high = nibble;
             else
             {
+                EnsureLimit(output.Length + 1, options.MaximumDecodedStreamBytes);
                 output.WriteByte((byte)((high << 4) | nibble));
                 high = -1;
-                EnsureLimit(output.Length, options.MaximumDecodedStreamBytes);
             }
         }
 
         if (high >= 0)
+        {
+            EnsureLimit(output.Length + 1, options.MaximumDecodedStreamBytes);
             output.WriteByte((byte)(high << 4));
+        }
         return output.ToArray();
     }
 
@@ -222,8 +225,8 @@ internal static class PdfFilterPipeline
             {
                 if (count != 0)
                     throw new PdfFormatException("Invalid 'z' inside an ASCII85 tuple.");
+                EnsureLimit(output.Length + 4, options.MaximumDecodedStreamBytes);
                 WriteUInt32(output, 0, 4);
-                EnsureLimit(output.Length, options.MaximumDecodedStreamBytes);
                 continue;
             }
 
@@ -235,10 +238,10 @@ internal static class PdfFilterPipeline
             {
                 if (tuple > uint.MaxValue)
                     throw new PdfFormatException("ASCII85 tuple exceeds 32 bits.");
+                EnsureLimit(output.Length + 4, options.MaximumDecodedStreamBytes);
                 WriteUInt32(output, (uint)tuple, 4);
                 tuple = 0;
                 count = 0;
-                EnsureLimit(output.Length, options.MaximumDecodedStreamBytes);
             }
         }
 
@@ -250,6 +253,9 @@ internal static class PdfFilterPipeline
                 tuple = tuple * 85 + 84;
             if (tuple > uint.MaxValue)
                 throw new PdfFormatException("ASCII85 tuple exceeds 32 bits.");
+            EnsureLimit(
+                output.Length + count - 1,
+                options.MaximumDecodedStreamBytes);
             WriteUInt32(output, (uint)tuple, count - 1);
         }
 
@@ -259,7 +265,10 @@ internal static class PdfFilterPipeline
 
     private static byte[] DecodeRunLength(byte[] source, PdfReadOptions options)
     {
-        using var output = new MemoryStream(Math.Min(source.Length * 2, options.MaximumDecodedStreamBytes));
+        int initialCapacity = (int)Math.Min(
+            (long)source.Length * 2,
+            options.MaximumDecodedStreamBytes);
+        using var output = new MemoryStream(initialCapacity);
         int index = 0;
         while (index < source.Length)
         {
@@ -271,6 +280,7 @@ internal static class PdfFilterPipeline
                 int count = length + 1;
                 if (index > source.Length - count)
                     throw new PdfFormatException("Truncated RunLength stream.");
+                EnsureLimit(output.Length + count, options.MaximumDecodedStreamBytes);
                 output.Write(source, index, count);
                 index += count;
             }
@@ -280,11 +290,10 @@ internal static class PdfFilterPipeline
                     throw new PdfFormatException("Truncated RunLength stream.");
                 int count = 257 - length;
                 byte repeated = source[index++];
+                EnsureLimit(output.Length + count, options.MaximumDecodedStreamBytes);
                 for (int repeat = 0; repeat < count; repeat++)
                     output.WriteByte(repeated);
             }
-
-            EnsureLimit(output.Length, options.MaximumDecodedStreamBytes);
         }
 
         return output.ToArray();

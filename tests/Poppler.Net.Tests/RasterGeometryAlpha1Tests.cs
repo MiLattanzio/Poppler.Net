@@ -77,6 +77,8 @@ public sealed class RasterGeometryAlpha1Tests
             root.GetProperty("file").GetString()!);
         string fixtureHash = Hash(File.ReadAllBytes(fixture));
         JsonElement hashes = root.GetProperty("managed_png_sha256");
+        JsonElement canonical = root.GetProperty(
+            "managed_png_representative_canonical_sha256");
         bool overridesValid =
             !root.TryGetProperty(
                 "managed_png_sha256_windows_overrides",
@@ -96,6 +98,12 @@ public sealed class RasterGeometryAlpha1Tests
                 hashes.EnumerateObject().All(item =>
                     item.Value.GetArrayLength() == 8),
                 Is.True);
+            Assert.That(
+                root.GetProperty("png_hash_mode").GetString(),
+                Is.EqualTo(CanonicalRenderingHash.PngMode));
+            Assert.That(
+                canonical.EnumerateObject().Select(item => item.Name),
+                Is.EqualTo(RenderKeys));
             Assert.That(overridesValid, Is.True);
         }));
     }
@@ -104,30 +112,32 @@ public sealed class RasterGeometryAlpha1Tests
     public void RepresentativeRequiredRenderMatrixHashesAreDeterministic()
     {
         using JsonDocument manifest = Manifest();
-        JsonElement hashes = manifest.RootElement
-            .GetProperty("managed_png_sha256");
+        JsonElement hashes = manifest.RootElement.GetProperty(
+            "managed_png_representative_canonical_sha256");
         JsonElement windowsOverrides = default;
         bool hasWindowsOverrides = OperatingSystem.IsWindows() &&
             manifest.RootElement.TryGetProperty(
-                "managed_png_sha256_windows_overrides",
+                "managed_png_representative_canonical_sha256_windows_overrides",
                 out windowsOverrides);
         using Document document = Load();
 
-        for (int index = 0; index < RenderKeys.Length; index++)
+        Assert.Multiple((Action)(() =>
         {
-            string key = RenderKeys[index];
-            RasterRenderOptions options = Options(key);
-            JsonElement expectedHashes = hashes.GetProperty(key);
-            if (hasWindowsOverrides &&
-                windowsOverrides.TryGetProperty(key, out JsonElement overrides))
+            for (int index = 0; index < RenderKeys.Length; index++)
             {
-                expectedHashes = overrides;
+                string key = RenderKeys[index];
+                RasterRenderOptions options = Options(key);
+                string expected = hashes.GetProperty(key).GetString()!;
+                if (hasWindowsOverrides &&
+                    windowsOverrides.TryGetProperty(key, out JsonElement overrides))
+                {
+                    expected = overrides.GetString()!;
+                }
+                string actual = CanonicalRenderingHash.Png(
+                    document.CreatePage(index).RenderToPng(options));
+                Assert.That(actual, Is.EqualTo(expected), key);
             }
-            string expected = expectedHashes[index].GetString()!;
-            string actual = Hash(
-                document.CreatePage(index).RenderToPng(options));
-            Assert.That(actual, Is.EqualTo(expected), key);
-        }
+        }));
     }
 
     [Test]
@@ -177,9 +187,10 @@ public sealed class RasterGeometryAlpha1Tests
             Transparent = true,
             UseFontSubstitution = false
         };
-        string expected = Hash(page.RenderToPng(options));
+        string expected = CanonicalRenderingHash.Png(page.RenderToPng(options));
         Task<string>[] renders = Enumerable.Range(0, 8)
-            .Select(_ => Task.Run(() => Hash(page.RenderToPng(options))))
+            .Select(_ => Task.Run(() =>
+                CanonicalRenderingHash.Png(page.RenderToPng(options))))
             .ToArray();
 
         Assert.That(await Task.WhenAll(renders), Has.All.EqualTo(expected));

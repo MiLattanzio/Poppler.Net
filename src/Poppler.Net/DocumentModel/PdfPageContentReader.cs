@@ -42,15 +42,16 @@ internal static class PdfPageContentReader
                 }
 
                 byte[] decoded = document.Decode(part);
-                if (output.Length > 0)
-                    output.WriteByte((byte)'\n');
-                if (output.Length + decoded.Length >
+                int separatorBytes = output.Length > 0 ? 1 : 0;
+                if (output.Length + separatorBytes + decoded.LongLength >
                     document.Options.MaximumDecodedStreamBytes)
                 {
                     throw new PdfLimitException(
                         "Combined page content exceeds the decoded stream limit.");
                 }
 
+                if (separatorBytes != 0)
+                    output.WriteByte((byte)'\n');
                 output.Write(decoded);
                 decodedStreams++;
             }

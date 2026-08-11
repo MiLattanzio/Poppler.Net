@@ -87,10 +87,10 @@ internal sealed class PdfRasterRenderer
         int rotation = NormalizeRotation(page.Rotation);
         double sourceWidth = Math.Max(0, right - left);
         double sourceHeight = Math.Max(0, top - bottom);
-        int width = checked((int)Math.Ceiling(
-            (rotation is 90 or 270 ? sourceHeight : sourceWidth) * scale));
-        int height = checked((int)Math.Ceiling(
-            (rotation is 90 or 270 ? sourceWidth : sourceHeight) * scale));
+        int width = PixelDimension(
+            (rotation is 90 or 270 ? sourceHeight : sourceWidth) * scale);
+        int height = PixelDimension(
+            (rotation is 90 or 270 ? sourceWidth : sourceHeight) * scale);
         width = Math.Max(1, width);
         height = Math.Max(1, height);
         long pixelCount = checked((long)width * height);
@@ -115,6 +115,18 @@ internal sealed class PdfRasterRenderer
             width,
             height);
         return renderer.RenderPage();
+    }
+
+    private static int PixelDimension(double value)
+    {
+        double rounded = Math.Ceiling(value);
+        if (!double.IsFinite(rounded) || rounded > int.MaxValue)
+        {
+            throw new PdfLimitException(
+                "Rendered page dimensions exceed the supported pixel range.");
+        }
+
+        return Math.Max(1, (int)rounded);
     }
 
     private PdfBitmap RenderPage()

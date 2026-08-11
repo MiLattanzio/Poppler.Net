@@ -171,8 +171,12 @@ public sealed class OptionalContentAlpha3Tests
     public void OcmdPoliciesAndVisibilityExpressionsMatchRasterManifest()
     {
         using JsonDocument manifest = Manifest();
-        string[] expectedDefault = ReadHashes(manifest, "managed_png_sha256");
-        string[] expectedInverted = ReadHashes(manifest, "inverted_png_sha256");
+        string[] expectedDefault = ReadHashes(
+            manifest,
+            "managed_png_canonical_sha256");
+        string[] expectedInverted = ReadHashes(
+            manifest,
+            "inverted_png_canonical_sha256");
         using Document document = Load();
 
         string[] actualDefault = RenderHashes(document, RenderOptions());
@@ -315,8 +319,7 @@ public sealed class OptionalContentAlpha3Tests
     private static string RenderHash(
         Page page,
         RasterRenderOptions options) =>
-        Convert.ToHexString(SHA256.HashData(page.RenderToPng(options)))
-            .ToLowerInvariant();
+        CanonicalRenderingHash.Png(page.RenderToPng(options));
 
     private static string[] ReadHashes(JsonDocument manifest, string property) =>
         manifest.RootElement

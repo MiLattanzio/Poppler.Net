@@ -1,6 +1,6 @@
 # Managed graphics engine
 
-Version `0.12.0-beta.1` retains and extends the backend-neutral slice of Poppler
+Version `0.12.0-beta.2` retains and extends the backend-neutral slice of Poppler
 26.07.0 `Gfx`, `GfxState`, `Function`, pattern and XObject behavior. It parses
 page content into immutable managed objects; it does not call Poppler, Cairo,
 FreeType or another native renderer.
@@ -125,6 +125,7 @@ explicitly omitted with `SvgFallbackMode.Omit`.
 | `MaximumGraphicsOperations` | 1,000,000 |
 | `MaximumGraphicsElements` | 250,000 |
 | `MaximumPathSegments` | 1,000,000 |
+| `MaximumClipPaths` | 4,096 per graphics state |
 | `MaximumRasterGeometrySegments` | 4,000,000 per raster operation |
 | `MaximumRenderWorkingBytes` | 1 GiB per raster operation |
 | `MaximumSvgFallbackPixels` | 25,000,000 per SVG operation |
@@ -132,7 +133,9 @@ explicitly omitted with `SvgFallbackMode.Omit`.
 | `MaximumXObjectDepth` | 32 |
 | `MaximumTransparencyGroupDepth` | 32 |
 | `MaximumShadingStops` | 33 |
-| `MaximumMeshTriangles` | 65,536 |
+| `MaximumMeshTriangles` | 65,536 per mesh |
+| `MaximumPageMeshTriangles` | 262,144 per page display list |
+| `MaximumPageImagePixels` | 200,000,000 per page display list |
 | `MaximumAnnotationsPerPage` | 100,000 |
 | `MaximumAnnotationPoints` | 250,000 |
 | `MaximumAnnotationAppearanceDepth` | 16 |

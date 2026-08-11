@@ -528,6 +528,103 @@ internal static class PdfFixtures
         return result.AsSpan(0, marker).ToArray();
     }
 
+    public static byte[] CreateWithFilteredContent(
+        string filter,
+        byte[] encodedContent)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filter);
+        ArgumentNullException.ThrowIfNull(encodedContent);
+        return BuildClassic(
+            new[]
+            {
+                Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+                Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+                Ascii(
+                    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] " +
+                    "/Resources << >> /Contents 4 0 R >>"),
+                Stream(
+                    $"<< /Length {encodedContent.Length} /Filter /{filter} >>",
+                    encodedContent)
+            },
+            infoObject: null);
+    }
+
+    public static byte[] CreateWithContent(
+        string content,
+        string mediaBox = "0 0 100 100")
+    {
+        byte[] bytes = Ascii(content);
+        return BuildClassic(
+            new[]
+            {
+                Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+                Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+                Ascii(
+                    $"<< /Type /Page /Parent 2 0 R /MediaBox [{mediaBox}] " +
+                    "/Resources << >> /Contents 4 0 R >>"),
+                Stream($"<< /Length {bytes.Length} >>", bytes)
+            },
+            infoObject: null);
+    }
+
+    public static byte[] CreateWithContentParts(params string[] parts)
+    {
+        ArgumentNullException.ThrowIfNull(parts);
+        if (parts.Length == 0)
+            throw new ArgumentException("At least one content part is required.", nameof(parts));
+        string references = string.Join(
+            " ",
+            Enumerable.Range(4, parts.Length).Select(index => $"{index} 0 R"));
+        var objects = new List<byte[]>
+        {
+            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+            Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] " +
+                $"/Resources << >> /Contents [{references}] >>")
+        };
+        foreach (string part in parts)
+        {
+            byte[] bytes = Ascii(part);
+            objects.Add(Stream($"<< /Length {bytes.Length} >>", bytes));
+        }
+
+        return BuildClassic(objects, infoObject: null);
+    }
+
+    public static byte[] CreateWithRepeatedImages(bool distinct)
+    {
+        byte[] content = Ascii(distinct
+            ? "q /I1 Do Q q /I2 Do Q"
+            : "q /I1 Do Q q /I1 Do Q");
+        byte[] first = { 255, 0, 0 };
+        byte[] second = { 0, 0, 255 };
+        var objects = new List<byte[]>
+        {
+            Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+            Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+            Ascii(
+                "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] " +
+                "/Resources << /XObject << /I1 5 0 R" +
+                (distinct ? " /I2 6 0 R" : "") +
+                " >> >> /Contents 4 0 R >>"),
+            Stream($"<< /Length {content.Length} >>", content),
+            Stream(
+                "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 " +
+                "/ColorSpace /DeviceRGB /BitsPerComponent 8 /Length 3 >>",
+                first)
+        };
+        if (distinct)
+        {
+            objects.Add(Stream(
+                "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 " +
+                "/ColorSpace /DeviceRGB /BitsPerComponent 8 /Length 3 >>",
+                second));
+        }
+
+        return BuildClassic(objects, infoObject: null);
+    }
+
     private static byte[] BuildClassic(
         IReadOnlyList<byte[]> objects,
         int? infoObject = 6)

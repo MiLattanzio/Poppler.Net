@@ -134,6 +134,22 @@ WINDOWS_RENDER_HASH_OVERRIDES: dict[str, list[str]] = {
     ],
 }
 
+REPRESENTATIVE_CANONICAL_HASHES: dict[str, str] = {
+    "dpi96-aa1-opaque": "1ac8a95be80090d7d74881f6844f559e46218e00b7b1fc4a8d89f3fcdf1278fd",
+    "dpi96-aa1-transparent": "a0a72babf966981d71a779aaf319b6cb3c8d29a53d6a076018f90d448ee088d4",
+    "dpi96-aa4-opaque": "3f41f5aae6bab146f9cd6f6b3a44c60e2ea272a456c1c2130d500532c2ccb75c",
+    "dpi96-aa4-transparent": "4900a5da87e2f96b3f1b98c0fbc8a27e50b5ddec36351591e9a27e0ea55bc043",
+    "dpi300-aa1-opaque": "816e0d63afa5a8477831e3431eeae264d11b3128f4305b93d4f9b5fe779ea3a3",
+    "dpi300-aa1-transparent": "d5fd0591bf9442b9337b6f48672ff7ac063df6e49226754a0ef847d709643b0b",
+    "dpi300-aa4-opaque": "847bc1858bfb756f6743f1c4f08fcd87f19586aab3c78faf6eb424e95c75fb40",
+    "dpi300-aa4-transparent": "cfd8916ace2117d0f0fe53a10702759f0d3bb3fa1eb611b28a0614f6d8875945",
+}
+
+WINDOWS_REPRESENTATIVE_CANONICAL_HASH_OVERRIDES: dict[str, str] = {
+    "dpi96-aa4-transparent": "4900a5da87e2f96b3f1b98c0fbc8a27e50b5ddec36351591e9a27e0ea55bc043",
+    "dpi300-aa4-transparent": "cfd8916ace2117d0f0fe53a10702759f0d3bb3fa1eb611b28a0614f6d8875945",
+}
+
 
 def stream(data: str) -> bytes:
     payload = data.strip().encode("ascii") + b"\n"
@@ -300,6 +316,13 @@ def main() -> None:
             "antialiasing": [1, 4],
             "background": ["opaque", "transparent"],
         },
+        "png_hash_mode": "canonical-png-content-v1",
+        "managed_png_representative_canonical_sha256": (
+            REPRESENTATIVE_CANONICAL_HASHES
+        ),
+        "managed_png_representative_canonical_sha256_windows_overrides": (
+            WINDOWS_REPRESENTATIVE_CANONICAL_HASH_OVERRIDES
+        ),
         "managed_png_sha256": RENDER_HASHES,
         "managed_png_sha256_windows_overrides": WINDOWS_RENDER_HASH_OVERRIDES,
     }
