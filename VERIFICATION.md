@@ -253,5 +253,8 @@ renderer and Poppler 26.07.0 as the semantic source reference. All 22 geometry,
 transparency, shading and cross-feature comparisons reproduce within their
 approved normalized RGB error budgets. The GitHub tracker contains only the
 active rc.1 qualification issue and its dependent stable-release issue; no
-separate P0/P1 blocker is open. Three-operating-system CI remains the external
-promotion gate before issue #22 can close.
+separate P0/P1 blocker is open. Pull-request
+[CI run 54](https://github.com/MiLattanzio/Poppler.Net/actions/runs/31513521620)
+passes all three build/test and managed-only jobs, the package and extracted
+source verification, and all six Ubuntu/Windows/macOS `net8.0`/`net10.0`
+consumer jobs.
