@@ -1,63 +1,62 @@
-# Poppler.Net 0.12.0-beta.1
+# Poppler.Net 0.12.0-beta.2
 
-Release date: 2026-08-10
+Release date: 2026-08-11
 
-`0.12.0-beta.1` closes the graphics-compatibility pass planned for the `0.12`
-line. It turns the stroke, transparency and shading work delivered in the three
-alpha releases into one reproducible compatibility baseline against Poppler
-26.07.0.
+`0.12.0-beta.2` hardens the feature-complete `0.12` graphics line for hostile
+inputs, concurrent read-only use, bounded resource growth and real package
+consumption. It retains the beta.1 Poppler differential baseline and does not
+add a native runtime or expand the declared rendering scope.
 
-The release remains a managed-only, read-only port. It adds no native runtime,
-does not execute an external renderer in production, and does not expand the
-public API or the declared `0.12` feature boundary.
+## Hostile-input hardening
 
-## Poppler differential baseline
+Decoded ASCIIHex, ASCII85 and RunLength streams now check their byte budget
+before every output write. Combined page content includes inserted separators
+in the pre-growth calculation. Oversized but finite page boxes and raster
+working arrays fail as `PdfLimitException` with stable diagnostics instead of
+leaking arithmetic exceptions or attempting oversized allocations.
 
-The versioned compatibility manifest combines 22 representative pages from
-four deterministic corpora:
+Three new cumulative controls complement the existing per-resource limits:
 
-- eight stroke-geometry and page-box pages;
-- six transparency, blend-mode and soft-mask pages;
-- five function and Gouraud/patch-mesh shading pages;
-- three cross-feature pages introduced for beta.1.
+- `MaximumClipPaths` bounds clips retained by one graphics state;
+- `MaximumPageImagePixels` bounds decoded image pixels across one display list;
+- `MaximumPageMeshTriangles` bounds mesh triangles across one page.
 
-Every page records its normalized RGB mean absolute error at 72 DPI, an
-approved maximum budget and a classification of the known difference. The
-optional verifier reproduces the managed and Poppler renderings without making
-Poppler a build, runtime or CI dependency.
+Repeated non-mask Image XObjects with the same resource identity share one
+immutable decoded image inside an interpretation pass. Stencil masks remain
+color-dependent and are deliberately decoded per use.
 
-## Cross-feature regression corpus
+The adversarial suite covers decoder growth, combined malformed content,
+deep clip accumulation, reused and distinct images, multiple meshes, extreme
+page boxes and working-surface array limits. Existing geometry, nested group,
+soft-mask, shading-function and adaptive-refinement limits remain active.
 
-The new three-page `compatibility-beta1.pdf` fixture combines code paths that
-were previously tested in isolation:
+## Concurrency and performance
 
-- transformed odd dash patterns, including a negative phase, inside a reused
-  isolated transparency group;
-- a curved Coons mesh through a two-input type 1 luminosity soft mask, an
-  even-odd clip and a dashed boundary;
-- transformed masked-mesh and stroke groups inside a rotated CropBox.
+A combined stress gate discovers fonts, images, text and display-list resources
+while rendering all image/color corpus pages concurrently from one `Document`;
+all summaries and raster hashes must match.
 
-Canonical 72 DPI opaque and transparent PNG content hashes are frozen for all
-three pages. Canonical SVG hashes also freeze the bounded non-rotated raster
-fallback and the conservative full-CropBox fallback required for rotated
-pages. Focused display-list tests assert the group, mask, mesh, clip, dash and
-page-box structure before rendering.
+The six-page Release smoke gate now permits at most 5 seconds and 32 MiB of
+managed allocations. The qualification measurement on Windows completed in
+about 0.2 seconds with 10.1 MiB allocated, leaving runner variance without
+making the gate too broad to catch a material regression.
 
-## Compatibility and packaging
+## Distribution gates
 
-The callable public surface is unchanged from `0.12.0-alpha.3` apart from the
-expected `Document.PortVersion` value. The library and CLI package versions are
-`0.12.0-beta.1`. The dependency graph remains CoreJ2K 2.3.3.91,
-JBig2Decoder.NETStandard 1.5.2 and StbImageSharp 2.30.15, all managed.
+CI now inspects the produced NuGet archive for an exact managed package shape,
+GPL license metadata, repository commit metadata and the pinned three-package
+runtime dependency set. A clean project restores the produced package and
+renders PNG/SVG output on Ubuntu, Windows and macOS.
 
-GitHub Actions builds and tests the release on Ubuntu, Windows and macOS,
-verifies the managed-only boundary, and packs the NuGet artifact before the
-release workflow publishes it through NuGet.org trusted publishing.
+CI also creates a tracked-file source archive, extracts it into a clean
+directory, restores, builds, runs the complete tests and managed-only verifier,
+repacks the library and rechecks package metadata. NuGet publication waits for
+all three consumer jobs.
 
 ## Installation
 
 ```xml
-<PackageReference Include="Poppler.Net" Version="0.12.0-beta.1" />
+<PackageReference Include="Poppler.Net" Version="0.12.0-beta.2" />
 ```
 
 ## Deliberate limits

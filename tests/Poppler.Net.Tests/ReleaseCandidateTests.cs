@@ -11,9 +11,9 @@ namespace Poppler.Net.Tests;
 public sealed class ReleaseCandidateTests
 {
     private const string FrozenPublicApiSha256 =
-        "be515260264b76a8c2dd59df8d0052d0b71ca1635aa6d854a24e1a6fc230f21a";
+        "334fb37308370eb72515706bdbb25727670a1bcf8498d530c355eea6eafba432";
     private const string FrozenCallableApiSha256 =
-        "cd82599822b9d301c9236b56a22cacb45a284d40498ce4b42a0c72e75a07af46";
+        "ce87b22579e9458c3c1dcdb1aa01790f15d13006ad177ad4815f1e974e63b527";
 
     [Test]
     public async Task ConcurrentReadsFromOneDocumentAreDeterministic()
@@ -243,11 +243,11 @@ public sealed class ReleaseCandidateTests
         {
             Assert.That(
                 stopwatch.Elapsed,
-                Is.LessThan(TimeSpan.FromSeconds(30)),
+                Is.LessThan(TimeSpan.FromSeconds(5)),
                 "the six-page release smoke corpus exceeded its time budget");
             Assert.That(
                 allocated,
-                Is.LessThan(512L * 1024 * 1024),
+                Is.LessThan(32L * 1024 * 1024),
                 "the six-page release smoke corpus exceeded its allocation budget");
         }));
     }
@@ -293,7 +293,7 @@ public sealed class ReleaseCandidateTests
     }
 
     [Test]
-    public void VersionMatchesGraphicsCompatibilityBetaOnePrerelease()
+    public void VersionMatchesHardeningBetaTwoPrerelease()
     {
         string informationalVersion =
             typeof(Document).Assembly
@@ -303,9 +303,9 @@ public sealed class ReleaseCandidateTests
 
         Assert.Multiple((Action)(() =>
         {
-            Assert.That(Document.PortVersion, Is.EqualTo("0.12.0-beta.1"));
-            Assert.That(packageVersion, Is.EqualTo("0.12.0-beta.1"));
-            Assert.That(packageVersion, Does.EndWith("-beta.1"));
+            Assert.That(Document.PortVersion, Is.EqualTo("0.12.0-beta.2"));
+            Assert.That(packageVersion, Is.EqualTo("0.12.0-beta.2"));
+            Assert.That(packageVersion, Does.EndWith("-beta.2"));
         }));
     }
 

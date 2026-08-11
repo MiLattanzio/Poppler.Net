@@ -8,7 +8,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.12.0-beta.1` graphics-compatibility release is not a complete replacement for
+> This `0.12.0-beta.2` hardening release is not a complete replacement for
 > libpoppler.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
@@ -81,6 +81,10 @@ process invocation, or native NuGet dependency.
 > corpus covering reused isolated groups, transformed dashed strokes, a Coons
 > mesh through a type 1 luminosity mask, even-odd clipping and rotated CropBox
 > handling. The public API and managed-only dependency boundary are unchanged.
+> Beta 2 hardens hostile-input behavior with pre-growth decoder checks and
+> cumulative clip, image-pixel and page-mesh budgets. It also freezes tighter
+> performance/allocation baselines and verifies the NuGet package through a
+> clean consumer on Linux, Windows and macOS plus an extracted-source rebuild.
 > See [docs/ANNOTATIONS.md](docs/ANNOTATIONS.md) for its scope and limits. See
 > [docs/FORMS.md](docs/FORMS.md) for the AcroForm model and
 > [docs/OPTIONAL_CONTENT.md](docs/OPTIONAL_CONTENT.md) for layer behavior. See
@@ -113,9 +117,11 @@ or any native cryptography asset.
 
 ## CI and NuGet publishing
 
-The GitHub Actions workflow builds, tests, verifies and packs the solution on
-Ubuntu, Windows and macOS for pushes to `master` and pull requests. It also
-stores the generated `.nupkg` as a workflow artifact. Every push to `master`
+The GitHub Actions workflow builds, tests and verifies the solution on Ubuntu,
+Windows and macOS for pushes to `master` and pull requests. It inspects the
+produced `.nupkg`, rebuilds and tests an extracted source archive, then restores
+and renders through a clean package consumer on all three systems. The package
+and source archive are stored as workflow artifacts. Every push to `master`
 publishes the WebAssembly playground to GitHub Pages.
 
 Publishing a GitHub Release runs the same gates and then publishes the package

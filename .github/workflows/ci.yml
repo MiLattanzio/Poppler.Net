@@ -73,7 +73,9 @@ jobs:
     name: Pack NuGet package
     needs: build-and-test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+    outputs:
+      package-version: ${{ steps.package-version.outputs.value }}
 
     steps:
       - name: Check out repository
@@ -89,6 +91,15 @@ jobs:
 
       - name: Build
         run: dotnet build Poppler.Net.sln --configuration Release --no-restore
+
+      - name: Read package version
+        id: package-version
+        shell: bash
+        run: >-
+          echo "value=$(dotnet msbuild
+          src/Poppler.Net/Poppler.Net.csproj
+          -nologo
+          -getProperty:Version)" >> "${GITHUB_OUTPUT}"
 
       - name: Verify release tag matches package version
         if: github.event_name == 'release'
@@ -110,6 +121,60 @@ jobs:
           --no-build
           --output artifacts
 
+      - name: Verify package content and metadata
+        shell: bash
+        run: >-
+          dotnet run
+          --project eng/Poppler.Net.PackageVerifier/Poppler.Net.PackageVerifier.csproj
+          --configuration Release
+          --no-build
+          --
+          "artifacts/Poppler.Net.${{ steps.package-version.outputs.value }}.nupkg"
+          "${{ steps.package-version.outputs.value }}"
+
+      - name: Create source archive
+        shell: bash
+        run: >-
+          git archive
+          --format=tar.gz
+          --prefix=Poppler.Net/
+          --output="artifacts/Poppler.Net.${{ steps.package-version.outputs.value }}.tar.gz"
+          HEAD
+
+      - name: Verify extracted source archive
+        shell: bash
+        env:
+          PACKAGE_VERSION: ${{ steps.package-version.outputs.value }}
+        run: |
+          source_root="$(mktemp -d)"
+          tar -xzf "${GITHUB_WORKSPACE}/artifacts/Poppler.Net.${PACKAGE_VERSION}.tar.gz" -C "${source_root}"
+          cd "${source_root}/Poppler.Net"
+          dotnet restore Poppler.Net.sln --configfile NuGet.Config
+          dotnet build Poppler.Net.sln --configuration Release --no-restore
+          dotnet run \
+            --project eng/Poppler.Net.ManagedOnlyVerifier/Poppler.Net.ManagedOnlyVerifier.csproj \
+            --configuration Release \
+            --no-build \
+            -- "${source_root}/Poppler.Net"
+          dotnet run \
+            --project tests/Poppler.Net.Tests/Poppler.Net.Tests.csproj \
+            --configuration Release \
+            --no-build \
+            -- --noresult
+          dotnet pack \
+            src/Poppler.Net/Poppler.Net.csproj \
+            --configuration Release \
+            --no-build \
+            -p:SourceRevisionId="${GITHUB_SHA}" \
+            --output "${source_root}/package"
+          dotnet run \
+            --project eng/Poppler.Net.PackageVerifier/Poppler.Net.PackageVerifier.csproj \
+            --configuration Release \
+            --no-build \
+            -- \
+            "${source_root}/package/Poppler.Net.${PACKAGE_VERSION}.nupkg" \
+            "${PACKAGE_VERSION}"
+
       - name: Upload NuGet package
         uses: actions/upload-artifact@v7
         with:
@@ -118,10 +183,67 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload source archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: source-archive
+          path: artifacts/*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  package-consumer:
+    name: Package consumer (${{ matrix.os }})
+    needs: package
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Download NuGet package
+        uses: actions/download-artifact@v8
+        with:
+          name: nuget-package
+          path: artifacts
+
+      - name: Restore clean package consumer
+        run: >-
+          dotnet restore
+          eng/Poppler.Net.PackageSmoke/Poppler.Net.PackageSmoke.csproj
+          --source "${{ github.workspace }}/artifacts"
+          --source "https://api.nuget.org/v3/index.json"
+          -p:PopplerPackageVersion=${{ needs.package.outputs.package-version }}
+
+      - name: Build and render from package
+        run: >-
+          dotnet run
+          --project eng/Poppler.Net.PackageSmoke/Poppler.Net.PackageSmoke.csproj
+          --configuration Release
+          --no-restore
+          -p:PopplerPackageVersion=${{ needs.package.outputs.package-version }}
+          --
+          tests/fixtures/rendering-beta2.pdf
+          ${{ needs.package.outputs.package-version }}
+
   publish:
     name: Publish to NuGet.org
     if: github.event_name == 'release' && github.event.action == 'published'
-    needs: package
+    needs:
+      - package
+      - package-consumer
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment: nuget.org

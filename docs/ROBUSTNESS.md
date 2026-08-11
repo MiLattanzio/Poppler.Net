@@ -60,6 +60,24 @@ Both values must be positive. They complement the existing decoded-byte,
 graphics-operation, display-list, path, recursion, object and collection
 limits.
 
+## Cumulative display-list protection
+
+Beta 2 adds limits around resources that are individually valid but hostile in
+aggregate. `MaximumClipPaths` defaults to 4,096 per graphics state and is
+checked before retaining another text, path, Form, annotation or soft-mask
+clip. `MaximumPageImagePixels` defaults to 200,000,000 decoded pixels and
+`MaximumPageMeshTriangles` defaults to 262,144 triangles across one page
+interpretation. Their counters are charged before the next image decode or
+mesh element is retained. Repeated non-mask Image XObjects share one immutable
+decoded value when the object, resource dictionary and resource name match;
+color-dependent image masks remain per-use.
+
+ASCIIHex, ASCII85 and RunLength filters reserve their decoded byte budget
+before each output write. Combined `/Contents` arrays include the separator
+inserted between streams in the same calculation. Extreme finite page boxes
+and working-surface dimensions fail with stable `PdfLimitException`
+diagnostics before array allocation.
+
 ## Raster geometry protection
 
 `MaximumRasterGeometrySegments` defaults to 4,000,000 per raster operation.

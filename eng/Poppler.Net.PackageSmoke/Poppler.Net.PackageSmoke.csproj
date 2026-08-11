@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>Poppler.Net.PackageSmoke</AssemblyName>
+    <RootNamespace>Poppler.Net.PackageSmoke</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <PopplerPackageVersion Condition="'$(PopplerPackageVersion)' == ''">0.12.0-beta.2</PopplerPackageVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Poppler.Net" Version="$(PopplerPackageVersion)" />
+  </ItemGroup>
+</Project>

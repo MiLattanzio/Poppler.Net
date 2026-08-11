@@ -76,7 +76,8 @@ internal static class Program
         var centralVersions = ReadCentralVersions(root);
 
         foreach (string projectPath in EnumerateBuildFiles(root)
-                     .Where(path => !IsSamplePath(root, path)))
+                     .Where(path => !IsSamplePath(root, path))
+                     .Where(path => !IsPackageConsumerPath(root, path)))
         {
             if (IsGeneratedPath(projectPath))
                 continue;
@@ -126,6 +127,10 @@ internal static class Program
             // Browser samples carry the standard WebAssembly runtime. They do
             // not participate in the Poppler.Net managed-only package graph.
             .Where(path => !IsSamplePath(root, path))
+            // The clean consumer is restored only after the local package is
+            // produced. Its package is inspected by PackageVerifier and then
+            // exercised independently on every supported runner.
+            .Where(path => !IsPackageConsumerPath(root, path))
             .ToArray();
         var packageDirectories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -315,6 +320,11 @@ internal static class Program
         Path.GetRelativePath(root, path)
             .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
             .FirstOrDefault() == "samples";
+
+    private static bool IsPackageConsumerPath(string root, string path) =>
+        Path.GetRelativePath(root, path)
+            .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) is
+            ["eng", "Poppler.Net.PackageSmoke", ..];
 
     private static IEnumerable<string> EnumerateBuildFiles(string root) =>
         Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)

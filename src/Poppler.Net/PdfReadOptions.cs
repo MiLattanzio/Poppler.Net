@@ -22,6 +22,11 @@ public sealed record PdfReadOptions
     public int MaximumGraphicsElements { get; init; } = 250_000;
     public int MaximumPathSegments { get; init; } = 1_000_000;
     /// <summary>
+    /// Maximum cumulative clip paths retained by one graphics state.
+    /// The limit is checked before a clip is appended.
+    /// </summary>
+    public int MaximumClipPaths { get; init; } = 4_096;
+    /// <summary>
     /// Maximum cumulative number of temporary line segments produced by one
     /// raster render. The budget includes curve flattening, dash fragments,
     /// stroke outlines and raster clip geometry.
@@ -32,6 +37,10 @@ public sealed record PdfReadOptions
     public int MaximumTransparencyGroupDepth { get; init; } = 32;
     public int MaximumShadingStops { get; init; } = 33;
     public int MaximumMeshTriangles { get; init; } = 65_536;
+    /// <summary>
+    /// Maximum cumulative mesh triangles retained by one page display list.
+    /// </summary>
+    public int MaximumPageMeshTriangles { get; init; } = 262_144;
     public int MaximumAnnotationsPerPage { get; init; } = 100_000;
     public int MaximumAnnotationPoints { get; init; } = 250_000;
     public int MaximumAnnotationAppearanceDepth { get; init; } = 16;
@@ -50,6 +59,11 @@ public sealed record PdfReadOptions
     public int MaximumOptionalContentDepth { get; init; } = 128;
     public int MaximumOptionalContentExpressionNodes { get; init; } = 250_000;
     public long MaximumImagePixels { get; init; } = 100_000_000;
+    /// <summary>
+    /// Maximum cumulative declared image pixels decoded while building one
+    /// page display list.
+    /// </summary>
+    public long MaximumPageImagePixels { get; init; } = 200_000_000;
     public long MaximumRenderPixels { get; init; } = 100_000_000;
     /// <summary>
     /// Maximum bytes simultaneously reserved by high-precision raster
@@ -113,6 +127,8 @@ public sealed record PdfReadOptions
             throw new ArgumentOutOfRangeException(nameof(MaximumGraphicsElements));
         if (MaximumPathSegments < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumPathSegments));
+        if (MaximumClipPaths < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumClipPaths));
         if (MaximumRasterGeometrySegments < 1)
         {
             throw new ArgumentOutOfRangeException(
@@ -128,6 +144,8 @@ public sealed record PdfReadOptions
             throw new ArgumentOutOfRangeException(nameof(MaximumShadingStops));
         if (MaximumMeshTriangles < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumMeshTriangles));
+        if (MaximumPageMeshTriangles < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumPageMeshTriangles));
         if (MaximumAnnotationsPerPage < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumAnnotationsPerPage));
         if (MaximumAnnotationPoints < 1)
@@ -173,6 +191,8 @@ public sealed record PdfReadOptions
         }
         if (MaximumImagePixels < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumImagePixels));
+        if (MaximumPageImagePixels < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumPageImagePixels));
         if (MaximumRenderPixels < 1)
             throw new ArgumentOutOfRangeException(nameof(MaximumRenderPixels));
         if (MaximumRenderWorkingBytes < 1)
