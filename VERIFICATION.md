@@ -205,5 +205,6 @@ directory extracted from that archive restores, builds all six projects, runs
 all 285 tests, passes the managed-only verifier, repacks beta.2 with the source
 revision and passes package verification again. GitHub Actions repeats the
 package consumer for both `net8.0` and `net10.0` on Ubuntu, Windows and macOS;
-the remaining roadmap checkbox is intentionally left open until that remote
-matrix is green.
+pull-request [CI run 48](https://github.com/MiLattanzio/Poppler.Net/actions/runs/31508463279)
+passes all three build/test and managed-only jobs, the package/extracted-source
+job, and all six operating-system/framework consumer jobs.

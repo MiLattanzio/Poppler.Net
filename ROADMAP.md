@@ -87,7 +87,7 @@ Beta.2 begins only after the beta.1 tracker is complete.
 - [x] Safety-limit and malformed-input cases fail deterministically with
   bounded diagnostics.
 - [x] Performance and allocation gates pass without unexplained regression.
-- [ ] Full CI and managed-only verification pass on all supported runners.
+- [x] Full CI and managed-only verification pass on all supported runners.
 - [x] NuGet consumer smoke and extracted-source gates pass.
 - [x] Documentation reflects the final beta behavior and limits.
 
