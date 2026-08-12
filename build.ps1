@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
+$PSNativeCommandUseErrorActionPreference = $true
 $configuration = if ($args.Count -gt 0) { $args[0] } else { "Release" }
 $repositoryRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
@@ -87,6 +88,31 @@ try {
             $html.IndexOf('<text ', [StringComparison]::Ordinal) -ge 0 -or
             $html.IndexOf('ABCDEF+DejaVuSans', [StringComparison]::Ordinal) -ge 0) {
             throw "The packaged CLI HTML smoke output is invalid."
+        }
+        $separateOutput = Join-Path $toolRoot "separated"
+        & $toolCommand separate `
+            tests/fixtures/truetype-format0-subset.pdf `
+            $separateOutput
+        $separatedPage = Join-Path `
+            $separateOutput `
+            "truetype-format0-subset-page-0001.pdf"
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $separatedPage)) {
+            throw "The packaged CLI did not create standalone PDF output."
+        }
+        $separatedInfo = (& $toolCommand info $separatedPage | Out-String)
+        if ($LASTEXITCODE -ne 0 -or
+            $separatedInfo.IndexOf("Pages:              1", [StringComparison]::Ordinal) -lt 0 -or
+            $separatedInfo.IndexOf("Encrypted:          no", [StringComparison]::Ordinal) -lt 0) {
+            throw "The packaged CLI standalone PDF smoke output is invalid."
+        }
+        & $toolCommand separate `
+            tests/fixtures/truetype-format0-subset.pdf `
+            $separateOutput
+        $collisionPage = Join-Path `
+            $separateOutput `
+            "truetype-format0-subset-page-0001-2.pdf"
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $collisionPage)) {
+            throw "The packaged CLI did not choose a collision-free PDF name."
         }
     }
     finally {

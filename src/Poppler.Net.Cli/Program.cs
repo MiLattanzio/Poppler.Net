@@ -27,6 +27,7 @@ internal static class Cli
                 "layers" => Layers(args),
                 "graphics" => Graphics(args),
                 "images" => Images(args),
+                "separate" => Separate(args),
                 "render" => Render(args),
                 "attachments" => Attachments(args),
                 "svg" => Svg(args),
@@ -418,6 +419,37 @@ internal static class Cli
         return 0;
     }
 
+    private static int Separate(string[] args)
+    {
+        RequireCount(args, 3, "separate requires an input PDF and output directory.");
+        string outputDirectory = Path.GetFullPath(args[2]);
+        Directory.CreateDirectory(outputDirectory);
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
+        int firstPage = GetIntegerOption(args, "--first-page") ?? 1;
+        int lastPage = GetIntegerOption(args, "--last-page") ?? document.Pages;
+        if (firstPage < 1 || lastPage < firstPage || lastPage > document.Pages)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(args),
+                $"PDF page range must be between 1 and {document.Pages}.");
+        }
+
+        string stem = SafeFileStem(Path.GetFileNameWithoutExtension(args[1]));
+        int width = Math.Max(4, document.Pages.ToString(CultureInfo.InvariantCulture).Length);
+        string format = "D" + width.ToString(CultureInfo.InvariantCulture);
+        foreach (PdfExtractedPage page in document.ExtractPages(
+                     firstPage - 1,
+                     lastPage - firstPage + 1))
+        {
+            string number = page.SourcePageNumber.ToString(format, CultureInfo.InvariantCulture);
+            string path = UniquePath(outputDirectory, $"{stem}-page-{number}.pdf");
+            page.SaveTo(path);
+            Console.WriteLine($"page {page.SourcePageNumber} -> {path}");
+        }
+        return 0;
+    }
+
     private static int Html(string[] args)
     {
         RequireCount(args, 3, "html requires an input PDF and output file or directory.");
@@ -741,6 +773,17 @@ internal static class Cli
         throw new IOException($"Could not choose a unique path for '{fileName}'.");
     }
 
+    private static string SafeFileStem(string value)
+    {
+        string result = new(value
+            .Select(character => char.IsAsciiLetterOrDigit(character) || character is '-' or '_' or '.'
+                ? character
+                : '-')
+            .ToArray());
+        result = result.Trim('.', '-', '_');
+        return string.IsNullOrEmpty(result) ? "document" : result;
+    }
+
     private static string YesNo(bool value) => value ? "yes" : "no";
 
     private static string Truncate(string value, int length) =>
@@ -780,6 +823,7 @@ internal static class Cli
               poppler-net layers <input.pdf> [password options]
               poppler-net graphics <input.pdf> [--page N] [password options]
               poppler-net images <input.pdf> <output-dir> [--page N] [password options]
+              poppler-net separate <input.pdf> <output-dir> [--first-page N] [--last-page N] [password options]
               poppler-net render <input.pdf> <output.png> [--page N] [--dpi N] [--antialias 1|2|4|8] [--transparent] [--font-dir PATH] [--layer ID=on|off] [--no-font-substitution] [common options]
               poppler-net attachments <input.pdf> <output-dir> [password options]
               poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds] [--image-bounds] [--layer ID=on|off] [password options]

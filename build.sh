@@ -88,3 +88,17 @@ if grep -F 'ABCDEF+DejaVuSans' "${tool_root}/tool-smoke.html" >/dev/null; then
   echo "The packaged CLI HTML smoke output contains an unnormalized subset font name." >&2
   exit 1
 fi
+
+separate_root="${tool_root}/separated"
+"${tool_root}/poppler-net" separate \
+  tests/fixtures/truetype-format0-subset.pdf \
+  "$separate_root"
+separated_page="${separate_root}/truetype-format0-subset-page-0001.pdf"
+test -f "$separated_page"
+separated_info="$("${tool_root}/poppler-net" info "$separated_page")"
+grep -F 'Pages:              1' <<<"$separated_info" >/dev/null
+grep -F 'Encrypted:          no' <<<"$separated_info" >/dev/null
+"${tool_root}/poppler-net" separate \
+  tests/fixtures/truetype-format0-subset.pdf \
+  "$separate_root"
+test -f "${separate_root}/truetype-format0-subset-page-0001-2.pdf"

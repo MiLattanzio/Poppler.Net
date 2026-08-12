@@ -9,11 +9,13 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.13.0-alpha.1` prerelease builds on stable `0.12.0` and is not a
+> This `0.13.0-alpha.2` prerelease builds on stable `0.12.0` and is not a
 > complete replacement for libpoppler. It adds deterministic fixed-layout
 > HTML conversion for pages, ranges and complete documents, including
 > selectable DOM text, safe links, normalized subset-font names, embedded
-> TrueType/OpenType data, self-contained output and directory bundles.
+> TrueType/OpenType data, self-contained output and directory bundles. Alpha.2
+> adds bounded standalone PDF page extraction through the API, CLI and
+> WebAssembly playground.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
 > extraction, a backend-neutral vector display list and an SVG vector
@@ -156,6 +158,9 @@ default in the selectable HTML renderer, with PNG and SVG available from the
 same preview controls. Each preview can be downloaded in its active format;
 complete-document HTML and a ZIP directory bundle containing `index.html`,
 CSS, page SVGs, reusable fonts and a manifest are also available. The
+current page can be downloaded as an autonomous PDF, while every page can be
+downloaded in one ZIP with stable zero-padded names. Extracted PDFs are
+unencrypted and preserve the selected page's reachable resources. The
 playground additionally exposes text extraction and search, font and image
 inspection, annotations, outlines, optional-content layers and diagnostics.
 The generated HTML contains only the requested page or the complete stack of
@@ -177,8 +182,8 @@ Starting with `0.13.0-alpha.1`, the CLI is published as the
 tool. Install or update it with:
 
 ```bash
-dotnet tool install --global Poppler.Net.Cli --version 0.13.0-alpha.1
-dotnet tool update --global Poppler.Net.Cli --version 0.13.0-alpha.1
+dotnet tool install --global Poppler.Net.Cli --version 0.13.0-alpha.2
+dotnet tool update --global Poppler.Net.Cli --version 0.13.0-alpha.2
 poppler-net version
 ```
 
@@ -194,6 +199,8 @@ dotnet run --project src/Poppler.Net.Cli -- forms input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- layers input.pdf
 dotnet run --project src/Poppler.Net.Cli -- graphics input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- images input.pdf output-images
+dotnet run --project src/Poppler.Net.Cli -- separate input.pdf output-pages
+dotnet run --project src/Poppler.Net.Cli -- separate input.pdf output-pages --first-page 2 --last-page 5
 dotnet run --project src/Poppler.Net.Cli -- render input.pdf page.png --page 1 --dpi 144
 dotnet run --project src/Poppler.Net.Cli -- render input.pdf page.png --font-dir fonts
 dotnet run --project src/Poppler.Net.Cli -- render input.pdf page.png --cmap-dir cmaps
@@ -282,7 +289,15 @@ document.SaveHtmlBundle("html-bundle");
 ```
 
 All page indices in the API are zero-based. CLI page numbers are one-based.
-See [docs/HTML_EXPORT.md](docs/HTML_EXPORT.md) for layout, packaging, font,
+Standalone page extraction is available through `Page.ExtractPdf`/`SavePdf`
+and `Document.ExtractPage`/`ExtractPages`/`SavePage`. It writes a minimal
+catalog and page tree, preserves inherited page geometry/resources and
+supported annotations/forms, removes cross-page navigation, and accepts only
+unlocked encrypted documents. Output is always unencrypted and bounded by
+`PdfPageExtractionOptions` object, depth, stream-byte and output-byte limits.
+See [docs/PAGE_EXTRACTION.md](docs/PAGE_EXTRACTION.md) for standalone-PDF
+preservation rules, limits and encryption policy, and
+[docs/HTML_EXPORT.md](docs/HTML_EXPORT.md) for HTML layout, packaging, font,
 link and security behavior.
 
 Encrypted files can be opened directly:

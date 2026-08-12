@@ -148,6 +148,14 @@ public sealed class Page
         File.WriteAllText(fileName, RenderToSvg(options));
     }
 
+    /// <summary>Extracts this page as a standalone, unencrypted PDF.</summary>
+    public byte[] ExtractPdf(PdfPageExtractionOptions? options = null) =>
+        _owner.ExtractPage(Index, options);
+
+    /// <summary>Saves this page as a standalone, unencrypted PDF.</summary>
+    public void SavePdf(string fileName, PdfPageExtractionOptions? options = null) =>
+        _owner.SavePage(Index, fileName, options);
+
     /// <summary>
     /// Renders this page as a complete, self-contained fixed-layout HTML
     /// document with a selectable text layer.
