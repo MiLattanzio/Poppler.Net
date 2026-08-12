@@ -282,7 +282,7 @@ writer required for a managed `pdfseparate` equivalent.
 - [x] Inheritance, compressed objects, cycles, encryption policy, and malformed
   graphs have bounded deterministic tests.
 - [x] The writer remains internal and exposes no general mutation API.
-- [ ] API, CLI, playground, and three-OS CI gates pass.
+- [x] API, CLI, playground, and three-OS CI gates pass.
 
 ### 0.13.0-alpha.3: structured data and image exports
 
