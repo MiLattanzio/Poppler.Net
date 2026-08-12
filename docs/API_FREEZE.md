@@ -47,3 +47,22 @@ The complete `0.13.0-alpha.1` public surface has SHA-256:
 
 Later 0.13 changes require the same explicit surface review, regression update
 and changelog entry.
+
+## 0.13.0-alpha.2 page-extraction surface
+
+Alpha.2 intentionally adds the reviewed standalone-page extraction surface:
+`PdfPageExtractionOptions`, `PdfExtractedPage`, document single/range/save
+methods, and page extract/save methods. The writer remains internal and does
+not expose general PDF mutation.
+
+The approved alpha.2 callable SHA-256, normalizing only
+`Document.PortVersion`, is:
+
+`53991b11decf2d7b15783c7b937b60714902d5e388596de6c121e17133dabc98`
+
+The complete `0.13.0-alpha.2` public surface has SHA-256:
+
+`51d5411551b4b1c737d292524bc3b4413e8d9402862eb55776051754b9f9a4ce`
+
+These values replace the alpha.1 regression constants only after reviewing
+the reflection-surface diff and the extraction-specific API documentation.

@@ -6,13 +6,14 @@ using Poppler.Forms;
 using Poppler.OptionalContent;
 using Poppler.Outlines;
 using Poppler.Rendering;
+using Poppler.Writing;
 
 namespace Poppler;
 
 /// <summary>Read-only managed representation of a PDF document.</summary>
 public sealed class Document : IDisposable
 {
-    public const string PortVersion = "0.13.0-alpha.1";
+    public const string PortVersion = "0.13.0-alpha.2";
     public const string UpstreamVersion = "26.07.0";
 
     private readonly byte[] _data;
@@ -428,6 +429,72 @@ public sealed class Document : IDisposable
         EnsureNotDisposed();
         ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
         File.WriteAllBytes(fileName, _core.OriginalBytes.ToArray());
+    }
+
+    /// <summary>
+    /// Extracts one zero-based source page as a standalone, unencrypted PDF.
+    /// Unlocked encrypted input is accepted.
+    /// </summary>
+    public byte[] ExtractPage(
+        int index,
+        PdfPageExtractionOptions? options = null)
+    {
+        EnsureNotDisposed();
+        EnsureUnlocked();
+        if ((uint)index >= (uint)_pageNodes.Count)
+            throw new ArgumentOutOfRangeException(nameof(index));
+        PdfPageExtractionOptions effectiveOptions =
+            (options ?? new PdfPageExtractionOptions()).Snapshot();
+        return PdfPageExtractor.Extract(
+            _core,
+            _catalog,
+            _pageNodes[index],
+            _pageNodes,
+            effectiveOptions);
+    }
+
+    /// <summary>
+    /// Extracts a zero-based page range into separate autonomous PDFs.
+    /// A null <paramref name="pageCount"/> selects every remaining page.
+    /// </summary>
+    public IReadOnlyList<PdfExtractedPage> ExtractPages(
+        int firstPageIndex = 0,
+        int? pageCount = null,
+        PdfPageExtractionOptions? options = null)
+    {
+        EnsureNotDisposed();
+        EnsureUnlocked();
+        if ((uint)firstPageIndex >= (uint)_pageNodes.Count)
+            throw new ArgumentOutOfRangeException(nameof(firstPageIndex));
+        int count = pageCount ?? (_pageNodes.Count - firstPageIndex);
+        if (count < 1 || firstPageIndex > _pageNodes.Count - count)
+            throw new ArgumentOutOfRangeException(nameof(pageCount));
+        PdfPageExtractionOptions effectiveOptions =
+            (options ?? new PdfPageExtractionOptions()).Snapshot();
+        var result = new PdfExtractedPage[count];
+        for (int offset = 0; offset < count; offset++)
+        {
+            int index = firstPageIndex + offset;
+            result[offset] = new PdfExtractedPage(
+                index,
+                PdfPageExtractor.Extract(
+                    _core,
+                    _catalog,
+                    _pageNodes[index],
+                    _pageNodes,
+                    effectiveOptions));
+        }
+        return result;
+    }
+
+    /// <summary>Saves one zero-based source page as a standalone PDF.</summary>
+    public void SavePage(
+        int index,
+        string fileName,
+        PdfPageExtractionOptions? options = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+        File.WriteAllBytes(fileName, ExtractPage(index, options));
     }
 
     /// <summary>

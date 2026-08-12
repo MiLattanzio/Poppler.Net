@@ -501,6 +501,46 @@ internal static class PdfFixtures
             infoObject: 6);
     }
 
+    public static byte[] CreateWithInheritedPageResources()
+    {
+        byte[] content = Ascii(
+            "BT /F1 18 Tf 40 160 Td (Inherited page resources) Tj ET");
+        return BuildClassic(
+            new[]
+            {
+                Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+                Ascii(
+                    "<< /Type /Pages /Kids [3 0 R] /Count 1 " +
+                    "/MediaBox [0 0 320 240] /CropBox [10 20 300 220] " +
+                    "/Rotate 90 /Resources << /Font << /F1 5 0 R >> >> >>"),
+                Ascii("<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>"),
+                Stream($"<< /Length {content.Length} >>", content),
+                Ascii(
+                    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica " +
+                    "/Encoding /WinAnsiEncoding >>")
+            },
+            infoObject: null);
+    }
+
+    public static byte[] CreateWithCyclicResourceGraph()
+    {
+        byte[] content = Ascii("0 0 100 100 re S");
+        return BuildClassic(
+            new[]
+            {
+                Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+                Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+                Ascii(
+                    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 100 100] " +
+                    "/Resources << /ExtGState << /Cycle 5 0 R >> >> " +
+                    "/Contents 4 0 R >>"),
+                Stream($"<< /Length {content.Length} >>", content),
+                Ascii("<< /Type /ExtGState /Next 6 0 R >>"),
+                Ascii("<< /Previous 5 0 R >>")
+            },
+            infoObject: null);
+    }
+
     public static byte[] CreateXrefStreamWithBrokenStartXref()
     {
         return BreakStartXref(CreateWithXrefStream());

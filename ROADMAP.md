@@ -250,7 +250,7 @@ all later HTML modes.
   focused tests.
 - [x] Self-contained and directory-bundle modes open in current Chromium.
 - [x] API, CLI, and playground expose equivalent options and stable downloads.
-- [ ] Managed-only verification and Ubuntu, Windows, and macOS CI pass.
+- [x] Managed-only verification and Ubuntu, Windows, and macOS CI pass.
 - [x] Public documentation records options, fallbacks, limits, and known
   differences from Poppler.
 
@@ -276,13 +276,13 @@ writer required for a managed `pdfseparate` equivalent.
 
 #### Exit criteria
 
-- [ ] Every extracted PDF reopens with Poppler.Net and Poppler 26.07.
-- [ ] Content, resources, boxes, rotation, and supported annotations survive
+- [x] Every extracted PDF reopens with Poppler.Net and Poppler 26.07.
+- [x] Content, resources, boxes, rotation, and supported annotations survive
   extraction.
-- [ ] Inheritance, compressed objects, cycles, encryption policy, and malformed
+- [x] Inheritance, compressed objects, cycles, encryption policy, and malformed
   graphs have bounded deterministic tests.
-- [ ] The writer remains internal and exposes no general mutation API.
-- [ ] API, CLI, playground, and three-OS CI gates pass.
+- [x] The writer remains internal and exposes no general mutation API.
+- [x] API, CLI, playground, and three-OS CI gates pass.
 
 ### 0.13.0-alpha.3: structured data and image exports
 

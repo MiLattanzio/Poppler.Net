@@ -340,6 +340,27 @@ jobs:
               $content.IndexOf("ABCDEF+DejaVuSans", [StringComparison]::Ordinal) -ge 0) {
             throw "The packaged CLI HTML smoke output is invalid."
           }
+          $separate = Join-Path "${{ runner.temp }}" "poppler-net-separated"
+          & $command separate `
+            "tests/fixtures/truetype-format0-subset.pdf" `
+            $separate
+          $page = Join-Path $separate "truetype-format0-subset-page-0001.pdf"
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $page)) {
+            throw "The packaged CLI did not create standalone PDF output."
+          }
+          $info = (& $command info $page | Out-String)
+          if ($LASTEXITCODE -ne 0 -or
+              $info.IndexOf("Pages:              1", [StringComparison]::Ordinal) -lt 0 -or
+              $info.IndexOf("Encrypted:          no", [StringComparison]::Ordinal) -lt 0) {
+            throw "The packaged CLI standalone PDF smoke output is invalid."
+          }
+          & $command separate `
+            "tests/fixtures/truetype-format0-subset.pdf" `
+            $separate
+          $collision = Join-Path $separate "truetype-format0-subset-page-0001-2.pdf"
+          if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $collision)) {
+            throw "The packaged CLI did not choose a collision-free PDF name."
+          }
 
   publish:
     name: Publish to NuGet.org

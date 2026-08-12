@@ -271,6 +271,9 @@
                             <button type="button" class="download-action compact" @onclick="DownloadPreviewAsync" disabled="@(_previewBytes is null || _isBusy)">
                                 Scarica @PreviewFormatLabel
                             </button>
+                            <button type="button" class="download-action compact" @onclick="DownloadExtractedPagePdfAsync" disabled="@_isBusy">
+                                Estrai PDF
+                            </button>
                         </div>
                     </div>
 
@@ -347,10 +350,12 @@
                             <section class="export-panel" aria-label="Esporta documento e pagina">
                                 <div class="export-copy">
                                     <span class="cap-icon">↓</span>
-                                    <div><strong>Esporta i risultati</strong><small>HTML glyph-level con font managed e fallback, generato localmente senza upload.</small></div>
+                                    <div><strong>Esporta i risultati</strong><small>HTML e PDF autonomi generati localmente, senza upload.</small></div>
                                 </div>
                                 <div class="export-actions">
                                     <button type="button" class="download-action" @onclick="DownloadSourcePdfAsync" disabled="@(_selectedBytes is null || _isBusy)">PDF originale</button>
+                                    <button type="button" class="download-action" @onclick="DownloadExtractedPagePdfAsync" disabled="@_isBusy">Pagina PDF autonoma</button>
+                                    <button type="button" class="download-action" @onclick="DownloadExtractedPagesZipAsync" disabled="@_isBusy">Pagine PDF .zip</button>
                                     <button type="button" class="download-action" @onclick="DownloadPreviewAsync" disabled="@(_previewBytes is null || _isBusy)">Anteprima @PreviewFormatLabel</button>
                                     <button type="button" class="download-action" @onclick="DownloadPageHtmlAsync" disabled="@_isBusy">Pagina HTML</button>
                                     <button type="button" class="download-action" @onclick="DownloadDocumentHtmlAsync" disabled="@_isBusy">Documento HTML</button>
@@ -1017,6 +1022,35 @@
         });
     }
 
+    private Task DownloadExtractedPagePdfAsync()
+    {
+        return RunDownloadAsync(() =>
+        {
+            Page page = _page ?? throw new InvalidOperationException("Nessuna pagina disponibile.");
+            return new DownloadArtifact(
+                ExtractedPageFileName(page.Number),
+                "application/pdf",
+                page.ExtractPdf());
+        });
+    }
+
+    private Task DownloadExtractedPagesZipAsync()
+    {
+        return RunDownloadAsync(() =>
+        {
+            Document document = _document ?? throw new InvalidOperationException("Nessun PDF caricato.");
+            IEnumerable<ZipItem> items = document
+                .ExtractPages()
+                .Select(page => new ZipItem(
+                    ExtractedPageFileName(page.SourcePageNumber),
+                    page.Data.ToArray()));
+            return new DownloadArtifact(
+                $"{DocumentStem}-pagine-pdf.zip",
+                "application/zip",
+                CreateZip(items));
+        });
+    }
+
     private Task DownloadPageHtmlAsync()
     {
         return RunDownloadAsync(() =>
@@ -1298,6 +1332,14 @@
     {
         string resource = SafeFileName(image.ResourceName, $"immagine-{index + 1}");
         return $"{DocumentStem}-pagina-{_pageIndex + 1}-{resource}.png";
+    }
+
+    private string ExtractedPageFileName(int pageNumber)
+    {
+        int width = Math.Max(4, (_document?.Pages ?? pageNumber)
+            .ToString(CultureInfo.InvariantCulture)
+            .Length);
+        return $"{DocumentStem}-pagina-{pageNumber.ToString("D" + width, CultureInfo.InvariantCulture)}.pdf";
     }
 
     private HtmlRenderOptions HtmlPageOptions() => new()
