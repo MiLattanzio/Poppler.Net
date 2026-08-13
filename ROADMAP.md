@@ -313,7 +313,7 @@ the planned 0.13 feature set.
   decoded fallback or diagnostic.
 - [x] Names, extensions, media types, and manifests agree across API, CLI, and
   playground.
-- [ ] Hostile filter chains and oversized images remain bounded on all CI
+- [x] Hostile filter chains and oversized images remain bounded on all CI
   platforms.
 
 ### 0.13.0-beta.1: conversion compatibility closure
