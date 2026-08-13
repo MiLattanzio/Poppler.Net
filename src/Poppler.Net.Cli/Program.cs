@@ -32,6 +32,10 @@ internal static class Cli
                 "attachments" => Attachments(args),
                 "svg" => Svg(args),
                 "html" => Html(args),
+                "json" => Structured(args, StructuredFormat.Json),
+                "xml" => Structured(args, StructuredFormat.Xml),
+                "xhtml" => Structured(args, StructuredFormat.Xhtml),
+                "export" => StructuredBundle(args),
                 "version" or "--version" => Version(),
                 _ => UsageError($"Unknown command '{args[0]}'.")
             };
@@ -132,13 +136,14 @@ internal static class Cli
             : new[] { document.CreatePage(ToIndex(pageNumber.Value, document)) };
 
         Console.WriteLine(
-            "page resource name                             type       encoding       embedded subset unicode mode");
+            "page resource normalized name                  raw PDF name                     type       encoding       embedded subset unicode mode");
         foreach (Page page in pages)
         {
             foreach (FontInfo font in page.Fonts)
             {
                 Console.WriteLine(
                     $"{page.Number,4} {font.ResourceName,-8} {Truncate(font.Name, 32),-32} " +
+                    $"{Truncate(font.RawName, 32),-32} " +
                     $"{font.Type,-10} {Truncate(font.Encoding, 14),-14} " +
                     $"{YesNo(font.IsEmbedded),-8} {YesNo(font.IsSubset),-6} " +
                     $"{YesNo(font.HasToUnicode),-7} {font.WritingMode}");
@@ -387,13 +392,19 @@ internal static class Cli
             foreach (PdfImage image in page.Images)
             {
                 imageNumber++;
+                PdfImageExport export = image.Export(
+                    preferOriginal:
+                        !args.Contains("--decoded-images", StringComparer.Ordinal));
+                string resource = SafeFileStem(image.ResourceName);
                 string fileName =
-                    $"page-{page.Number:0000}-image-{imageNumber:0000}.png";
+                    $"page-{page.Number:0000}-image-{imageNumber:0000}-{resource}.{export.Extension}";
                 string path = UniquePath(outputDirectory, fileName);
-                image.SavePng(path);
+                File.WriteAllBytes(path, export.Data.ToArray());
                 Console.WriteLine(
                     $"{image.ResourceName} -> {path} " +
-                    $"({image.Width}x{image.Height}, {image.ColorSpace}, {image.Compression})");
+                    $"({image.Width}x{image.Height}, {image.ColorSpace}, {image.Compression}, " +
+                    $"{(export.IsOriginal ? "original" : "decoded")}, {export.MediaType})" +
+                    (export.FallbackReason is null ? "" : $" [{export.FallbackReason}]"));
                 total++;
             }
         }
@@ -514,6 +525,70 @@ internal static class Cli
             Console.WriteLine(Path.GetFullPath(args[2]));
         }
         return 0;
+    }
+
+    private static int Structured(string[] args, StructuredFormat format)
+    {
+        RequireCount(args, 3, $"{format.ToString().ToLowerInvariant()} requires an input PDF and output file.");
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
+        StructuredExportOptions options = StructuredOptions(args, document);
+        string content = format switch
+        {
+            StructuredFormat.Json => document.ExportToJson(options),
+            StructuredFormat.Xml => document.ExportToXml(options),
+            StructuredFormat.Xhtml => document.ExportToXhtml(options),
+            _ => throw new ArgumentOutOfRangeException(nameof(format))
+        };
+        File.WriteAllText(args[2], content);
+        Console.WriteLine(Path.GetFullPath(args[2]));
+        return 0;
+    }
+
+    private static int StructuredBundle(string[] args)
+    {
+        RequireCount(args, 3, "export requires an input PDF and output directory.");
+        using Document document = LoadDocument(args, 1);
+        EnsureUnlocked(document);
+        document.SaveStructuredBundle(args[2], StructuredOptions(args, document));
+        Console.WriteLine(Path.Combine(Path.GetFullPath(args[2]), "manifest.json"));
+        return 0;
+    }
+
+    private static StructuredExportOptions StructuredOptions(
+        string[] args,
+        Document document)
+    {
+        int? page = GetPageOption(args);
+        int? firstOption = GetIntegerOption(args, "--first-page");
+        int? lastOption = GetIntegerOption(args, "--last-page");
+        if (page is not null && (firstOption is not null || lastOption is not null))
+        {
+            throw new ArgumentException(
+                "--page cannot be combined with --first-page or --last-page.");
+        }
+
+        int firstPage = page ?? firstOption ?? 1;
+        int lastPage = page ?? lastOption ?? document.Pages;
+        if (firstPage < 1 || lastPage < firstPage || lastPage > document.Pages)
+        {
+            throw new ArgumentException(
+                $"Structured export page range must be between 1 and {document.Pages}.");
+        }
+
+        return new StructuredExportOptions
+        {
+            FirstPageIndex = firstPage - 1,
+            PageCount = lastPage - firstPage + 1,
+            TextLayout = args.Contains("--raw", StringComparer.Ordinal)
+                ? TextLayout.RawOrder
+                : args.Contains("--reading-order", StringComparer.Ordinal)
+                    ? TextLayout.NonRawNonPhysical
+                    : TextLayout.Physical,
+            IncludeImages = !args.Contains("--no-images", StringComparer.Ordinal),
+            PreferOriginalImages =
+                !args.Contains("--decoded-images", StringComparer.Ordinal)
+        };
     }
 
     private static int Render(string[] args)
@@ -822,13 +897,23 @@ internal static class Cli
               poppler-net forms <input.pdf> [--page N] [password options]
               poppler-net layers <input.pdf> [password options]
               poppler-net graphics <input.pdf> [--page N] [password options]
-              poppler-net images <input.pdf> <output-dir> [--page N] [password options]
+              poppler-net images <input.pdf> <output-dir> [--page N] [--decoded-images] [password options]
               poppler-net separate <input.pdf> <output-dir> [--first-page N] [--last-page N] [password options]
               poppler-net render <input.pdf> <output.png> [--page N] [--dpi N] [--antialias 1|2|4|8] [--transparent] [--font-dir PATH] [--layer ID=on|off] [--no-font-substitution] [common options]
               poppler-net attachments <input.pdf> <output-dir> [password options]
               poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds] [--image-bounds] [--layer ID=on|off] [password options]
               poppler-net html <input.pdf> <output.html|output-dir> [--page N|--first-page N --last-page N] [--bundle] [--svg-text] [--scale N] [--no-embed-fonts] [--no-images] [--no-vector] [--fallback rasterize|omit] [--fallback-dpi N] [--title VALUE] [--layer ID=on|off] [password options]
+              poppler-net json <input.pdf> <output.json> [structured options]
+              poppler-net xml <input.pdf> <output.xml> [structured options]
+              poppler-net xhtml <input.pdf> <output.xhtml> [structured options]
+              poppler-net export <input.pdf> <output-dir> [structured options]
               poppler-net version
+
+            Structured options:
+              --page N | --first-page N --last-page N
+              --raw | --reading-order
+              --no-images           Omit image metadata and bundle files.
+              --decoded-images      Always export decoded PNG images.
 
             Password options:
               --user-password VALUE
@@ -840,4 +925,6 @@ internal static class Cli
             Page numbers accepted by the CLI are one-based.
             """);
     }
+
+    private enum StructuredFormat { Json, Xml, Xhtml }
 }

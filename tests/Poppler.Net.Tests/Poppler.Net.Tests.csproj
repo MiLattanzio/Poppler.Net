@@ -94,5 +94,8 @@
     <None Include="..\..\samples\Poppler.Net.Playground\wwwroot\fonts\*"
           Link="PlaygroundFonts\%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\docs\schemas\*"
+          Link="Schemas\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

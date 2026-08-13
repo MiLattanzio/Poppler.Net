@@ -7,13 +7,14 @@ using Poppler.OptionalContent;
 using Poppler.Outlines;
 using Poppler.Rendering;
 using Poppler.Writing;
+using Poppler.Exporting;
 
 namespace Poppler;
 
 /// <summary>Read-only managed representation of a PDF document.</summary>
 public sealed class Document : IDisposable
 {
-    public const string PortVersion = "0.13.0-alpha.2";
+    public const string PortVersion = "0.13.0-alpha.3";
     public const string UpstreamVersion = "26.07.0";
 
     private readonly byte[] _data;
@@ -529,6 +530,47 @@ public sealed class Document : IDisposable
     /// <summary>Creates and writes a multi-file HTML bundle to a directory.</summary>
     public void SaveHtmlBundle(string directory, HtmlExportOptions? options = null) =>
         CreateHtmlBundle(options).SaveToDirectory(directory);
+
+    /// <summary>Exports the selected pages with the versioned JSON schema.</summary>
+    public string ExportToJson(StructuredExportOptions? options = null)
+    {
+        EnsureNotDisposed();
+        EnsureUnlocked();
+        return StructuredDocumentExporter.Json(this, options);
+    }
+
+    /// <summary>Exports the selected pages with the versioned XML schema.</summary>
+    public string ExportToXml(StructuredExportOptions? options = null)
+    {
+        EnsureNotDisposed();
+        EnsureUnlocked();
+        return StructuredDocumentExporter.Xml(this, options);
+    }
+
+    /// <summary>Exports the selected pages as deterministic XHTML data.</summary>
+    public string ExportToXhtml(StructuredExportOptions? options = null)
+    {
+        EnsureNotDisposed();
+        EnsureUnlocked();
+        return StructuredDocumentExporter.Xhtml(this, options);
+    }
+
+    /// <summary>
+    /// Creates JSON, XML, XHTML, image, and hashed manifest files using the
+    /// versioned structured-export contract.
+    /// </summary>
+    public StructuredExportBundle CreateStructuredBundle(
+        StructuredExportOptions? options = null)
+    {
+        EnsureNotDisposed();
+        EnsureUnlocked();
+        return StructuredDocumentExporter.Bundle(this, options);
+    }
+
+    public void SaveStructuredBundle(
+        string directory,
+        StructuredExportOptions? options = null) =>
+        CreateStructuredBundle(options).SaveToDirectory(directory);
 
     public void Dispose()
     {

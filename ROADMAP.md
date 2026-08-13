@@ -306,14 +306,14 @@ the planned 0.13 feature set.
 
 #### Exit criteria
 
-- [ ] Schemas are documented, versioned, and deterministic.
-- [ ] Text geometry, normalized/raw font names, links, and image metadata pass
+- [x] Schemas are documented, versioned, and deterministic.
+- [x] Text geometry, normalized/raw font names, links, and image metadata pass
   focused tests.
-- [ ] Raw images are emitted only when reusable; every other case has a bounded
+- [x] Raw images are emitted only when reusable; every other case has a bounded
   decoded fallback or diagnostic.
-- [ ] Names, extensions, media types, and manifests agree across API, CLI, and
+- [x] Names, extensions, media types, and manifests agree across API, CLI, and
   playground.
-- [ ] Hostile filter chains and oversized images remain bounded on all CI
+- [x] Hostile filter chains and oversized images remain bounded on all CI
   platforms.
 
 ### 0.13.0-beta.1: conversion compatibility closure

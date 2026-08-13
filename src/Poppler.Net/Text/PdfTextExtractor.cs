@@ -251,6 +251,8 @@ internal sealed class PdfTextExtractor
                     state.FontSize)
                 {
                     WritingMode = state.Font.WritingMode,
+                    FontResourceName = state.Font.Info.ResourceName,
+                    RawFontName = state.Font.Info.RawName,
                     IsRightToLeft =
                         PdfTextLayoutEngine.ContainsStrongRightToLeft(visibleText)
                 });

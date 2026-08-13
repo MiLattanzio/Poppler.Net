@@ -1,365 +1,55 @@
 # Verification record
 
-Verification performed on 2026-08-09 for `0.12.0-alpha.3`. This source builds
-on the verified `0.12.0-alpha.2` transparency compositor and retains the
-`0.12.0-alpha.1` stroke-outline work. The separately planned `0.11` shaping
-slice is not present.
+Local verification performed on 2026-08-13 for `0.13.0-alpha.3` with .NET SDK
+10.0.302 on Windows. The library continues to compile for both `net8.0` and
+`net10.0`; the CLI tool targets `net8.0` with major-version roll-forward.
 
-- .NET SDK 8.0.423 restored and compiled all four solution projects in Release
-  with warnings treated as errors.
-- NUnitLite executed 262 tests: 262 passed, 0 failed, 0 warnings and 0 skipped.
-- The managed-only verifier accepted production source and every asset in the
-  restored NuGet graph.
-- `Poppler.Net.0.12.0-alpha.3.nupkg` is 421,443 bytes with SHA-256
-  `17563cee912669a38a900b185683c9768397d3afed7040e631caa1acaf0492ff`.
-- The package contains only the Release net8.0 DLL/XML, README, release notes,
-  license, notice and NuGet metadata. No unexpected binary/native entry is
-  present.
-- NuGet metadata reports version `0.12.0-alpha.3`, author Mi Lattanzio,
-  GPL-2.0-or-later and repository/project URL
-  `https://github.com/MiLattanzio/Poppler.Net`.
-- The runtime graph remains CoreJ2K 2.3.3.91,
-  JBig2Decoder.NETStandard 1.5.2 and StbImageSharp 2.30.15.
-- `build.sh` passes shell syntax validation.
+- Release solution build: 0 warnings, 0 errors.
+- NUnitLite: 315 passed, 0 failed, 0 warnings, 0 skipped.
+- Managed-only source and restored NuGet graph: passed.
+- Library and CLI NuGet content/license/dependency/metadata verification:
+  passed.
+- Clean package consumers: passed on `net8.0` and `net10.0`.
+- Packaged dotnet-tool install/version, HTML, page separation, structured JSON
+  and structured bundle smoke tests: passed.
+- Blazor WebAssembly Release build: passed.
 
-## Public API and version
+Three-OS GitHub Actions qualification remains the promotion gate and is not
+claimed by this local record.
 
-The complete public-surface SHA-256 is
-`31d77bb8f4659f9d4d32c1f5a1675e1f832d0c0e5ccf67e58241414a266236fa`.
-The fingerprint that normalizes only `Document.PortVersion` is
-`cd82599822b9d301c9236b56a22cacb45a284d40498ce4b42a0c72e75a07af46`.
+## Packages
 
-Relative to alpha 2, the callable surface adds only:
+The local pipeline produced `Poppler.Net.0.13.0-alpha.3.nupkg` and
+`Poppler.Net.Cli.0.13.0-alpha.3.nupkg`. Package verification accepts only the
+expected managed DLL/XML files,
+README, release notes, license, notice and NuGet metadata. Runtime dependencies
+remain CoreJ2K 2.3.3.91, JBig2Decoder.NETStandard 1.5.2 and StbImageSharp
+2.30.15.
 
-- `PdfShadingKind.FunctionBased`;
-- `PdfFunctionShadingBrush` with `Kind`, `Domain`, `BoundingBox` and `Matrix`;
-- `PdfFunctionShadingElement`.
+## Public API
 
-Parametric mesh patches, shared edge objects and the adaptive tessellator are
-internal. `PdfMeshShadingBrush.Triangles` remains the deterministic public
-inspection representation. Parser, text-extraction and shaping APIs are
-unchanged. `Document.PortVersion`, library/CLI informational versions and the
-NuGet version all report `0.12.0-alpha.3`.
+The reviewed alpha.3 callable public-surface SHA-256, normalizing only
+`Document.PortVersion`, is:
 
-## Shading and mesh corpus
+`52722a22ee246fe22dbe8ffa07397b0a4287809f9ca80bf61fccb411e22e1c5d`
 
-The deterministic five-page `shading-alpha3.pdf` corpus is 6,153 bytes with
-SHA-256
-`82634dc1ccc914125c0a26ae67144d6d95471edda4e77c1fd70e78c256135321`.
-Its manifest is 2,957 bytes with SHA-256
-`a9595b1b4d25f8449427453b4761e26943ce86929337fd78dac53f51831592aa`.
-The generator reproduces both files byte for byte.
+The complete surface, including version `0.13.0-alpha.3`, is:
 
-The pages cover:
+`827845945d37bd10f6d90735857c8d47cc2eec643830e6ea23ff2918e105532c`
 
-- valid two-input type 1 sampled/calculator functions and component arrays;
-- `/Domain`, `/Matrix`, `/BBox`, clipping and a singular matrix;
-- type 2 exponential and type 3 stitching functions in valid one-input axial
-  shadings;
-- transformed/clipped thin and degenerate type 4/5 Gouraud meshes;
-- adjacent high-curvature Coons patches and a tensor-product patch;
-- meshes inside an isolated transparency group and a luminosity soft mask.
+## Structured export qualification
 
-The manifest freezes all five opaque pages at 72, 96, 144 and 300 DPI with
-antialiasing 4. PNG golden hashes cover the header and uncompressed filtered
-pixel rows; SVG golden hashes replace embedded PNG compression with that same
-content hash before hashing the document. Transparent output for the patch
-page and SVG fallback output are frozen separately. Eight concurrent
-raster/SVG renders of one page from one `Document` are byte-identical.
+Focused tests cover schema parsing/XML validation, deterministic JSON/XML/XHTML,
+page ranges, stable identifiers, text geometry, resolved URI/internal links,
+raw and normalized subset font names, original JPEG/JP2/JBIG2 selection,
+mask/CCITT/sample PNG fallbacks, manifest hashes, safe paths and pre-growth
+file/output limits.
 
-The historical `rendering-beta2.pdf` and `transparency-alpha2.pdf` generators
-also reproduce their PDFs and manifests byte for byte. The alpha 2 manifest
-attributes the current bounded output to `alpha3-bounded-fallback` and uses
-the same compression-independent PNG/SVG content hashing. Its mixed-content
-page 4 explicitly records the baseline plus the Windows and macOS CI variants;
-all other alpha 2 and alpha 3 outputs retain a single approved content hash.
+The source-level behavior reference was reviewed in Poppler 26.07
+`TextOutputDev`, `pdftotext`, `ImageOutputDev` and `pdfimages`. Intentional
+differences and the schema `1.0` contract are recorded in
+`docs/STRUCTURED_EXPORT.md`.
 
-## Independent Poppler comparison
-
-Poppler 26.05.0 `pdfinfo` and `pdftoppm` independently open and render all five
-pages. The source-port semantic reference remains Poppler 26.07.0. At 72 DPI,
-the normalized RGB mean absolute errors are:
-
-| Page | Error |
-|---:|---:|
-| 1 | 0.002847324 |
-| 2 | 0.004553343 |
-| 3 | 0.003421773 |
-| 4 | 0.004763651 |
-| 5 | 0.003388957 |
-
-Managed and Poppler output show the same gradients, clips, patch boundaries,
-group paint and luminosity mask. The visible page-three difference is confined
-to antialiasing of the intentionally thin/degenerate Gouraud construction.
-
-## Safety, determinism and performance
-
-Adaptive tessellation measures geometric error in device space and color
-error separately. Connected patches share edge refinement decisions. The
-triangle limit is checked before output growth, and the raster spatial index
-prevents an every-triangle-per-pixel scan.
-
-SVG fallback bounds conservatively include paths/strokes, text, images, clips,
-function domains/BBoxes, mesh vertices/control hulls and nested groups. Bounds
-are aligned to the full-page raster grid before pixel and working-set limits
-are checked. Nonzero page rotation keeps the complete CropBox conservatively.
-
-The Release smoke workload completed in 44.6 ms and allocated 10.1 MiB. The
-repeated decoded-stream test allocated 78.1 KiB with caching and 8,175.6 KiB
-with caching disabled. All ownership, option/diagnostic snapshot, culture and
-historical manifest gates remain active.
-
-## Distribution
-
-The source archive is selected explicitly from 222 files beneath one
-`Poppler.Net/` root. Repository metadata, IDE state, `bin`, `obj`, NuGet/build
-artifacts, test results, temporary renders, generated bytecode, executables and
-native assets are excluded.
-
-The archive is extracted into a new temporary directory and compared byte for
-byte with the selected source set. That extracted copy is restored from the
-approved managed package cache, rebuilt without warnings, tested, verified as
-managed-only, repackaged and exercised through the CLI. No push, tag, GitHub
-release or NuGet publication is part of this verification.
-
-## Beta 1 compatibility-closure baseline
-
-The first `0.12.0-beta.1` slice adds a reproducible Poppler differential gate
-over the geometry, transparency, shading and cross-feature corpora. Twenty-two
-pages are compared at 72 DPI using normalized RGB mean absolute error. Every
-page has an explicit budget and a written classification in
-`tests/fixtures/poppler-beta1-compatibility.json`; the manifest is checked by
-the managed test suite and the optional
-`tests/fixtures/verify_poppler_beta1_compatibility.py` runner reproduces the
-native comparison without adding a runtime dependency.
-
-All recorded measurements fit their approved budgets. The gate distinguishes
-expected antialiasing, high-precision compositing and adaptive-tessellation
-differences from the intentional odd-dash negative-phase semantic difference.
-The Poppler 26.07.0 source remains the semantic reference, while the local
-measurement renderer is Poppler 26.05.0.
-
-The second slice adds the deterministic three-page `compatibility-beta1.pdf`
-corpus. It combines transformed dashed strokes with reused isolated groups; a
-Coons mesh with a type 1 luminosity mask, even-odd clip and dashed boundary;
-and both groups under a rotated CropBox. Canonical hashes freeze 72 DPI
-opaque/transparent output and 72 DPI SVG fallbacks. The non-rotated
-complex page embeds only its `244x148` painted support, while the rotated page
-conservatively retains its complete `230x170` CropBox.
-
-## Beta 1 release qualification
-
-Release qualification performed on 2026-08-10 for `0.12.0-beta.1` uses .NET
-SDK 8.0.423 with warnings treated as errors. NUnitLite executes 266 tests,
-including the two new cross-feature compatibility tests. The managed-only
-verifier accepts production source and the restored dependency graph.
-
-The library and CLI versions, `Document.PortVersion` and NuGet metadata all
-report `0.12.0-beta.1`. Local packaging contains only the Release net8.0
-DLL/XML, README, release notes, license, notice and NuGet metadata. The runtime
-dependency set remains CoreJ2K 2.3.3.91, JBig2Decoder.NETStandard 1.5.2 and
-StbImageSharp 2.30.15. The complete public-surface SHA-256 is
-`be515260264b76a8c2dd59df8d0052d0b71ca1635aa6d854a24e1a6fc230f21a`;
-the version-normalized callable fingerprint remains
-`cd82599822b9d301c9236b56a22cacb45a284d40498ce4b42a0c72e75a07af46`.
-
-The pull-request gate repeats build, tests, managed-only verification and
-packaging on Ubuntu, Windows and macOS. Publishing a matching GitHub
-prerelease tag repeats those gates before NuGet.org trusted publishing.
-
-## Beta 2 hardening qualification
-
-Local qualification performed on 2026-08-11 for implementation commit
-`4aa7bfc0b35110225981682d400827e4ae987364` uses .NET SDK 10.0.302 with
-warnings treated as errors. The library builds `net8.0` and `net10.0` assets;
-the other five solution projects build as `net10.0`. The managed-only verifier
-accepts production source plus every restored dependency. NUnitLite on CLR
-10.0.10 executes 285 tests: 285 pass with no failure, warning or skip. The five
-historical PNG gates migrated to canonical decompressed-content hashes also
-pass when the test assembly and library run on CLR 8.0.29.
-
-The adversarial additions cover pre-growth ASCIIHex, ASCII85 and RunLength
-limits, combined content separators, cumulative clip/image/mesh budgets,
-reused Image XObjects, extreme finite page boxes and oversized working arrays.
-A 16-operation shared-document stress gate produces identical font, image,
-text, display-list and raster summaries. The six-page Release smoke allocates
-7.6 MiB and completes in 24–40 ms across repeated local runs, below the new
-32 MiB and 5 second gates. The complete public-surface SHA-256 is
-`334fb37308370eb72515706bdbb25727670a1bcf8498d530c355eea6eafba432`;
-the version-normalized callable fingerprint is
-`ce87b22579e9458c3c1dcdb1aa01790f15d13006ad177ad4815f1e974e63b527`.
-
-`Poppler.Net.PackageVerifier` accepts the beta.2 NuGet content allowlist,
-GPL-2.0-or-later metadata, repository commit and the pinned CoreJ2K,
-JBig2Decoder.NETStandard and StbImageSharp dependency set for both `net8.0`
-and `net10.0`. A project with no source reference restores that local package
-from an isolated cache and renders PNG/SVG output on both targets. The PNG
-file hashes are
-`288113db35fd02ced30e623e8ac7f2a58055a4607c311850f26a43e23de7af03`
-on CLR 8 and
-`578873f57b3a0125e4a6b7da9baf37ebe685393e402a6aea0a7c078eba5aefc2`
-on CLR 10; their difference is the valid zlib stream, not pixel content.
-
-`git archive` produces a single `Poppler.Net/` root from tracked files. A new
-directory extracted from that archive restores, builds all six projects, runs
-all 285 tests, passes the managed-only verifier, repacks beta.2 with the source
-revision and passes package verification again. GitHub Actions repeats the
-package consumer for both `net8.0` and `net10.0` on Ubuntu, Windows and macOS;
-pull-request [CI run 48](https://github.com/MiLattanzio/Poppler.Net/actions/runs/31508463279)
-passes all three build/test and managed-only jobs, the package/extracted-source
-job, and all six operating-system/framework consumer jobs.
-
-## RC 1 local release qualification
-
-Local qualification performed on 2026-08-11 for candidate commit
-`9f4be4714a5b19b891400380ea4da776145af5d3` uses .NET SDK 10.0.302 and CLR
-10.0.10 with warnings treated as errors. All six solution projects build in
-Release; the library produces `net8.0` and `net10.0` assets. NUnitLite executes
-285 tests: 285 pass with no failure, warning or skip. The managed-only verifier
-accepts production source and the restored dependency graph. The six-page
-Release smoke completes in 43.1 ms with 7.6 MiB allocated.
-
-The callable API is frozen without a beta.2 surface change. Its
-version-normalized SHA-256 remains
-`ce87b22579e9458c3c1dcdb1aa01790f15d13006ad177ad4815f1e974e63b527`;
-the complete rc.1 surface, including `Document.PortVersion`, is
-`dae14d92c94ed709bf9012ebe977e24779aa317b2be5a1cdca317f5bbcc83711`.
-Library, CLI, package-consumer fallback and public port metadata all report
-`0.12.0-rc.1`. The reusable MSBuild guard accepts `v0.12.0-rc.1`, classifies
-the stable `v0.12.0` tag as a mismatch and fails when that mismatch is not
-explicitly expected. CI runs both classifications before checking the actual
-GitHub release tag.
-
-Package verification accepts the GPL-2.0-or-later metadata, repository commit,
-two framework assemblies, audited README/release/license/notice payload and
-the pinned three-package managed dependency graph. Clean local consumers
-restore the produced package and render the beta.2 smoke PDF on both targets.
-The PNG hashes remain
-`288113db35fd02ced30e623e8ac7f2a58055a4607c311850f26a43e23de7af03`
-on CLR 8 and
-`578873f57b3a0125e4a6b7da9baf37ebe685393e402a6aea0a7c078eba5aefc2`
-on CLR 10.
-
-The tracked source archive is 858,865 bytes with SHA-256
-`ba5a9dbc7f5df908590a2cb10c361a6fc8d4e5512e6fab68e7f8793d2091f53e`.
-An independent temporary extraction restores, builds, passes managed-only
-verification and all 285 tests, then repacks and verifies an 834,044-byte
-NuGet package with SHA-256
-`d1e6d968881efbe7f4c98342a52d6b48ff8bf209b617da8cf62bb4d46365ba39`.
-The extracted-copy Release smoke completes in 24.1 ms with 7.6 MiB allocated.
-
-The optional Poppler differential runner uses Poppler 26.05.0 as the local
-renderer and Poppler 26.07.0 as the semantic source reference. All 22 geometry,
-transparency, shading and cross-feature comparisons reproduce within their
-approved normalized RGB error budgets. The GitHub tracker contains only the
-active rc.1 qualification issue and its dependent stable-release issue; no
-separate P0/P1 blocker is open. Pull-request
-[CI run 54](https://github.com/MiLattanzio/Poppler.Net/actions/runs/31513521620)
-passes all three build/test and managed-only jobs, the package and extracted
-source verification, and all six Ubuntu/Windows/macOS `net8.0`/`net10.0`
-consumer jobs.
-
-## 0.12.0 stable local qualification
-
-Local qualification performed on 2026-08-11 for candidate commit
-`bf2b9977580f694f69e856206cd218d23f01b635` promotes approved master commit
-`a23eefc09d4b041b2bfe9466114e961bbed26cae` from RC 1 without an implementation
-or callable-API change. Issue #22 and its milestone are complete, and RC 1
-release [run 31514782326](https://github.com/MiLattanzio/Poppler.Net/actions/runs/31514782326)
-is green. No post-RC blocker fix was required.
-
-.NET SDK 10.0.302 and CLR 10.0.10 restore all six projects from the repository
-NuGet configuration and build Release with zero warnings. The managed-only
-verifier accepts production source and the restored dependency graph. NUnitLite
-executes 285 tests: 285 pass with no failure, warning or skip. The six-page
-Release smoke completes in 23.7 ms in the working tree and 47.7 ms in the clean
-source extraction, with 7.6--7.7 MiB allocated.
-
-Library, CLI, package-consumer fallback and `Document.PortVersion` all report
-`0.12.0`; assembly and file versions remain `26.7.0.0`. The complete stable
-public-surface SHA-256 is
-`c72005f9c1bd3418c1a7fd00c582c8ccc88ba7e3beedd65e815a45861b72655b`.
-The version-normalized callable fingerprint remains
-`ce87b22579e9458c3c1dcdb1aa01790f15d13006ad177ad4815f1e974e63b527`.
-The MSBuild guard accepts `v0.12.0`, classifies `v0.12.0-rc.1` as a mismatch
-when expected and fails an unexpected mismatched tag.
-
-The optional differential runner reproduces all 22 geometry, transparency,
-shading and cross-feature pages within their approved normalized RGB error
-budgets. Poppler 26.05.0 is the available local renderer and Poppler 26.07.0
-remains the semantic source reference.
-
-The tracked source archive is 859,980 bytes with SHA-256
-`8985351acaa79acc0b3da7e3324ceeb4c50bb8f874d09df1bca710c9ea28ee77`.
-An independent temporary extraction restores, builds, passes managed-only
-verification and all 285 tests, exercises the CLI, then repacks and verifies
-an 833,869-byte NuGet package with SHA-256
-`5c80d34fac8a415179a1289d5849220d1dd6bada05e0d831e9026e93145941d1`.
-The package contains the audited GPL-2.0-or-later metadata, repository commit,
-two framework assemblies, documentation payload and pinned managed dependency
-graph.
-
-Clean local consumers restore that exact package and render PNG/SVG as both
-supported targets. The PNG hashes are
-`288113db35fd02ced30e623e8ac7f2a58055a4607c311850f26a43e23de7af03`
-on CLR 8 and
-`578873f57b3a0125e4a6b7da9baf37ebe685393e402a6aea0a7c078eba5aefc2`
-on CLR 10. PR CI, merge, stable tag/release, NuGet publication and the
-post-index consumer check remain publication gates; they are not claimed by
-this local qualification.
-
-## 0.13.0-alpha.1 local qualification
-
-Local qualification performed on 2026-08-11 uses .NET SDK 10.0.302 and CLR
-10.0.10. All solution projects build in Release with zero warnings; the
-library produces `net8.0` and `net10.0` assets, while the packaged CLI targets
-`net8.0` and uses major-version roll-forward. NUnitLite executes 296 tests:
-296 pass with no failure, warning or skip. The managed-only verifier accepts
-the production source and restored dependency graph.
-
-Alpha 1 adds managed fixed-layout HTML export for one page, page ranges and
-complete documents. Standalone output embeds SVG, fonts and selectable DOM
-text; the deterministic directory bundle contains an entry point, stylesheet,
-per-page SVG assets, deduplicated fonts and a JSON manifest. Safe URI and
-internal page links are retained, executable PDF actions are excluded, and
-configured output/font limits fail with `PdfLimitException`. The default text
-overlay retains visible SVG text when the PDF does not embed its fonts. Subset
-names such as `ABCDEF+DejaVuSans` are normalized to `DejaVuSans` in both text
-extraction and HTML output.
-
-The HTML reference corpus records the relevant Poppler 26.07.0
-`pdftohtml`/`HtmlOutputDev` sources and accepted managed-output differences.
-The two vector/text cases are frozen at 6,695 and 30,421 UTF-8 bytes. All
-three outputs use a canonical HTML hash that replaces embedded PNG streams
-with decompressed-content hashes, avoiding valid zlib differences between
-frameworks and operating systems. Their SHA-256 values are
-`a833b44d3666d22caa2414f60a16083e3afbe9f19eb0c3683f62d9ed1d985d79`,
-`1a0cd2e3459fec3657df4cca67f81f6995e0bf0f6f4b00479a1ea88609f4fce7`
-and
-`ec01ec44a777dc2043d512289c1bfc81d79762d996dfdb870e125a146f363f74`.
-
-The complete public-surface SHA-256 is
-`60cc6035fa66f40c032210a4a90db4b4e21d8bf880bb650236c5fd33c0ec40fe`;
-the version-normalized callable fingerprint is
-`819526578d13d8b08bacb377ae7df2260ad7f7f775bdd896652f39538422d69d`.
-Library metadata, CLI metadata, package-consumer fallback and
-`Document.PortVersion` all report `0.13.0-alpha.1`. The release-tag guard
-accepts `v0.13.0-alpha.1` and rejects an unrelated version.
-
-`Poppler.Net.0.13.0-alpha.1.nupkg` is 872,894 bytes with SHA-256
-`866bb25c713a37976dea6ddea735342266f518e3b8e63a1f57201ea1979bcf41`.
-`Poppler.Net.Cli.0.13.0-alpha.1.nupkg` is 822,567 bytes with SHA-256
-`7560ebfad201dbb1ac07f217f111da2b6c2b6e39608dafa67f57cadf5aead827`.
-Both pass their exact content, license, dependency, command and metadata
-allowlists. Clean package consumers load the library and render PNG, SVG and
-HTML on `net8.0` and `net10.0`. A temporary local installation of the CLI
-package reports the expected version and converts the TrueType subset fixture
-to selectable HTML without exposing the raw subset prefix.
-
-The CLI now exposes the same page/range/document HTML modes, including a
-multi-file bundle. The WebAssembly playground downloads current-page HTML,
-whole-document HTML and a ZIP bundle. CI packs and verifies both NuGet
-packages, repeats clean library consumption on all supported OS/framework
-combinations, and installs/runs the DotnetTool on Ubuntu, Windows and macOS.
-Those remote CI and publication results remain pending until this branch is
-pushed; they are not claimed by the local qualification.
+The HTML corpus uses canonical mode `v2`, which normalizes only the generator
+version in addition to embedded PNG encoding. This prevents a release-number
+change from invalidating otherwise byte-identical visual output.

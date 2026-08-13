@@ -348,33 +348,33 @@ public sealed class HtmlExportAlpha1Tests
             manifest.RootElement.GetProperty("hashMode").GetString(),
             Is.EqualTo(CanonicalRenderingHash.HtmlMode));
 
-        foreach (JsonElement item in manifest.RootElement.GetProperty("cases").EnumerateArray())
+        Assert.Multiple(() =>
         {
-            string fixture = item.GetProperty("fixture").GetString()!;
-            using Document document = Document.LoadFromFile(
-                Path.Combine(FixtureDirectory(), fixture));
-            var options = new HtmlExportOptions
+            foreach (JsonElement item in manifest.RootElement.GetProperty("cases").EnumerateArray())
             {
-                FirstPageIndex = item.GetProperty("firstPageIndex").GetInt32(),
-                PageCount = item.GetProperty("pageCount").GetInt32(),
-                PageOptions = new HtmlRenderOptions
+                string fixture = item.GetProperty("fixture").GetString()!;
+                using Document document = Document.LoadFromFile(
+                    Path.Combine(FixtureDirectory(), fixture));
+                var options = new HtmlExportOptions
                 {
-                    Scale = item.GetProperty("scale").GetDouble(),
-                    TextLayerMode = Enum.Parse<HtmlTextLayerMode>(
-                        item.GetProperty("textLayerMode").GetString()!)
-                }
-            };
+                    FirstPageIndex = item.GetProperty("firstPageIndex").GetInt32(),
+                    PageCount = item.GetProperty("pageCount").GetInt32(),
+                    PageOptions = new HtmlRenderOptions
+                    {
+                        Scale = item.GetProperty("scale").GetDouble(),
+                        TextLayerMode = Enum.Parse<HtmlTextLayerMode>(
+                            item.GetProperty("textLayerMode").GetString()!)
+                    }
+                };
 
-            string rendered = document.RenderToHtml(options);
-            byte[] html = Encoding.UTF8.GetBytes(rendered);
-            string hash = CanonicalRenderingHash.Html(rendered);
-            Assert.Multiple((Action)(() =>
-            {
+                string rendered = document.RenderToHtml(options);
+                byte[] html = Encoding.UTF8.GetBytes(rendered);
+                string hash = CanonicalRenderingHash.Html(rendered);
                 if (item.TryGetProperty("utf8Bytes", out JsonElement expectedBytes))
                     Assert.That(html, Has.Length.EqualTo(expectedBytes.GetInt32()), fixture);
                 Assert.That(hash, Is.EqualTo(item.GetProperty("sha256").GetString()), fixture);
-            }));
-        }
+            }
+        });
     }
 
     private static Dictionary<string, byte[]> Files(HtmlExportBundle bundle) =>

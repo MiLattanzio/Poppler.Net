@@ -121,6 +121,13 @@ internal static class PdfImageDecoder
             format = PdfPixelFormat.Rgba32;
         }
 
+        (byte[]? originalData, string? originalExtension, string? originalMediaType,
+            string? originalFallbackReason) = OriginalExport(
+                source,
+                dictionary,
+                imageMask,
+                colorSpace);
+
         return new PdfImage(
             resourceName,
             samples.Width,
@@ -130,7 +137,67 @@ internal static class PdfImageDecoder
             bits,
             source.Compression,
             interpolate,
-            pixels);
+            pixels,
+            originalData,
+            originalExtension,
+            originalMediaType,
+            originalFallbackReason);
+    }
+
+    private static (byte[]? Data, string? Extension, string? MediaType, string? Reason)
+        OriginalExport(
+            PdfFilterPipeline.ImageSource source,
+            PdfDictionary dictionary,
+            bool imageMask,
+            PdfColorSpaceDefinition? colorSpace)
+    {
+        if (imageMask)
+            return (null, null, null, "Image-mask semantics require decoded alpha and color information.");
+        if (dictionary.ContainsKey("SMask") || dictionary.ContainsKey("Mask"))
+            return (null, null, null, "The PDF mask is external to the encoded image payload.");
+        if (dictionary.ContainsKey("Decode"))
+            return (null, null, null, "The PDF /Decode transform is external to the encoded image payload.");
+
+        if (source.TerminalFilter == "JBIG2Decode")
+        {
+            if (source.Parameters?.ContainsKey("JBIG2Globals") == true)
+            {
+                return (null, null, null,
+                    "The JBIG2 payload depends on PDF global segments and is not standalone.");
+            }
+            if (colorSpace?.Kind != PdfColorSpace.DeviceGray)
+            {
+                return (null, null, null,
+                    "The PDF color-space interpretation is external to the JBIG2 payload.");
+            }
+            return (source.Bytes, "jb2", "image/jbig2", null);
+        }
+
+        if (source.TerminalFilter is not ("DCTDecode" or "DCT" or "JPXDecode"))
+        {
+            return (null, null, null, source.TerminalFilter switch
+            {
+                "CCITTFaxDecode" or "CCF" =>
+                    "Raw CCITT data requires PDF decode parameters and a container, so PNG is used.",
+                _ => "The source filter chain does not provide a standalone encoded image."
+            });
+        }
+
+        if (source.Parameters is not null)
+        {
+            return (null, null, null,
+                "PDF image decode parameters are external to the encoded payload.");
+        }
+
+        if (colorSpace?.Kind is not (PdfColorSpace.DeviceGray or PdfColorSpace.DeviceRgb))
+        {
+            return (null, null, null,
+                "The PDF color-space interpretation is not safely represented by the encoded payload alone.");
+        }
+
+        return source.TerminalFilter is "DCTDecode" or "DCT"
+            ? (source.Bytes, "jpg", "image/jpeg", null)
+            : (source.Bytes, "jp2", "image/jp2", null);
     }
 
     private static DecodedSamples DecodeJpeg(byte[] data)

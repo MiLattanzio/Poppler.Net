@@ -8,9 +8,9 @@
     <ToolCommandName>poppler-net</ToolCommandName>
     <RollForward>Major</RollForward>
     <PackageId>Poppler.Net.Cli</PackageId>
-    <Version>0.13.0-alpha.2</Version>
+    <Version>0.13.0-alpha.3</Version>
     <Description>Managed Poppler.Net PDF inspection, rendering and conversion command-line tool.</Description>
-    <PackageTags>pdf;poppler;cli;dotnet-tool;html;svg</PackageTags>
+    <PackageTags>pdf;poppler;cli;dotnet-tool;html;svg;json;xml;images</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>

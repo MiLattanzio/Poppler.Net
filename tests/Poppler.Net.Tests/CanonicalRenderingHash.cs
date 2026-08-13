@@ -10,7 +10,7 @@ internal static partial class CanonicalRenderingHash
 {
     public const string PngMode = "canonical-png-content-v1";
     public const string SvgMode = "canonical-svg-content-v1";
-    public const string HtmlMode = "canonical-html-content-v1";
+    public const string HtmlMode = "canonical-html-content-v2";
 
     private static readonly byte[] PngSignature =
     {
@@ -126,7 +126,10 @@ internal static partial class CanonicalRenderingHash
     public static string Html(string html)
     {
         ArgumentNullException.ThrowIfNull(html);
-        return EmbeddedPngContent(html);
+        string canonical = HtmlGenerator().Replace(
+            html,
+            "<meta name=\"generator\" content=\"Poppler.Net &lt;version&gt;\">");
+        return EmbeddedPngContent(canonical);
     }
 
     private static string EmbeddedPngContent(string value)
@@ -162,4 +165,9 @@ internal static partial class CanonicalRenderingHash
 
     [GeneratedRegex("data:image/png;base64,([A-Za-z0-9+/]+={0,2})", RegexOptions.CultureInvariant)]
     private static partial Regex EmbeddedPng();
+
+    [GeneratedRegex(
+        "<meta name=\"generator\" content=\"Poppler\\.Net [^\"]+\">",
+        RegexOptions.CultureInvariant)]
+    private static partial Regex HtmlGenerator();
 }
