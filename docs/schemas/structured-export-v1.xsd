@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:poppler-net:structured:v1"
+           xmlns:p="urn:poppler-net:structured:v1"
+           elementFormDefault="qualified">
+  <xs:element name="structured-export">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="schemaVersion" type="p:schemaVersionType" />
+        <xs:choice>
+          <xs:sequence>
+            <xs:element name="pdfVersion" type="xs:string" />
+            <xs:element name="pageCount" type="xs:nonNegativeInteger" />
+            <xs:element name="information" type="p:arrayType" />
+            <xs:element name="pages" type="p:arrayType" />
+          </xs:sequence>
+          <xs:element name="page" type="p:objectType" />
+        </xs:choice>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:simpleType name="schemaVersionType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="1.0" />
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:complexType name="objectType">
+    <xs:sequence>
+      <xs:any minOccurs="0" maxOccurs="unbounded" processContents="lax" />
+    </xs:sequence>
+    <xs:attribute name="nil" type="xs:boolean" use="optional" />
+  </xs:complexType>
+
+  <xs:complexType name="arrayType">
+    <xs:sequence>
+      <xs:element name="item" type="p:objectType" minOccurs="0" maxOccurs="unbounded" />
+    </xs:sequence>
+  </xs:complexType>
+</xs:schema>

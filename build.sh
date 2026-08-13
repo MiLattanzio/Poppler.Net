@@ -102,3 +102,19 @@ grep -F 'Encrypted:          no' <<<"$separated_info" >/dev/null
   tests/fixtures/truetype-format0-subset.pdf \
   "$separate_root"
 test -f "${separate_root}/truetype-format0-subset-page-0001-2.pdf"
+
+structured_json="${tool_root}/structured.json"
+"${tool_root}/poppler-net" json \
+  tests/fixtures/truetype-format0-subset.pdf \
+  "$structured_json"
+grep -F '"schemaVersion": "1.0"' "$structured_json" >/dev/null
+grep -F '"name": "DejaVuSans"' "$structured_json" >/dev/null
+grep -F '"rawName": "ABCDEF+DejaVuSans"' "$structured_json" >/dev/null
+
+structured_root="${tool_root}/structured-bundle"
+"${tool_root}/poppler-net" export \
+  tests/fixtures/images-and-color.pdf \
+  "$structured_root"
+test -f "${structured_root}/manifest.json"
+test -f "${structured_root}/document.xml"
+test -f "${structured_root}/document.xhtml"

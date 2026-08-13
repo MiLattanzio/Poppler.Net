@@ -9,13 +9,16 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.13.0-alpha.2` prerelease builds on stable `0.12.0` and is not a
+> This `0.13.0-alpha.3` prerelease builds on stable `0.12.0` and is not a
 > complete replacement for libpoppler. It adds deterministic fixed-layout
 > HTML conversion for pages, ranges and complete documents, including
 > selectable DOM text, safe links, normalized subset-font names, embedded
 > TrueType/OpenType data, self-contained output and directory bundles. Alpha.2
 > adds bounded standalone PDF page extraction through the API, CLI and
-> WebAssembly playground.
+> WebAssembly playground. Alpha.3 adds versioned JSON/XML/XHTML exports,
+> stable text/font/link/image identifiers, raw and normalized font names,
+> safe original JPEG/JP2/JBIG2 export with deterministic PNG fallbacks, and
+> hashed bundles shared by the API, CLI and playground.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
 > extraction, a backend-neutral vector display list and an SVG vector
@@ -163,6 +166,9 @@ downloaded in one ZIP with stable zero-padded names. Extracted PDFs are
 unencrypted and preserve the selected page's reachable resources. The
 playground additionally exposes text extraction and search, font and image
 inspection, annotations, outlines, optional-content layers and diagnostics.
+Versioned document JSON, XML and XHTML plus a structured data/image ZIP are
+downloadable from the overview. Image downloads retain safe original
+JPEG/JP2/JBIG2 payloads and otherwise use managed PNG.
 The generated HTML contains only the requested page or the complete stack of
 pages at the top-left origin, without viewer toolbar, centering or decoration.
 
@@ -182,8 +188,8 @@ Starting with `0.13.0-alpha.1`, the CLI is published as the
 tool. Install or update it with:
 
 ```bash
-dotnet tool install --global Poppler.Net.Cli --version 0.13.0-alpha.2
-dotnet tool update --global Poppler.Net.Cli --version 0.13.0-alpha.2
+dotnet tool install --global Poppler.Net.Cli --version 0.13.0-alpha.3
+dotnet tool update --global Poppler.Net.Cli --version 0.13.0-alpha.3
 poppler-net version
 ```
 
@@ -199,6 +205,7 @@ dotnet run --project src/Poppler.Net.Cli -- forms input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- layers input.pdf
 dotnet run --project src/Poppler.Net.Cli -- graphics input.pdf --page 1
 dotnet run --project src/Poppler.Net.Cli -- images input.pdf output-images
+dotnet run --project src/Poppler.Net.Cli -- images input.pdf output-images --decoded-images
 dotnet run --project src/Poppler.Net.Cli -- separate input.pdf output-pages
 dotnet run --project src/Poppler.Net.Cli -- separate input.pdf output-pages --first-page 2 --last-page 5
 dotnet run --project src/Poppler.Net.Cli -- render input.pdf page.png --page 1 --dpi 144
@@ -211,6 +218,10 @@ dotnet run --project src/Poppler.Net.Cli -- html input.pdf document.html
 dotnet run --project src/Poppler.Net.Cli -- html input.pdf page.html --page 1
 dotnet run --project src/Poppler.Net.Cli -- html input.pdf selected.html --first-page 2 --last-page 5
 dotnet run --project src/Poppler.Net.Cli -- html input.pdf html-bundle --bundle
+dotnet run --project src/Poppler.Net.Cli -- json input.pdf document.json
+dotnet run --project src/Poppler.Net.Cli -- xml input.pdf document.xml
+dotnet run --project src/Poppler.Net.Cli -- xhtml input.pdf document.xhtml
+dotnet run --project src/Poppler.Net.Cli -- export input.pdf structured-bundle
 ```
 
 Installed-tool commands use the same arguments without the `dotnet run ... --`
@@ -239,7 +250,7 @@ Console.WriteLine(page.Text());
 foreach (TextBox word in page.TextList())
     Console.WriteLine($"{word.Text} at {word.BoundingBox}");
 foreach (FontInfo font in page.Fonts)
-    Console.WriteLine($"{font.Name}: {font.Type}, {font.EmbeddedFormat}");
+    Console.WriteLine($"{font.Name} (PDF: {font.RawName}): {font.Type}, {font.EmbeddedFormat}");
 foreach (PdfGraphicsElement element in page.Graphics)
     Console.WriteLine($"{element.GetType().Name}: {element.State.Transform}");
 foreach (PdfAnnotation annotation in page.Annotations)
@@ -258,7 +269,8 @@ foreach (PdfOutlineItem item in document.OutlineItems)
 foreach (PdfImage image in page.Images)
 {
     Console.WriteLine($"{image.ResourceName}: {image.Width}x{image.Height}, stride {image.BytesPerRow}");
-    image.SavePng($"{image.ResourceName}.png");
+    PdfImageExport export = image.Export();
+    File.WriteAllBytes($"{image.ResourceName}.{export.Extension}", export.Data.ToArray());
 }
 page.SavePng("page.png", new RasterRenderOptions
 {
@@ -286,6 +298,7 @@ document.SaveHtml("document.html", new HtmlExportOptions
     }
 });
 document.SaveHtmlBundle("html-bundle");
+document.SaveStructuredBundle("structured-bundle");
 ```
 
 All page indices in the API are zero-based. CLI page numbers are one-based.
@@ -298,7 +311,9 @@ unlocked encrypted documents. Output is always unencrypted and bounded by
 See [docs/PAGE_EXTRACTION.md](docs/PAGE_EXTRACTION.md) for standalone-PDF
 preservation rules, limits and encryption policy, and
 [docs/HTML_EXPORT.md](docs/HTML_EXPORT.md) for HTML layout, packaging, font,
-link and security behavior.
+link and security behavior, and
+[docs/STRUCTURED_EXPORT.md](docs/STRUCTURED_EXPORT.md) for the versioned
+JSON/XML/XHTML schemas, image reuse policy, manifests and Poppler comparison.
 
 Encrypted files can be opened directly:
 

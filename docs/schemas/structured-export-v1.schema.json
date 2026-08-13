@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/MiLattanzio/Poppler.Net/blob/master/docs/schemas/structured-export-v1.schema.json",
+  "title": "Poppler.Net structured export v1",
+  "oneOf": [
+    { "$ref": "#/$defs/document" },
+    { "$ref": "#/$defs/singlePage" }
+  ],
+  "$defs": {
+    "rectangle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left", "bottom", "right", "top"],
+      "properties": {
+        "left": { "type": "number" },
+        "bottom": { "type": "number" },
+        "right": { "type": "number" },
+        "top": { "type": "number" }
+      }
+    },
+    "font": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "resourceName", "name", "rawName", "type", "encoding", "writingMode", "isEmbedded", "isSubset", "hasToUnicode"],
+      "properties": {
+        "id": { "type": "string" },
+        "resourceName": { "type": "string" },
+        "name": { "type": "string" },
+        "rawName": { "type": "string" },
+        "type": { "type": "string" },
+        "encoding": { "type": "string" },
+        "writingMode": { "type": "string" },
+        "isEmbedded": { "type": "boolean" },
+        "isSubset": { "type": "boolean" },
+        "hasToUnicode": { "type": "boolean" }
+      }
+    },
+    "textBox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "boundingBox", "rotation", "hasSpaceAfter", "fontResourceName", "fontId", "fontName", "rawFontName", "fontSize", "writingMode", "isRightToLeft"],
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "boundingBox": { "$ref": "#/$defs/rectangle" },
+        "rotation": { "type": "integer" },
+        "hasSpaceAfter": { "type": "boolean" },
+        "fontResourceName": { "type": "string" },
+        "fontId": { "type": "string" },
+        "fontName": { "type": "string" },
+        "rawFontName": { "type": "string" },
+        "fontSize": { "type": "number" },
+        "writingMode": { "type": "string" },
+        "isRightToLeft": { "type": "boolean" }
+      }
+    },
+    "link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "rectangle", "action", "uri", "destinationPageNumber", "namedDestination"],
+      "properties": {
+        "id": { "type": "string" },
+        "rectangle": { "$ref": "#/$defs/rectangle" },
+        "action": { "type": "string" },
+        "uri": { "type": ["string", "null"] },
+        "destinationPageNumber": { "type": ["integer", "null"] },
+        "namedDestination": { "type": ["string", "null"] }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "resourceName", "width", "height", "bitsPerComponent", "colorSpace", "compression", "canExportOriginal", "isOriginal", "fallbackReason", "file", "mediaType", "bytes"],
+      "properties": {
+        "id": { "type": "string" },
+        "resourceName": { "type": "string" },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "bitsPerComponent": { "type": "integer", "minimum": 1 },
+        "colorSpace": { "type": "string" },
+        "compression": { "type": "string" },
+        "canExportOriginal": { "type": "boolean" },
+        "isOriginal": { "type": "boolean" },
+        "fallbackReason": { "type": ["string", "null"] },
+        "file": { "type": "string", "pattern": "^images/" },
+        "mediaType": { "type": "string" },
+        "bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "number", "label", "cropBox", "rotation", "text", "textBoxes", "fonts", "links", "images"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "number": { "type": "integer", "minimum": 1 },
+        "label": { "type": "string" },
+        "cropBox": { "$ref": "#/$defs/rectangle" },
+        "rotation": { "type": "integer" },
+        "text": { "type": "string" },
+        "textBoxes": { "type": "array", "items": { "$ref": "#/$defs/textBox" } },
+        "fonts": { "type": "array", "items": { "$ref": "#/$defs/font" } },
+        "links": { "type": "array", "items": { "$ref": "#/$defs/link" } },
+        "images": { "type": "array", "items": { "$ref": "#/$defs/image" } }
+      }
+    },
+    "document": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "pdfVersion", "pageCount", "information", "pages"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "pdfVersion": { "type": "string" },
+        "pageCount": { "type": "integer", "minimum": 1 },
+        "information": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "value"],
+            "properties": { "key": { "type": "string" }, "value": { "type": "string" } }
+          }
+        },
+        "pages": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/page" } }
+      }
+    },
+    "singlePage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "page"],
+      "properties": {
+        "schemaVersion": { "const": "1.0" },
+        "page": { "$ref": "#/$defs/page" }
+      }
+    }
+  }
+}

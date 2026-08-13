@@ -168,7 +168,10 @@ internal sealed partial class PdfFontDecoder
             fontProgram?.Length ?? 0,
             isSubset,
             _toUnicode.HasUnicodeMappings,
-            _collection);
+            _collection)
+        {
+            RawName = Name
+        };
         if (fontProgram is not null)
             EmbeddedFontProgramStore.Set(Info, fontProgram);
     }

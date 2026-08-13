@@ -5,6 +5,7 @@ using Poppler.Graphics;
 using Poppler.OptionalContent;
 using Poppler.Rendering;
 using Poppler.Text;
+using Poppler.Exporting;
 
 namespace Poppler;
 
@@ -169,6 +170,15 @@ public sealed class Page
         ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
         File.WriteAllText(fileName, RenderToHtml(options));
     }
+
+    public string ExportToJson(StructuredExportOptions? options = null) =>
+        StructuredDocumentExporter.Json(this, options);
+
+    public string ExportToXml(StructuredExportOptions? options = null) =>
+        StructuredDocumentExporter.Xml(this, options);
+
+    public string ExportToXhtml(StructuredExportOptions? options = null) =>
+        StructuredDocumentExporter.Xhtml(this, options);
 
     public PdfBitmap Render(RasterRenderOptions? options = null)
     {

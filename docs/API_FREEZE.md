@@ -66,3 +66,23 @@ The complete `0.13.0-alpha.2` public surface has SHA-256:
 
 These values replace the alpha.1 regression constants only after reviewing
 the reflection-surface diff and the extraction-specific API documentation.
+
+## 0.13.0-alpha.3 structured-export surface
+
+Alpha.3 intentionally adds the reviewed structured-export surface:
+`StructuredExportOptions`, immutable structured bundle/file types,
+document/page JSON, XML and XHTML methods, raw font-name metadata and
+`PdfImageExport`. `PdfImage.Export` is the only new image operation and does
+not expose parser streams or PDF mutation.
+
+The approved alpha.3 callable SHA-256, normalizing only
+`Document.PortVersion`, is:
+
+`52722a22ee246fe22dbe8ffa07397b0a4287809f9ca80bf61fccb411e22e1c5d`
+
+The complete `0.13.0-alpha.3` public surface has SHA-256:
+
+`827845945d37bd10f6d90735857c8d47cc2eec643830e6ea23ff2918e105532c`
+
+These values were accepted after reviewing the schema/image API diff and the
+bounded fallback policy in [STRUCTURED_EXPORT.md](STRUCTURED_EXPORT.md).

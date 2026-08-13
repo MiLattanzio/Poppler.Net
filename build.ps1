@@ -114,6 +114,27 @@ try {
         if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $collisionPage)) {
             throw "The packaged CLI did not choose a collision-free PDF name."
         }
+        $structuredJson = Join-Path $toolRoot "structured.json"
+        & $toolCommand json `
+            tests/fixtures/truetype-format0-subset.pdf `
+            $structuredJson
+        $structured = Get-Content -Raw -LiteralPath $structuredJson
+        if ($LASTEXITCODE -ne 0 -or
+            $structured.IndexOf('"schemaVersion": "1.0"', [StringComparison]::Ordinal) -lt 0 -or
+            $structured.IndexOf('"name": "DejaVuSans"', [StringComparison]::Ordinal) -lt 0 -or
+            $structured.IndexOf('"rawName": "ABCDEF+DejaVuSans"', [StringComparison]::Ordinal) -lt 0) {
+            throw "The packaged CLI structured JSON smoke output is invalid."
+        }
+        $structuredOutput = Join-Path $toolRoot "structured-bundle"
+        & $toolCommand export `
+            tests/fixtures/images-and-color.pdf `
+            $structuredOutput
+        if ($LASTEXITCODE -ne 0 -or
+            -not (Test-Path -LiteralPath (Join-Path $structuredOutput "manifest.json")) -or
+            -not (Test-Path -LiteralPath (Join-Path $structuredOutput "document.xml")) -or
+            -not (Test-Path -LiteralPath (Join-Path $structuredOutput "document.xhtml"))) {
+            throw "The packaged CLI structured bundle smoke output is invalid."
+        }
     }
     finally {
         if (Test-Path -LiteralPath $toolRoot) {

@@ -131,7 +131,9 @@ horizontal/vertical mode, subset state, embedded format/program byte length,
 collection and `ToUnicode` availability. For an unsupported font-stream filter
 the byte length is the retained encoded payload.
 
-Each `TextBox` also reports `WritingMode` and `IsRightToLeft`.
+`FontInfo.Name`/`NormalizedName` omit a valid PDF subset prefix while
+`RawName` preserves the exact declared value. Each `TextBox` also reports its
+normalized/raw font names, font resource, `WritingMode` and `IsRightToLeft`.
 
 ## Annotations, links and destinations
 
@@ -318,6 +320,27 @@ foreach (PdfImage image in page.Images)
 `Gray8`, `Rgb24` and straight-alpha `Rgba32` rows are top-to-bottom and
 tightly packed. `BytesPerRow` is always exact. `Compression` reports the PDF
 image source family; `ColorSpace` reports the source color-space description.
+`PdfImage.Export()` chooses a directly reusable JPEG, JPEG 2000 or standalone
+JBIG2 payload when safe and otherwise returns PNG with a fallback reason.
+
+## Structured JSON, XML, XHTML and image bundles
+
+```csharp
+string json = document.ExportToJson();
+string xml = page.ExportToXml();
+document.SaveStructuredBundle("structured-output", new StructuredExportOptions
+{
+    FirstPageIndex = 0,
+    PageCount = document.Pages,
+    PreferOriginalImages = true
+});
+```
+
+Schema `1.0` includes page and text geometry, normalized/raw fonts, resolved
+links and image metadata with stable IDs. The bundle includes deterministic
+safe paths, selected image representations and SHA-256/media metadata in
+`manifest.json`. File count and cumulative output bytes are bounded before
+growth. See [STRUCTURED_EXPORT.md](STRUCTURED_EXPORT.md).
 
 ## Attachments
 

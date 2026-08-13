@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.13.0-alpha.3 — 2026-08-13
+
+- Added deterministic, versioned document/page JSON, XML and XHTML exports for
+  geometry, ordered text, fonts, resolved links and image metadata.
+- Preserved exact PDF font names beside subset-normalized names in `FontInfo`,
+  `TextBox`, CLI output, schemas and the WebAssembly playground.
+- Added safe original JPEG, JPEG 2000 and self-contained JBIG2 export with a
+  managed PNG fallback and explicit reason for masks, color transforms,
+  parameter-dependent streams, CCITT and decoded samples.
+- Added bounded structured bundles with collision-safe names, media types,
+  SHA-256 manifests, CLI commands and browser-local playground downloads.
+- Documented schema `1.0` and source-level behavior comparisons with Poppler
+  26.07 `TextOutputDev`, `pdftotext`, `ImageOutputDev` and `pdfimages`.
+
+## 0.13.0-alpha.2 — 2026-08-13
+
+- Added bounded managed standalone PDF page extraction through page/document
+  APIs, `poppler-net separate` and WebAssembly downloads.
+- Preserved reachable content, resources, page boxes, rotation, supported
+  annotations and form widgets in deterministic autonomous PDFs.
+- Added writer graph, cycle, compressed-object, encryption and Poppler 26.07
+  reopening qualification without exposing a general mutation API.
+
 ## 0.13.0-alpha.1 — 2026-08-11
 
 - Added deterministic fixed-layout HTML export for individual pages, page

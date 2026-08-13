@@ -1,7 +1,7 @@
 {
   "format": "poppler-net-html-alpha1-corpus",
   "version": 2,
-  "hashMode": "canonical-html-content-v1",
+  "hashMode": "canonical-html-content-v2",
   "reference": {
     "upstream": "Poppler 26.07.0",
     "sources": [
@@ -33,7 +33,7 @@
       "textLayerMode": "InvisibleOverlay",
       "scale": 1.0,
       "utf8Bytes": 6174,
-      "sha256": "7b782687b027ba531e395af706b2215746d46ba74197381f40ed6b4f860f0f83"
+      "sha256": "7348ae5567549030bc7ffd8b076d09363136b61ffa60e8d958ade3554e894c0e"
     },
     {
       "fixture": "truetype-format0-subset.pdf",
@@ -42,7 +42,7 @@
       "textLayerMode": "Visible",
       "scale": 1.0,
       "utf8Bytes": 5753,
-      "sha256": "c754a205f67d999403236c2de35342d4deecc29d660f1ebe9e0ae77004a99add"
+      "sha256": "ba833287d1295156c6ff1245171806b9cbef22d1c390810fc1b4cfb977837e00"
     },
     {
       "fixture": "rendering-beta2.pdf",
@@ -51,7 +51,7 @@
       "textLayerMode": "InvisibleOverlay",
       "scale": 1.25,
       "utf8Bytes": 210342,
-      "sha256": "46f6f2071475e9d690355d1f0bd63df4114c3ab02942818f32b68ef4dbbb5943"
+      "sha256": "f8398c6b6a74dec6599c5a1a78644720ce4460ced9f67e5effdf3f562446a52d"
     }
   ]
 }

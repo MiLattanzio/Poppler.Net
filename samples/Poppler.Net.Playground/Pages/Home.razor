@@ -361,7 +361,10 @@
                                     <button type="button" class="download-action" @onclick="DownloadDocumentHtmlAsync" disabled="@_isBusy">Documento HTML</button>
                                     <button type="button" class="download-action" @onclick="DownloadHtmlBundleAsync" disabled="@_isBusy">Bundle HTML .zip</button>
                                     <button type="button" class="download-action" @onclick="DownloadDocumentTextAsync" disabled="@_isBusy">Testo completo</button>
-                                    <button type="button" class="download-action" @onclick="DownloadMetadataAsync" disabled="@_isBusy">Metadati JSON</button>
+                                    <button type="button" class="download-action" @onclick="DownloadStructuredJsonAsync" disabled="@_isBusy">Dati JSON</button>
+                                    <button type="button" class="download-action" @onclick="DownloadStructuredXmlAsync" disabled="@_isBusy">Dati XML</button>
+                                    <button type="button" class="download-action" @onclick="DownloadStructuredXhtmlAsync" disabled="@_isBusy">Dati XHTML</button>
+                                    <button type="button" class="download-action" @onclick="DownloadStructuredBundleAsync" disabled="@_isBusy">Dati + immagini .zip</button>
                                 </div>
                             </section>
                             break;
@@ -403,7 +406,7 @@
                                     <button type="button" class="download-action compact" @onclick="DownloadFontsZipAsync" disabled="@(!_fonts.Any(font => font.GetEmbeddedData().Length > 0) || _isBusy)">Font incorporati .zip</button>
                                 </div>
                                 <div class="table-wrap"><table>
-                                    <thead><tr><th>Risorsa</th><th>Nome</th><th>Tipo</th><th>Encoding</th><th>Incorporato</th><th>ToUnicode</th><th>Download</th></tr></thead>
+                                    <thead><tr><th>Risorsa</th><th>Nome normalizzato / PDF</th><th>Tipo</th><th>Encoding</th><th>Incorporato</th><th>ToUnicode</th><th>Download</th></tr></thead>
                                     <tbody>
                                     @foreach (FontInfo font in _fonts)
                                     {
@@ -411,6 +414,10 @@
                                             <td><code>@font.ResourceName</code></td>
                                             <td>
                                                 <strong>@font.Name</strong>
+                                                @if (!string.Equals(font.RawName, font.Name, StringComparison.Ordinal))
+                                                {
+                                                    <small class="line-note">PDF: @font.RawName</small>
+                                                }
                                                 @if (font.IsSubset)
                                                 {
                                                     <small class="line-note">subset</small>
@@ -445,7 +452,7 @@
                             else
                             {
                                 <div class="section-toolbar">
-                                    <p class="result-note">Le immagini sono esportate come PNG decodificati.</p>
+                                    <p class="result-note">JPEG/JP2 originali quando autonomi; PNG deterministico negli altri casi.</p>
                                     <button type="button" class="download-action compact" @onclick="DownloadImagesZipAsync" disabled="@_isBusy">Tutte le immagini .zip</button>
                                 </div>
                                 <div class="image-grid">
@@ -464,7 +471,7 @@
                                             </div>
                                             <div class="image-card-footer">
                                                 <span><strong>@image.Source.ResourceName</strong><small>@image.Source.Width × @image.Source.Height px · @image.Source.Compression</small></span>
-                                                <button type="button" class="download-action compact" @onclick="() => DownloadImageAsync(image)" disabled="@_isBusy">PNG</button>
+                                                <button type="button" class="download-action compact" @onclick="() => DownloadImageAsync(image)" disabled="@_isBusy">@ImageExportLabel(image.Source)</button>
                                             </div>
                                         </article>
                                     }
@@ -1128,96 +1135,47 @@
         });
     }
 
-    private Task DownloadMetadataAsync()
+    private Task DownloadStructuredJsonAsync()
     {
         return RunDownloadAsync(() =>
         {
             Document document = _document ?? throw new InvalidOperationException("Nessun PDF caricato.");
-            object metadata = new
-            {
-                file = new { name = _fileName, size = _fileSize },
-                document = new
-                {
-                    pdfVersion = document.PdfVersion,
-                    pages = document.Pages,
-                    document.Title,
-                    document.Author,
-                    document.Subject,
-                    document.Keywords,
-                    document.Creator,
-                    document.Producer,
-                    document.CreationDate,
-                    document.ModificationDate,
-                    document.IsLinearized,
-                    document.IsEncrypted,
-                    passwordKind = document.PasswordKind.ToString(),
-                    pageMode = document.PageMode.ToString(),
-                    pageLayout = document.PageLayout.ToString(),
-                    information = document.Information,
-                    xmpMetadata = document.Metadata,
-                    embeddedFiles = _embeddedFiles.Select(file => new
-                    {
-                        file.Name,
-                        file.Description,
-                        file.MimeType,
-                        file.DeclaredSize,
-                        actualSize = file.Size,
-                        file.CreationDate,
-                        file.ModificationDate
-                    })
-                },
-                currentPage = new
-                {
-                    number = _pageIndex + 1,
-                    label = _page?.Label,
-                    widthPoints = _pageRect.Width,
-                    heightPoints = _pageRect.Height,
-                    rotation = _page?.Rotation,
-                    textCharacters = _pageText.Length,
-                    fonts = _fonts.Select(font => new
-                    {
-                        font.ResourceName,
-                        font.Name,
-                        type = font.Type.ToString(),
-                        font.Encoding,
-                        writingMode = font.WritingMode.ToString(),
-                        font.IsEmbedded,
-                        embeddedFormat = font.EmbeddedFormat.ToString(),
-                        font.EmbeddedLength,
-                        font.IsSubset,
-                        font.HasToUnicode,
-                        font.Collection
-                    }),
-                    images = _images.Select(image => new
-                    {
-                        image.ResourceName,
-                        image.Width,
-                        image.Height,
-                        image.SourceBitsPerComponent,
-                        colorSpace = image.ColorSpace.ToString(),
-                        image.Compression
-                    }),
-                    annotations = _annotations.Select(annotation => new
-                    {
-                        type = annotation.Type.ToString(),
-                        annotation.Subtype,
-                        annotation.Contents,
-                        annotation.Title,
-                        annotation.Subject,
-                        rectangle = annotation.Rectangle.ToString(),
-                        annotation.IsVisible,
-                        attachment = annotation.Attachment?.Name
-                    })
-                },
-                diagnostics = _diagnostics
-            };
-
             return new DownloadArtifact(
-                $"{DocumentStem}-metadati.json",
+                $"{DocumentStem}-dati.json",
                 "application/json",
-                JsonSerializer.SerializeToUtf8Bytes(metadata, new JsonSerializerOptions { WriteIndented = true }));
+                Encoding.UTF8.GetBytes(document.ExportToJson()));
         });
     }
+
+    private Task DownloadStructuredXmlAsync() => RunDownloadAsync(() =>
+    {
+        Document document = _document ?? throw new InvalidOperationException("Nessun PDF caricato.");
+        return new DownloadArtifact(
+            $"{DocumentStem}-dati.xml",
+            "application/xml",
+            Encoding.UTF8.GetBytes(document.ExportToXml()));
+    });
+
+    private Task DownloadStructuredXhtmlAsync() => RunDownloadAsync(() =>
+    {
+        Document document = _document ?? throw new InvalidOperationException("Nessun PDF caricato.");
+        return new DownloadArtifact(
+            $"{DocumentStem}-dati.xhtml",
+            "application/xhtml+xml",
+            Encoding.UTF8.GetBytes(document.ExportToXhtml()));
+    });
+
+    private Task DownloadStructuredBundleAsync() => RunDownloadAsync(() =>
+    {
+        Document document = _document ?? throw new InvalidOperationException("Nessun PDF caricato.");
+        StructuredExportBundle bundle = document.CreateStructuredBundle();
+        IEnumerable<ZipItem> items = bundle.Files.Select(file =>
+            new ZipItem(file.RelativePath, file.Data.ToArray()));
+        return new DownloadArtifact(
+            $"{DocumentStem}-dati.zip",
+            "application/zip",
+            CreateZip(items));
+    });
 
     private Task DownloadDiagnosticsAsync() => RunDownloadAsync(() =>
         new DownloadArtifact(
@@ -1226,17 +1184,25 @@
             JsonSerializer.SerializeToUtf8Bytes(_diagnostics, new JsonSerializerOptions { WriteIndented = true })));
 
     private Task DownloadImageAsync(ImagePreview image) => RunDownloadAsync(() =>
-        new DownloadArtifact(
-            ImageFileName(image.Source, image.Index),
-            "image/png",
-            image.Source.ToPngBytes()));
+    {
+        PdfImageExport export = image.Source.Export();
+        return new DownloadArtifact(
+            ImageFileName(image.Source, image.Index, export.Extension),
+            export.MediaType,
+            export.Data.ToArray());
+    });
 
     private Task DownloadImagesZipAsync()
     {
         return RunDownloadAsync(() =>
         {
             IEnumerable<ZipItem> items = _images.Select((image, index) =>
-                new ZipItem(ImageFileName(image, index), image.ToPngBytes()));
+            {
+                PdfImageExport export = image.Export();
+                return new ZipItem(
+                    ImageFileName(image, index, export.Extension),
+                    export.Data.ToArray());
+            });
             return new DownloadArtifact(
                 $"{DocumentStem}-pagina-{_pageIndex + 1}-immagini.zip",
                 "application/zip",
@@ -1328,11 +1294,14 @@
         }
     }
 
-    private string ImageFileName(PdfImage image, int index)
+    private string ImageFileName(PdfImage image, int index, string extension = "png")
     {
         string resource = SafeFileName(image.ResourceName, $"immagine-{index + 1}");
-        return $"{DocumentStem}-pagina-{_pageIndex + 1}-{resource}.png";
+        return $"{DocumentStem}-pagina-{_pageIndex + 1}-{resource}.{extension}";
     }
+
+    private static string ImageExportLabel(PdfImage image) =>
+        image.Export().Extension.ToUpperInvariant();
 
     private string ExtractedPageFileName(int pageNumber)
     {

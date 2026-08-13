@@ -44,6 +44,18 @@ public sealed record FontInfo(
     bool HasToUnicode,
     string? Collection)
 {
+    /// <summary>
+    /// Normalized PDF font name. For subset fonts this omits the six-letter
+    /// subset prefix and the following plus sign.
+    /// </summary>
+    public string NormalizedName => Name;
+
+    /// <summary>
+    /// Font name exactly as declared by the PDF, including a subset prefix
+    /// such as <c>ABCDEF+</c> when present.
+    /// </summary>
+    public string RawName { get; init; } = Name;
+
     internal ReadOnlyMemory<byte> GetEmbeddedData() => EmbeddedFontProgramStore.Get(this);
 }
 

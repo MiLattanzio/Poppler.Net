@@ -23,6 +23,14 @@ public enum PdfImageCompression
     CcittFax
 }
 
+/// <summary>Reusable representation selected for an exported PDF image.</summary>
+public sealed record PdfImageExport(
+    string Extension,
+    string MediaType,
+    ReadOnlyMemory<byte> Data,
+    bool IsOriginal,
+    string? FallbackReason);
+
 /// <summary>
 /// Immutable, tightly packed pixels decoded from an Image XObject or image
 /// mask. Rows are stored from top to bottom.
@@ -30,6 +38,7 @@ public enum PdfImageCompression
 public sealed class PdfImage
 {
     private readonly byte[] _data;
+    private readonly byte[]? _originalData;
 
     internal PdfImage(
         string resourceName,
@@ -40,7 +49,11 @@ public sealed class PdfImage
         int sourceBitsPerComponent,
         PdfImageCompression compression,
         bool interpolate,
-        byte[] data)
+        byte[] data,
+        byte[]? originalData = null,
+        string? originalExtension = null,
+        string? originalMediaType = null,
+        string? originalFallbackReason = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
         ArgumentException.ThrowIfNullOrWhiteSpace(colorSpace);
@@ -71,6 +84,10 @@ public sealed class PdfImage
         Interpolate = interpolate;
         BytesPerRow = checked(width * components);
         _data = data;
+        _originalData = originalData;
+        OriginalExtension = originalExtension;
+        OriginalMediaType = originalMediaType;
+        OriginalFallbackReason = originalFallbackReason;
     }
 
     public string ResourceName { get; }
@@ -81,6 +98,10 @@ public sealed class PdfImage
     public int SourceBitsPerComponent { get; }
     public PdfImageCompression Compression { get; }
     public bool Interpolate { get; }
+    public bool CanExportOriginal => _originalData is not null;
+    public string? OriginalExtension { get; }
+    public string? OriginalMediaType { get; }
+    public string? OriginalFallbackReason { get; }
 
     /// <summary>
     /// Exact number of bytes between consecutive rows. Decoded images are
@@ -92,6 +113,34 @@ public sealed class PdfImage
     public ReadOnlyMemory<byte> Data => _data;
 
     public byte[] ToPngBytes() => PngEncoder.Encode(this);
+
+    /// <summary>
+    /// Selects an independently reusable original encoded payload when that
+    /// preserves PDF image semantics; otherwise returns a decoded PNG.
+    /// </summary>
+    public PdfImageExport Export(bool preferOriginal = true)
+    {
+        if (preferOriginal &&
+            _originalData is not null &&
+            OriginalExtension is not null &&
+            OriginalMediaType is not null)
+        {
+            return new PdfImageExport(
+                OriginalExtension,
+                OriginalMediaType,
+                _originalData,
+                true,
+                null);
+        }
+
+        return new PdfImageExport(
+            "png",
+            "image/png",
+            ToPngBytes(),
+            false,
+            OriginalFallbackReason ??
+            (preferOriginal ? "The original encoded payload is not independently reusable." : null));
+    }
 
     public void SavePng(string fileName)
     {

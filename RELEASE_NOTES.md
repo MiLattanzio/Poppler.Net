@@ -1,55 +1,51 @@
-# Poppler.Net 0.13.0-alpha.2
+# Poppler.Net 0.13.0-alpha.3
 
 Release date: 2026-08-13
 
-`0.13.0-alpha.2` adds bounded managed standalone PDF page extraction. Poppler
-26.07 `PDFDoc::savePageAs` and `pdfseparate` are development references; the
-runtime remains managed-only and invokes no Poppler binary or subprocess.
+`0.13.0-alpha.3` completes the planned 0.13 feature set with managed,
+versioned structured data and safe image exports. Poppler 26.07
+`TextOutputDev`/`pdftotext` and `ImageOutputDev`/`pdfimages` remain development
+references only; the runtime invokes no native library, utility or subprocess.
 
-## Page extraction API
+## Structured API and schemas
 
-- Added `Page.ExtractPdf`/`SavePdf` and
-  `Document.ExtractPage`/`ExtractPages`/`SavePage`.
-- Added immutable `PdfExtractedPage` values for zero-based source indexes,
-  one-based source page numbers and complete autonomous PDF bytes.
-- Added `PdfPageExtractionOptions` object-count, graph-depth, cumulative
-  stream-byte and output-size limits plus annotation policy.
-- Added an internal, deterministic writer for a minimal catalog, page tree,
-  copied object graph, streams, classic xref table, trailer and EOF. No general
-  mutation API was introduced.
+- Added `Document` and `Page` JSON, XML and XHTML export methods.
+- Added `StructuredExportOptions`, `StructuredExportBundle` and immutable
+  bundle files with page ranges, text-order selection and bounded output.
+- Published JSON Schema draft 2020-12 and XSD contracts for schema `1.0`.
+- Exported page geometry, ordered text boxes, normalized/raw fonts, resolved
+  links and image metadata with deterministic page-scoped identifiers.
 
-## Preservation and safety policy
+## Font and image fidelity
 
-- Materialized inherited resources, media/crop/bleed/trim/art boxes and
-  rotation into each output page.
-- Preserved content streams, fonts, images, supported annotations, local page
-  destinations and terminalized page widgets with inherited form values.
-- Omitted outlines, name trees and document-level structures that cannot stay
-  valid after isolation. Cross-page GoTo destinations and actions are removed.
-- Normalized compressed objects into ordinary indirect objects and traversed
-  cyclic reference graphs deterministically without recursive object emission.
-- Locked inputs are rejected. Unlocked encrypted inputs are accepted and emit
-  unencrypted output, including explicit stream crypt-filter normalization.
+- `FontInfo.RawName` and `TextBox.RawFontName` retain values such as
+  `ABCDEF+DejaVuSans`; normalized names remain separately available.
+- `PdfImage.Export` retains JPEG, JPEG 2000 and JBIG2 bytes only when the
+  encoded payload is independently reusable.
+- Image/soft masks, `/Decode`, external color interpretation, JBIG2 globals,
+  bare CCITT and decoded sample streams receive a managed PNG fallback with a
+  bounded diagnostic reason.
+- Structured bundles use stable collision-safe paths and a manifest containing
+  media type, byte count and SHA-256 for every data/image file.
 
-## CLI and playground
+## CLI and WebAssembly playground
 
-- Added `poppler-net separate <input.pdf> <output-dir>` with optional
-  `--first-page` and `--last-page`, stable zero-padded page names and
-  collision-safe paths.
-- Added current-page autonomous PDF download and an all-pages PDF ZIP to the
-  WebAssembly playground. Processing and ZIP creation stay inside the browser.
+- Added `poppler-net json`, `xml`, `xhtml` and `export` commands with page
+  ranges, text order, image omission and decoded-image controls.
+- Added JSON, XML, XHTML and structured data/image ZIP downloads to the
+  playground.
+- Individual and ZIP image downloads now choose a safe original representation
+  when available and PNG otherwise; browser processing remains fully local.
 
-## Validation
+## Validation and compatibility
 
-- Added focused coverage for deterministic output, inherited resources and
-  boxes, compressed objects, cycles, annotations, forms, encrypted input and
-  every writer limit.
-- Extracted representative and real-world outputs reopen with Poppler.Net and
-  Poppler 26.07.
+- Added deterministic schema, font-name, geometry, link, image, manifest,
+  page-range and hostile output-limit tests.
+- Recorded intentional differences from Poppler 26.07: Poppler.Net adds stable
+  identifiers/manifests, composites masks into PNG, and declines raw streams
+  that require PDF-only side parameters.
+- The library continues to target `net8.0` and `net10.0`; the dotnet tool
+  continues to target `net8.0` with major-version roll-forward.
 
-## Scope limits
-
-Page merge/recomposition, arbitrary PDF mutation, incremental updates,
-signing and output encryption remain out of scope. Alpha.2 always produces one
-standalone PDF per selected source page. Structured JSON/XML/XHTML and original
-image export are planned for `0.13.0-alpha.3`.
+OCR, semantic document reconstruction, office conversion, raw export with
+lossy semantics, page merging and general PDF editing remain out of scope.

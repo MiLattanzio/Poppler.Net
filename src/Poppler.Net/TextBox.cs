@@ -10,4 +10,6 @@ public sealed record TextBox(
 {
     public FontWritingMode WritingMode { get; init; }
     public bool IsRightToLeft { get; init; }
+    public string FontResourceName { get; init; } = "";
+    public string RawFontName { get; init; } = FontName;
 }
