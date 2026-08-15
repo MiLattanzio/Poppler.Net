@@ -332,6 +332,24 @@ Beta.1 begins only after all three alpha trackers are complete.
 - Promote only when API, CLI, playground, documentation, and three-OS CI agree
   and no high-impact correctness defect remains.
 
+#### Exit criteria
+
+- [x] No known P0/P1 conversion correctness defect remains in the declared
+  0.13 scope after local qualification.
+- [x] Every confirmed regression has a deterministic fixture or focused test.
+- [x] Poppler 26.07 comparisons and accepted product differences are recorded.
+- [x] HTML source text remains available through font, graphics, and raster
+  fallback combinations.
+- [x] Extracted page PDFs reopen and render equivalently within documented
+  tolerances.
+- [x] Structured/image exports retain schema `1.0`, stable identifiers, names,
+  extensions, and media types.
+- [x] API, packaged CLI, and playground agree on selected page outputs and
+  conversion defaults.
+- [x] Changelog, release notes, and compatibility documentation describe the
+  beta.1 behavior and boundaries.
+- [x] Ubuntu, Windows, and macOS CI pass on the final commit.
+
 ### 0.13.0-beta.2: export hardening
 
 Beta.2 begins only after the compatibility tracker is complete.

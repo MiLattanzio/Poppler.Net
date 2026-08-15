@@ -9,7 +9,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.13.0-alpha.3` prerelease builds on stable `0.12.0` and is not a
+> This `0.13.0-beta.1` prerelease builds on stable `0.12.0` and is not a
 > complete replacement for libpoppler. It adds deterministic fixed-layout
 > HTML conversion for pages, ranges and complete documents, including
 > selectable DOM text, safe links, normalized subset-font names, embedded
@@ -18,7 +18,10 @@ process invocation, or native NuGet dependency.
 > WebAssembly playground. Alpha.3 adds versioned JSON/XML/XHTML exports,
 > stable text/font/link/image identifiers, raw and normalized font names,
 > safe original JPEG/JP2/JBIG2 export with deterministic PNG fallbacks, and
-> hashed bundles shared by the API, CLI and playground.
+> hashed bundles shared by the API, CLI and playground. Beta.1 closes
+> conversion compatibility with a pinned cross-feature corpus, Poppler 26.07
+> difference classifications, standalone-page raster equivalence, packaged
+> API/CLI conversion gates and page-level structured playground downloads.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
 > extraction, a backend-neutral vector display list and an SVG vector
@@ -188,8 +191,8 @@ Starting with `0.13.0-alpha.1`, the CLI is published as the
 tool. Install or update it with:
 
 ```bash
-dotnet tool install --global Poppler.Net.Cli --version 0.13.0-alpha.3
-dotnet tool update --global Poppler.Net.Cli --version 0.13.0-alpha.3
+dotnet tool install --global Poppler.Net.Cli --version 0.13.0-beta.1
+dotnet tool update --global Poppler.Net.Cli --version 0.13.0-beta.1
 poppler-net version
 ```
 
@@ -314,6 +317,9 @@ preservation rules, limits and encryption policy, and
 link and security behavior, and
 [docs/STRUCTURED_EXPORT.md](docs/STRUCTURED_EXPORT.md) for the versioned
 JSON/XML/XHTML schemas, image reuse policy, manifests and Poppler comparison.
+The beta.1 cross-feature corpus, accepted differences and reproducible
+development differential are recorded in
+[docs/CONVERSION_COMPATIBILITY.md](docs/CONVERSION_COMPATIBILITY.md).
 
 Encrypted files can be opened directly:
 

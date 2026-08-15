@@ -1,0 +1,89 @@
+{
+  "release": "0.13.0-beta.1",
+  "reference": {
+    "upstream": "Poppler 26.07.0",
+    "tools": [
+      "pdftohtml",
+      "pdfseparate",
+      "pdftotext",
+      "pdfimages"
+    ],
+    "mode": "development-only differential reference; no runtime or CI dependency"
+  },
+  "cases": [
+    {
+      "id": "subset-font-text",
+      "fixture": "truetype-format0-subset.pdf",
+      "sha256": "5c3d159586a115d391398a32a5482f7d735b7cedd2d6d82604acbc7b09821797",
+      "classification": "font-mapping",
+      "popplerTools": ["pdftohtml", "pdftotext"],
+      "pages": 1,
+      "textContains": "ABC",
+      "acceptedDifference": "Poppler reports the raw subset name; Poppler.Net exposes DejaVuSans and retains ABCDEF+DejaVuSans separately."
+    },
+    {
+      "id": "annotations-and-destinations",
+      "fixture": "annotations-alpha1.pdf",
+      "sha256": "2ab74289a74d1a3616773dd065b889db1fca316586d6e668f0d3e39db5eeada4",
+      "classification": "annotation",
+      "popplerTools": ["pdftohtml", "pdfseparate"],
+      "pages": 4,
+      "acceptedDifference": "Only safe URI and local GoTo overlays are emitted; active actions are inspection-only and cross-page destinations are removed from isolated pages."
+    },
+    {
+      "id": "acroform-widgets",
+      "fixture": "acroform-alpha2.pdf",
+      "sha256": "81ecda8fca58d8a8e0179a82ea2e98a106d2f6f76334462ec78afa19d8cb06d9",
+      "classification": "form",
+      "popplerTools": ["pdftohtml", "pdfseparate"],
+      "pages": 4,
+      "acceptedDifference": "Form values and appearances are read-only; extracted widgets become terminal fields and XFA or JavaScript calculation is not executed."
+    },
+    {
+      "id": "rotated-cropbox-resource-graph",
+      "fixture": "compatibility-beta1.pdf",
+      "sha256": "707ff82cf5b7ab30bec5036cf8ebabacad83143bd29ce07ba28b6d7ff8811431",
+      "classification": "page-geometry",
+      "popplerTools": ["pdftohtml", "pdfseparate"],
+      "pages": 3,
+      "acceptedDifference": "Managed HTML has no viewer chrome and complex SVG regions use deterministic bounded PNG fallbacks instead of Poppler's HTML framing."
+    },
+    {
+      "id": "image-filter-semantics",
+      "fixture": "images-and-color.pdf",
+      "sha256": "78635410e3cbee586b734fd0c1ada845fcb2126e7a9a88a0bf1b55940edc01c4",
+      "classification": "image-filter",
+      "popplerTools": ["pdftohtml", "pdfimages"],
+      "pages": 1,
+      "images": 12,
+      "acceptedDifference": "Reusable JPEG, JP2 and self-contained JBIG2 payloads remain original; masks, PDF-only color semantics and dependent filters are composited into PNG."
+    },
+    {
+      "id": "unlocked-encrypted-input",
+      "fixture": "r4-aes-128.pdf",
+      "sha256": "6d7e5ba9a84359683ca45b2cdfa03061ad27650816b120b7e209606e019731db",
+      "classification": "encryption",
+      "popplerTools": ["pdftohtml", "pdfseparate", "pdftotext"],
+      "pages": 1,
+      "userPassword": "user-03",
+      "textContains": "Encrypted managed PDF R2-R6",
+      "acceptedDifference": "Conversion requires a successful unlock and page extraction intentionally emits an unencrypted standalone PDF."
+    },
+    {
+      "id": "bounded-hostile-graphs",
+      "fixture": "robustness-beta2.pdf",
+      "sha256": "451bcc89375c187328708e0485fddb6ae5a465bc0b35ec37469b90a033bfc0e2",
+      "classification": "malformed-and-large-graph",
+      "popplerTools": ["pdftohtml", "pdfseparate", "pdfimages"],
+      "pages": 5,
+      "acceptedDifference": "Poppler.Net fails before unbounded allocation when configured limits are exceeded; recovery remains conservative and diagnostic-driven."
+    }
+  ],
+  "acceptedProductBehaviors": [
+    "Structured JSON, XML and XHTML use Poppler.Net schema 1.0 and stable identifiers; Poppler has no equivalent versioned manifest contract.",
+    "Managed HTML contains only requested pages at the top-left origin and never adds Poppler viewer frames, navigation or centered document decoration.",
+    "Executable PDF actions, XFA, JavaScript and media activation are never copied into HTML or executed.",
+    "Original image streams are exported only when independently reusable; decoded PNG is the deterministic compatibility fallback.",
+    "The runtime remains managed-only; Poppler executables are optional development references."
+  ]
+}

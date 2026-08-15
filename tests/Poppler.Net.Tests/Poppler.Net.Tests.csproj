@@ -76,6 +76,9 @@
     <None Include="..\fixtures\compatibility-beta1-fixture.json"
           Link="Fixtures\compatibility-beta1-fixture.json"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\fixtures\conversion-beta1-compatibility.json"
+          Link="Fixtures\conversion-beta1-compatibility.json"
+          CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\fixtures\robustness-beta2-fixture.json"
           Link="Fixtures\robustness-beta2-fixture.json"
           CopyToOutputDirectory="PreserveNewest" />

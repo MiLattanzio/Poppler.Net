@@ -86,3 +86,18 @@ The complete `0.13.0-alpha.3` public surface has SHA-256:
 
 These values were accepted after reviewing the schema/image API diff and the
 bounded fallback policy in [STRUCTURED_EXPORT.md](STRUCTURED_EXPORT.md).
+
+## 0.13.0-beta.1 compatibility closure
+
+Beta.1 adds no callable public member. The approved callable SHA-256,
+normalizing only `Document.PortVersion`, therefore remains:
+
+`52722a22ee246fe22dbe8ffa07397b0a4287809f9ca80bf61fccb411e22e1c5d`
+
+The complete `0.13.0-beta.1` public surface, including the prerelease version,
+has SHA-256:
+
+`f7cd31bc955fbdd55f7f0c1402ddf7e5b51baeddc6ff932aac34117a57d57b5c`
+
+The compatibility corpus and packaged consumer changes qualify existing APIs;
+they do not expand the alpha.3 structured/export surface.

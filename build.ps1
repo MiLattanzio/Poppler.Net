@@ -117,7 +117,8 @@ try {
         $structuredJson = Join-Path $toolRoot "structured.json"
         & $toolCommand json `
             tests/fixtures/truetype-format0-subset.pdf `
-            $structuredJson
+            $structuredJson `
+            --page 1
         $structured = Get-Content -Raw -LiteralPath $structuredJson
         if ($LASTEXITCODE -ne 0 -or
             $structured.IndexOf('"schemaVersion": "1.0"', [StringComparison]::Ordinal) -lt 0 -or
@@ -128,12 +129,40 @@ try {
         $structuredOutput = Join-Path $toolRoot "structured-bundle"
         & $toolCommand export `
             tests/fixtures/images-and-color.pdf `
-            $structuredOutput
+            $structuredOutput `
+            --page 1
         if ($LASTEXITCODE -ne 0 -or
             -not (Test-Path -LiteralPath (Join-Path $structuredOutput "manifest.json")) -or
             -not (Test-Path -LiteralPath (Join-Path $structuredOutput "document.xml")) -or
             -not (Test-Path -LiteralPath (Join-Path $structuredOutput "document.xhtml"))) {
             throw "The packaged CLI structured bundle smoke output is invalid."
+        }
+        $rangeHtml = Join-Path $toolRoot "range.html"
+        & $toolCommand html `
+            tests/fixtures/compatibility-beta1.pdf `
+            $rangeHtml `
+            --first-page 2 `
+            --last-page 3
+        $rangeHtmlContent = Get-Content -Raw -LiteralPath $rangeHtml
+        if ($LASTEXITCODE -ne 0 -or
+            $rangeHtmlContent.IndexOf('id="page-1"', [StringComparison]::Ordinal) -ge 0 -or
+            $rangeHtmlContent.IndexOf('id="page-2"', [StringComparison]::Ordinal) -lt 0 -or
+            $rangeHtmlContent.IndexOf('id="page-3"', [StringComparison]::Ordinal) -lt 0) {
+            throw "The packaged CLI HTML page-range smoke output is invalid."
+        }
+        $rangeJson = Join-Path $toolRoot "range.json"
+        & $toolCommand json `
+            tests/fixtures/compatibility-beta1.pdf `
+            $rangeJson `
+            --first-page 2 `
+            --last-page 3 `
+            --no-images
+        $rangePages = @((Get-Content -Raw -LiteralPath $rangeJson | ConvertFrom-Json).pages)
+        if ($LASTEXITCODE -ne 0 -or
+            $rangePages.Count -ne 2 -or
+            $rangePages[0].index -ne 1 -or
+            $rangePages[1].index -ne 2) {
+            throw "The packaged CLI structured page-range smoke output is invalid."
         }
     }
     finally {

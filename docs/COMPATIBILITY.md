@@ -1,6 +1,16 @@
 # Compatibility matrix
 
-## Works in 0.13.0-alpha.1
+## Qualified in 0.13.0-beta.1
+
+Beta.1 retains the complete alpha.1-alpha.3 surface and adds the cross-feature
+conversion corpus, page-extraction raster equivalence checks, packaged API/CLI
+conversion smoke tests and current-page structured downloads documented in
+[CONVERSION_COMPATIBILITY.md](CONVERSION_COMPATIBILITY.md). No known P0/P1
+correctness defect remains in the declared HTML, separate-page,
+structured-data or image-export scope after local qualification; three-OS CI
+remains the final promotion gate.
+
+## Works since 0.13.0-alpha.1
 
 Everything qualified in stable `0.12.0` remains supported. Alpha.1 adds:
 

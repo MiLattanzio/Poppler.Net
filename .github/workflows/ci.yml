@@ -361,6 +361,56 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $collision)) {
             throw "The packaged CLI did not choose a collision-free PDF name."
           }
+          $structuredJson = Join-Path "${{ runner.temp }}" "poppler-net-structured.json"
+          & $command json `
+            "tests/fixtures/truetype-format0-subset.pdf" `
+            $structuredJson `
+            --page 1
+          $structured = Get-Content -Raw -LiteralPath $structuredJson
+          if ($LASTEXITCODE -ne 0 -or
+              $structured.IndexOf('"schemaVersion": "1.0"', [StringComparison]::Ordinal) -lt 0 -or
+              $structured.IndexOf('"name": "DejaVuSans"', [StringComparison]::Ordinal) -lt 0 -or
+              $structured.IndexOf('"rawName": "ABCDEF+DejaVuSans"', [StringComparison]::Ordinal) -lt 0) {
+            throw "The packaged CLI structured JSON output is invalid."
+          }
+          $structuredRoot = Join-Path "${{ runner.temp }}" "poppler-net-structured-bundle"
+          & $command export `
+            "tests/fixtures/images-and-color.pdf" `
+            $structuredRoot `
+            --page 1
+          if ($LASTEXITCODE -ne 0 -or
+              -not (Test-Path -LiteralPath (Join-Path $structuredRoot "manifest.json")) -or
+              -not (Test-Path -LiteralPath (Join-Path $structuredRoot "document.xml")) -or
+              -not (Test-Path -LiteralPath (Join-Path $structuredRoot "document.xhtml"))) {
+            throw "The packaged CLI structured bundle output is invalid."
+          }
+          $rangeHtml = Join-Path "${{ runner.temp }}" "poppler-net-range.html"
+          & $command html `
+            "tests/fixtures/compatibility-beta1.pdf" `
+            $rangeHtml `
+            --first-page 2 `
+            --last-page 3
+          $rangeHtmlContent = Get-Content -Raw -LiteralPath $rangeHtml
+          if ($LASTEXITCODE -ne 0 -or
+              $rangeHtmlContent.IndexOf('id="page-1"', [StringComparison]::Ordinal) -ge 0 -or
+              $rangeHtmlContent.IndexOf('id="page-2"', [StringComparison]::Ordinal) -lt 0 -or
+              $rangeHtmlContent.IndexOf('id="page-3"', [StringComparison]::Ordinal) -lt 0) {
+            throw "The packaged CLI HTML page range is invalid."
+          }
+          $rangeJson = Join-Path "${{ runner.temp }}" "poppler-net-range.json"
+          & $command json `
+            "tests/fixtures/compatibility-beta1.pdf" `
+            $rangeJson `
+            --first-page 2 `
+            --last-page 3 `
+            --no-images
+          $rangePages = @((Get-Content -Raw -LiteralPath $rangeJson | ConvertFrom-Json).pages)
+          if ($LASTEXITCODE -ne 0 -or
+              $rangePages.Count -ne 2 -or
+              $rangePages[0].index -ne 1 -or
+              $rangePages[1].index -ne 2) {
+            throw "The packaged CLI structured page range is invalid."
+          }
 
   publish:
     name: Publish to NuGet.org

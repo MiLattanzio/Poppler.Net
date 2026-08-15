@@ -106,7 +106,8 @@ test -f "${separate_root}/truetype-format0-subset-page-0001-2.pdf"
 structured_json="${tool_root}/structured.json"
 "${tool_root}/poppler-net" json \
   tests/fixtures/truetype-format0-subset.pdf \
-  "$structured_json"
+  "$structured_json" \
+  --page 1
 grep -F '"schemaVersion": "1.0"' "$structured_json" >/dev/null
 grep -F '"name": "DejaVuSans"' "$structured_json" >/dev/null
 grep -F '"rawName": "ABCDEF+DejaVuSans"' "$structured_json" >/dev/null
@@ -114,7 +115,31 @@ grep -F '"rawName": "ABCDEF+DejaVuSans"' "$structured_json" >/dev/null
 structured_root="${tool_root}/structured-bundle"
 "${tool_root}/poppler-net" export \
   tests/fixtures/images-and-color.pdf \
-  "$structured_root"
+  "$structured_root" \
+  --page 1
 test -f "${structured_root}/manifest.json"
 test -f "${structured_root}/document.xml"
 test -f "${structured_root}/document.xhtml"
+
+range_html="${tool_root}/range.html"
+"${tool_root}/poppler-net" html \
+  tests/fixtures/compatibility-beta1.pdf \
+  "$range_html" \
+  --first-page 2 \
+  --last-page 3
+if grep -F 'id="page-1"' "$range_html" >/dev/null; then
+  echo "The packaged CLI HTML page range included page 1." >&2
+  exit 1
+fi
+grep -F 'id="page-2"' "$range_html" >/dev/null
+grep -F 'id="page-3"' "$range_html" >/dev/null
+
+range_json="${tool_root}/range.json"
+"${tool_root}/poppler-net" json \
+  tests/fixtures/compatibility-beta1.pdf \
+  "$range_json" \
+  --first-page 2 \
+  --last-page 3 \
+  --no-images
+grep -F '"index": 1' "$range_json" >/dev/null
+grep -F '"index": 2' "$range_json" >/dev/null

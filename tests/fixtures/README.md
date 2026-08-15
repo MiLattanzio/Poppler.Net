@@ -1,5 +1,12 @@
 # Compatibility fixtures
 
+`conversion-beta1-compatibility.json` is the 0.13 conversion-closure matrix.
+It pins the deterministic font, annotation, form, page-geometry, image,
+encryption and hostile-graph corpora, classifies every Poppler 26.07
+difference and is exercised by `ConversionCompatibilityBeta1Tests`.
+`verify_poppler_013_beta1.py` is an optional development-only differential for
+the four Poppler utilities; it is not a runtime or CI dependency.
+
 ## Encryption
 
 These five small PDFs exercise the Standard Security Handler revisions 2–6:
