@@ -1,6 +1,7 @@
 # Structured data and image export
 
-Poppler.Net `0.13.0-alpha.3` defines structured-export schema `1.0`. The
+Poppler.Net `0.13.0-alpha.3` introduced structured-export schema `1.0`; beta.1
+retains that contract unchanged. The
 runtime is managed-only. JSON, XML, XHTML, images and manifests are generated
 without calling Poppler utilities or native libraries.
 

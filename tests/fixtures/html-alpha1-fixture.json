@@ -32,7 +32,7 @@
       "pageCount": 1,
       "textLayerMode": "InvisibleOverlay",
       "scale": 1.0,
-      "utf8Bytes": 6174,
+      "utf8Bytes": 6173,
       "sha256": "7348ae5567549030bc7ffd8b076d09363136b61ffa60e8d958ade3554e894c0e"
     },
     {
@@ -41,7 +41,7 @@
       "pageCount": 1,
       "textLayerMode": "Visible",
       "scale": 1.0,
-      "utf8Bytes": 5753,
+      "utf8Bytes": 5752,
       "sha256": "ba833287d1295156c6ff1245171806b9cbef22d1c390810fc1b4cfb977837e00"
     },
     {
@@ -50,7 +50,7 @@
       "pageCount": 2,
       "textLayerMode": "InvisibleOverlay",
       "scale": 1.25,
-      "utf8Bytes": 210342,
+      "utf8Bytes": 210341,
       "sha256": "f8398c6b6a74dec6599c5a1a78644720ce4460ced9f67e5effdf3f562446a52d"
     }
   ]

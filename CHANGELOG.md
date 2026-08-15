@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.13.0-beta.1 — 2026-08-15
+
+- Added a pinned conversion-compatibility matrix spanning HTML, standalone
+  page PDFs, schema `1.0` data and safe image exports across fonts,
+  annotations, forms, boxes/rotation, encryption and hostile graphs.
+- Classified representative behavior against Poppler 26.07 `pdftohtml`,
+  `pdfseparate`, `pdftotext` and `pdfimages`, with an optional reproducible
+  development-only differential and no native runtime/CI dependency.
+- Verified extracted pages by reopening and comparing text, page geometry and
+  managed raster pixels with their source pages.
+- Added current-page JSON/XML/XHTML downloads to the WebAssembly playground
+  and extended three-OS packaged CLI conversion smoke tests.
+- Extended clean `net8.0`/`net10.0` NuGet consumers to exercise selected
+  structured ranges and standalone-page reopening.
+- Preserved structured schema `1.0` and the alpha.3 callable API unchanged;
+  no known P0/P1 conversion correctness defect remains after local
+  qualification.
+
 ## 0.13.0-alpha.3 — 2026-08-13
 
 - Added deterministic, versioned document/page JSON, XML and XHTML exports for

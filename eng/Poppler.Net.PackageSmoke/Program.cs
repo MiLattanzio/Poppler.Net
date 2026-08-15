@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using Poppler;
 using Poppler.Rendering;
 
@@ -56,10 +57,40 @@ internal static class Program
                     "The package did not produce a fixed-layout HTML text layer.");
             }
 
+            string structured = document.ExportToJson(new StructuredExportOptions
+            {
+                FirstPageIndex = 1,
+                PageCount = 2,
+                IncludeImages = false
+            });
+            using JsonDocument json = JsonDocument.Parse(structured);
+            JsonElement[] selectedPages = json.RootElement.GetProperty("pages")
+                .EnumerateArray()
+                .ToArray();
+            if (json.RootElement.GetProperty("schemaVersion").GetString() != "1.0" ||
+                selectedPages.Length != 2 ||
+                selectedPages[0].GetProperty("index").GetInt32() != 1 ||
+                selectedPages[1].GetProperty("index").GetInt32() != 2)
+            {
+                throw new InvalidDataException(
+                    "The package did not preserve the selected structured-export range.");
+            }
+
+            byte[] extractedBytes = document.ExtractPage(2);
+            using Document extracted = Document.LoadFromData(extractedBytes);
+            if (extracted.Pages != 1 ||
+                extracted.IsEncrypted ||
+                extracted.CreatePage(0).Rotation != document.CreatePage(2).Rotation)
+            {
+                throw new InvalidDataException(
+                    "The package did not produce an autonomous standalone page.");
+            }
+
             Console.WriteLine(
                 $"Poppler.Net {Document.PortVersion} clean consumer rendered " +
                 $"PNG {Convert.ToHexString(SHA256.HashData(png)).ToLowerInvariant()} " +
-                $"and {html.Length} HTML characters.");
+                $"and {html.Length} HTML characters, exported schema 1.0, " +
+                "and reopened a standalone page.");
             return 0;
         }
         catch (Exception exception)

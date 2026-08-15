@@ -361,9 +361,12 @@
                                     <button type="button" class="download-action" @onclick="DownloadDocumentHtmlAsync" disabled="@_isBusy">Documento HTML</button>
                                     <button type="button" class="download-action" @onclick="DownloadHtmlBundleAsync" disabled="@_isBusy">Bundle HTML .zip</button>
                                     <button type="button" class="download-action" @onclick="DownloadDocumentTextAsync" disabled="@_isBusy">Testo completo</button>
-                                    <button type="button" class="download-action" @onclick="DownloadStructuredJsonAsync" disabled="@_isBusy">Dati JSON</button>
-                                    <button type="button" class="download-action" @onclick="DownloadStructuredXmlAsync" disabled="@_isBusy">Dati XML</button>
-                                    <button type="button" class="download-action" @onclick="DownloadStructuredXhtmlAsync" disabled="@_isBusy">Dati XHTML</button>
+                                    <button type="button" class="download-action" @onclick="DownloadPageStructuredJsonAsync" disabled="@_isBusy">Pagina JSON</button>
+                                    <button type="button" class="download-action" @onclick="DownloadPageStructuredXmlAsync" disabled="@_isBusy">Pagina XML</button>
+                                    <button type="button" class="download-action" @onclick="DownloadPageStructuredXhtmlAsync" disabled="@_isBusy">Pagina XHTML</button>
+                                    <button type="button" class="download-action" @onclick="DownloadStructuredJsonAsync" disabled="@_isBusy">Documento JSON</button>
+                                    <button type="button" class="download-action" @onclick="DownloadStructuredXmlAsync" disabled="@_isBusy">Documento XML</button>
+                                    <button type="button" class="download-action" @onclick="DownloadStructuredXhtmlAsync" disabled="@_isBusy">Documento XHTML</button>
                                     <button type="button" class="download-action" @onclick="DownloadStructuredBundleAsync" disabled="@_isBusy">Dati + immagini .zip</button>
                                 </div>
                             </section>
@@ -1134,6 +1137,33 @@
                 Encoding.UTF8.GetBytes(text.ToString()));
         });
     }
+
+    private Task DownloadPageStructuredJsonAsync() => RunDownloadAsync(() =>
+    {
+        Page page = _page ?? throw new InvalidOperationException("Nessuna pagina disponibile.");
+        return new DownloadArtifact(
+            $"{DocumentStem}-pagina-{_pageIndex + 1}-dati.json",
+            "application/json",
+            Encoding.UTF8.GetBytes(page.ExportToJson()));
+    });
+
+    private Task DownloadPageStructuredXmlAsync() => RunDownloadAsync(() =>
+    {
+        Page page = _page ?? throw new InvalidOperationException("Nessuna pagina disponibile.");
+        return new DownloadArtifact(
+            $"{DocumentStem}-pagina-{_pageIndex + 1}-dati.xml",
+            "application/xml",
+            Encoding.UTF8.GetBytes(page.ExportToXml()));
+    });
+
+    private Task DownloadPageStructuredXhtmlAsync() => RunDownloadAsync(() =>
+    {
+        Page page = _page ?? throw new InvalidOperationException("Nessuna pagina disponibile.");
+        return new DownloadArtifact(
+            $"{DocumentStem}-pagina-{_pageIndex + 1}-dati.xhtml",
+            "application/xhtml+xml",
+            Encoding.UTF8.GetBytes(page.ExportToXhtml()));
+    });
 
     private Task DownloadStructuredJsonAsync()
     {
