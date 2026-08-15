@@ -348,7 +348,7 @@ Beta.1 begins only after all three alpha trackers are complete.
   conversion defaults.
 - [x] Changelog, release notes, and compatibility documentation describe the
   beta.1 behavior and boundaries.
-- [ ] Ubuntu, Windows, and macOS CI pass on the final commit.
+- [x] Ubuntu, Windows, and macOS CI pass on the final commit.
 
 ### 0.13.0-beta.2: export hardening
 
