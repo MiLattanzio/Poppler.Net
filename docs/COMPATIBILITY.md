@@ -1,5 +1,14 @@
 # Compatibility matrix
 
+## Qualified in 0.13.0-beta.2
+
+Beta.2 retains structured schema `1.0` and the beta.1 conversion behavior. It
+adds bounded standalone and bundle exports, pre-growth page/node/file/byte
+budgets, deterministic hostile-name handling, concurrent conversion coverage,
+browser-local memory/lifetime controls and portable-PDB/Source-Link package
+audits. Local library, CLI, playground, package and clean `net8.0`/`net10.0`
+consumer gates pass; three-OS CI remains the final promotion gate.
+
 ## Qualified in 0.13.0-beta.1
 
 Beta.1 retains the complete alpha.1-alpha.3 surface and adds the cross-feature

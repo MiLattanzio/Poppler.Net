@@ -86,6 +86,26 @@ internal static class Program
                     "The package did not produce an autonomous standalone page.");
             }
 
+            ExpectLimit(
+                () => document.RenderToHtml(new HtmlExportOptions
+                {
+                    PageCount = 2,
+                    MaximumPages = 1
+                }),
+                "HTML export page count exceeds the configured limit.");
+            ExpectLimit(
+                () => document.ExportToJson(new StructuredExportOptions
+                {
+                    MaximumNodes = 1
+                }),
+                "Structured export node count exceeds the configured limit.");
+            ExpectLimit(
+                () => document.ExtractPages(
+                    0,
+                    2,
+                    new PdfPageExtractionOptions { MaximumPages = 1 }),
+                "Extracted page count exceeds the configured limit.");
+
             Console.WriteLine(
                 $"Poppler.Net {Document.PortVersion} clean consumer rendered " +
                 $"PNG {Convert.ToHexString(SHA256.HashData(png)).ToLowerInvariant()} " +
@@ -98,5 +118,20 @@ internal static class Program
             Console.Error.WriteLine($"Package consumer smoke failed: {exception.Message}");
             return 1;
         }
+    }
+
+    private static void ExpectLimit(Action action, string message)
+    {
+        try
+        {
+            action();
+        }
+        catch (PdfLimitException exception) when (exception.Message == message)
+        {
+            return;
+        }
+
+        throw new InvalidDataException(
+            $"The packaged API did not enforce '{message}' deterministically.");
     }
 }

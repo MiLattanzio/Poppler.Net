@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Poppler.Exporting;
 
 namespace Poppler.Rendering;
 
@@ -16,9 +17,7 @@ internal static class HtmlDocumentRenderer
         HtmlRenderOptions effective = (options ?? new HtmlRenderOptions()).Snapshot();
         ExportAssets assets = CreateAssets([page], effective);
         string title = $"PDF page {page.Number}";
-        return ValidateOutput(
-            BuildHtml(title, assets, effective, inline: true),
-            effective.MaximumOutputBytes);
+        return BuildHtml(title, assets, effective, inline: true);
     }
 
     public static string Render(Document document, HtmlExportOptions? options)
@@ -28,9 +27,11 @@ internal static class HtmlDocumentRenderer
             (options ?? new HtmlExportOptions()).Snapshot(document.Pages);
         Page[] pages = SelectedPages(document, effective.FirstPageIndex, count);
         ExportAssets assets = CreateAssets(pages, effective.PageOptions);
-        return ValidateOutput(
-            BuildHtml(TitleFor(document, effective), assets, effective.PageOptions, inline: true),
-            effective.PageOptions.MaximumOutputBytes);
+        return BuildHtml(
+            TitleFor(document, effective),
+            assets,
+            effective.PageOptions,
+            inline: true);
     }
 
     public static HtmlExportBundle CreateBundle(
@@ -40,16 +41,32 @@ internal static class HtmlDocumentRenderer
         ArgumentNullException.ThrowIfNull(document);
         (HtmlExportOptions effective, int count) =
             (options ?? new HtmlExportOptions()).Snapshot(document.Pages);
+        const int fixedFiles = 3; // index.html, styles.css and manifest.json
+        if (count > effective.PageOptions.MaximumFiles - fixedFiles)
+        {
+            throw new PdfLimitException(
+                "HTML bundle file count exceeds the configured limit.");
+        }
         Page[] pages = SelectedPages(document, effective.FirstPageIndex, count);
-        ExportAssets assets = CreateAssets(pages, effective.PageOptions);
+        int maximumFontFiles = effective.PageOptions.MaximumFiles - fixedFiles - count;
+        ExportAssets assets = CreateAssets(
+            pages,
+            effective.PageOptions,
+            maximumFontFiles);
         string title = TitleFor(document, effective);
 
-        var files = new List<HtmlExportFile>
-        {
+        var files = new List<HtmlExportFile>(fixedFiles + count + assets.Fonts.Count);
+        long totalBytes = 0;
+        AddFile(
+            files,
             TextFile(
                 "index.html",
                 HtmlMediaType,
                 BuildHtml(title, assets, effective.PageOptions, inline: false)),
+            effective.PageOptions,
+            ref totalBytes);
+        AddFile(
+            files,
             TextFile(
                 "styles.css",
                 CssMediaType,
@@ -57,22 +74,35 @@ internal static class HtmlDocumentRenderer
                     assets.Fonts,
                     assets.CssRules,
                     effective.PageOptions,
-                    inline: false))
-        };
-        files.AddRange(assets.Pages.Select(page =>
-            TextFile(page.BackgroundPath, "image/svg+xml", page.Svg)));
-        files.AddRange(assets.Fonts.Select(font =>
-            new HtmlExportFile(font.Path, font.MediaType, font.Data)));
-
-        byte[] manifest = BuildManifest(title, assets, files);
-        files.Add(new HtmlExportFile("manifest.json", "application/json", manifest));
-        long totalBytes = files.Sum(file => (long)file.Data.Length);
-        if (totalBytes > effective.PageOptions.MaximumOutputBytes)
+                    inline: false)),
+            effective.PageOptions,
+            ref totalBytes);
+        foreach (PageAsset page in assets.Pages)
         {
-            throw new PdfLimitException(
-                $"HTML bundle is {totalBytes} bytes; limit is " +
-                $"{effective.PageOptions.MaximumOutputBytes} bytes.");
+            AddFile(
+                files,
+                TextFile(page.BackgroundPath, "image/svg+xml", page.Svg),
+                effective.PageOptions,
+                ref totalBytes);
         }
+        foreach (ManagedHtmlWebFont font in assets.Fonts)
+        {
+            AddFile(
+                files,
+                new HtmlExportFile(font.Path, font.MediaType, font.Data),
+                effective.PageOptions,
+                ref totalBytes);
+        }
+
+        long remaining = effective.PageOptions.MaximumOutputBytes - totalBytes;
+        if (remaining < 1)
+            throw HtmlBundleSizeLimit();
+        byte[] manifest = BuildManifest(title, assets, files, remaining);
+        AddFile(
+            files,
+            new HtmlExportFile("manifest.json", "application/json", manifest),
+            effective.PageOptions,
+            ref totalBytes);
         return new HtmlExportBundle(files);
     }
 
@@ -90,11 +120,16 @@ internal static class HtmlDocumentRenderer
 
     private static ExportAssets CreateAssets(
         IReadOnlyList<Page> pages,
-        HtmlRenderOptions options)
+        HtmlRenderOptions options,
+        int? maximumFontFiles = null)
     {
         var fontsByHash = new Dictionary<string, ManagedHtmlWebFont>(StringComparer.Ordinal);
         var pageAssets = new List<PageAsset>(pages.Count);
         var styles = new HtmlCssCatalog();
+        var nodeBudget = new ExportNodeBudget(
+            options.MaximumDomNodes,
+            "HTML DOM node count exceeds the configured limit.");
+        nodeBudget.Consume(10);
         long embeddedFontBytes = 0;
         foreach (Page page in pages)
         {
@@ -108,6 +143,12 @@ internal static class HtmlDocumentRenderer
                 {
                     if (!fontsByHash.TryAdd(font.Hash, font))
                         continue;
+                    if (maximumFontFiles is not null &&
+                        fontsByHash.Count > maximumFontFiles.Value)
+                    {
+                        throw new PdfLimitException(
+                            "HTML bundle file count exceeds the configured limit.");
+                    }
                     embeddedFontBytes = checked(embeddedFontBytes + font.Data.LongLength);
                     if (embeddedFontBytes > options.MaximumEmbeddedFontBytes)
                     {
@@ -136,8 +177,23 @@ internal static class HtmlDocumentRenderer
                     page,
                     svgOptions,
                     text => textLayout.BackgroundText.Contains(text));
+            IReadOnlyList<TextBox>? overlayText = textLayout is null
+                ? page.TextFor(options.TextLayout, options.OptionalContentVisibility)
+                : null;
+            int linkCount = CountLinks(page);
+            nodeBudget.Consume(
+                checked(
+                    6 +
+                    CountSvgElements(svg) +
+                    TextNodeCount(textLayout, overlayText) +
+                    linkCount));
             string backgroundPath = $"pages/page-{page.Number:0000}.svg";
-            pageAssets.Add(new PageAsset(page, svg, backgroundPath, textLayout));
+            pageAssets.Add(new PageAsset(
+                page,
+                svg,
+                backgroundPath,
+                textLayout,
+                overlayText));
         }
 
         return new ExportAssets(
@@ -152,7 +208,9 @@ internal static class HtmlDocumentRenderer
         HtmlRenderOptions options,
         bool inline)
     {
-        var html = new StringBuilder();
+        var html = new BoundedUtf8Builder(
+            options.MaximumOutputBytes,
+            "HTML output exceeds the configured byte limit.");
         html.AppendLine("<!doctype html>");
         html.AppendLine("<html lang=\"en\">");
         html.AppendLine("<head>");
@@ -186,11 +244,11 @@ internal static class HtmlDocumentRenderer
         html.AppendLine("  </main>");
         html.AppendLine("</body>");
         html.AppendLine("</html>");
-        return CanonicalText(html);
+        return html.ToString();
     }
 
     private static void WritePage(
-        StringBuilder html,
+        BoundedUtf8Builder html,
         PageAsset asset,
         HtmlRenderOptions options,
         bool inline)
@@ -251,7 +309,7 @@ internal static class HtmlDocumentRenderer
     }
 
     private static void WriteTextLayer(
-        StringBuilder html,
+        BoundedUtf8Builder html,
         PageAsset asset,
         PdfRectangle crop,
         HtmlRenderOptions options)
@@ -266,9 +324,7 @@ internal static class HtmlDocumentRenderer
             return;
         }
 
-        IReadOnlyList<TextBox> boxes = asset.Page.TextFor(
-            options.TextLayout,
-            options.OptionalContentVisibility);
+        IReadOnlyList<TextBox> boxes = asset.OverlayText ?? [];
         foreach (TextBox box in boxes)
         {
             double left = (Math.Min(box.BoundingBox.Left, box.BoundingBox.Right) -
@@ -310,7 +366,7 @@ internal static class HtmlDocumentRenderer
     }
 
     private static void WriteNativeTextLayer(
-        StringBuilder html,
+        BoundedUtf8Builder html,
         ManagedHtmlPageLayout layout)
     {
         foreach (ManagedHtmlTextRun run in layout.Runs)
@@ -351,7 +407,7 @@ internal static class HtmlDocumentRenderer
     }
 
     private static void WriteLinkLayer(
-        StringBuilder html,
+        BoundedUtf8Builder html,
         Page page,
         PdfRectangle crop,
         double scale)
@@ -419,7 +475,9 @@ internal static class HtmlDocumentRenderer
         HtmlRenderOptions options,
         bool inline)
     {
-        var css = new StringBuilder();
+        var css = new BoundedUtf8Builder(
+            options.MaximumOutputBytes,
+            "HTML stylesheet exceeds the configured byte limit.");
         foreach (ManagedHtmlWebFont font in fonts)
         {
             string source = inline
@@ -458,18 +516,18 @@ internal static class HtmlDocumentRenderer
         css.AppendLine(".pdf-link{position:absolute;display:block;pointer-events:auto;border:0;text-decoration:none}");
         css.AppendLine(".pdf-link:focus-visible{outline:2px solid #0277bd;outline-offset:-2px;background:rgba(2,119,189,.12)}");
         css.AppendLine("@media print{.pdf-page{break-after:page}.pdf-page:last-child{break-after:auto}}\n");
-        return CanonicalText(css);
+        return css.ToString();
     }
-
-    private static string CanonicalText(StringBuilder value) =>
-        value.ToString().ReplaceLineEndings("\n");
 
     private static byte[] BuildManifest(
         string title,
         ExportAssets assets,
-        IReadOnlyList<HtmlExportFile> files)
+        IReadOnlyList<HtmlExportFile> files,
+        long maximumBytes)
     {
-        using var output = new MemoryStream();
+        using var output = new BoundedExportStream(
+            maximumBytes,
+            "HTML bundle output exceeds the configured byte limit.");
         using (var json = new Utf8JsonWriter(output, new JsonWriterOptions { Indented = true }))
         {
             json.WriteStartObject();
@@ -513,15 +571,67 @@ internal static class HtmlDocumentRenderer
     private static HtmlExportFile TextFile(string path, string mediaType, string text) =>
         new(path, mediaType, Encoding.UTF8.GetBytes(text));
 
-    private static string ValidateOutput(string html, long maximumBytes)
+    private static void AddFile(
+        List<HtmlExportFile> files,
+        HtmlExportFile file,
+        HtmlRenderOptions options,
+        ref long totalBytes)
     {
-        long bytes = Encoding.UTF8.GetByteCount(html);
-        if (bytes > maximumBytes)
+        if (files.Count >= options.MaximumFiles)
+            throw new PdfLimitException("HTML bundle file count exceeds the configured limit.");
+        if (totalBytes > options.MaximumOutputBytes - file.Data.Length)
+            throw HtmlBundleSizeLimit();
+        files.Add(file);
+        totalBytes += file.Data.Length;
+    }
+
+    private static PdfLimitException HtmlBundleSizeLimit() => new(
+        "HTML bundle output exceeds the configured byte limit.");
+
+    private static int CountSvgElements(string svg)
+    {
+        int count = 0;
+        for (int index = 0; index < svg.Length - 1; index++)
         {
-            throw new PdfLimitException(
-                $"HTML output is {bytes} bytes; limit is {maximumBytes} bytes.");
+            if (svg[index] != '<')
+                continue;
+            char next = svg[index + 1];
+            if (next is not ('/' or '?' or '!'))
+                count++;
         }
-        return html;
+        return count;
+    }
+
+    private static int TextNodeCount(
+        ManagedHtmlPageLayout? layout,
+        IReadOnlyList<TextBox>? overlayText)
+    {
+        if (layout is null)
+            return overlayText?.Count ?? 0;
+
+        int count = 0;
+        foreach (ManagedHtmlTextRun run in layout.Runs)
+        {
+            count = checked(count + 1);
+            foreach (ManagedHtmlGlyph glyph in run.Glyphs)
+                count = checked(count + (glyph.VisibleText is null ? 2 : 3));
+        }
+        return count;
+    }
+
+    private static int CountLinks(Page page)
+    {
+        int count = 0;
+        foreach (PdfAnnotation annotation in page.Annotations)
+        {
+            if (annotation.Type == PdfAnnotationType.Link &&
+                annotation.IsVisible &&
+                TryLink(annotation.Action, out _, out _))
+            {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static string StripXmlDeclaration(string svg)
@@ -606,5 +716,6 @@ internal static class HtmlDocumentRenderer
         Page Page,
         string Svg,
         string BackgroundPath,
-        ManagedHtmlPageLayout? TextLayout);
+        ManagedHtmlPageLayout? TextLayout,
+        IReadOnlyList<TextBox>? OverlayText);
 }

@@ -11,12 +11,14 @@ public sealed class HtmlExportFile
     {
         RelativePath = relativePath;
         MediaType = mediaType;
-        _data = data.ToArray();
+        _data = data;
     }
 
     public string RelativePath { get; }
     public string MediaType { get; }
     public ReadOnlyMemory<byte> Data => _data;
+
+    internal void SaveTo(string path) => File.WriteAllBytes(path, _data);
 }
 
 /// <summary>
@@ -69,7 +71,7 @@ public sealed class HtmlExportBundle
             string? parent = Path.GetDirectoryName(destination);
             if (parent is not null)
                 Directory.CreateDirectory(parent);
-            File.WriteAllBytes(destination, file.Data.ToArray());
+            file.SaveTo(destination);
         }
     }
 }

@@ -48,11 +48,21 @@ does not hash itself. `MaximumFiles` and `MaximumOutputBytes` are checked
 before adding each file; decoder and pixel limits continue to come from
 `PdfReadOptions`.
 
+Beta.2 also applies `MaximumOutputBytes` to standalone JSON, XML and XHTML,
+not only bundles. `MaximumPages` defaults to 10,000 and is checked before
+allocating the selected-page array. `MaximumNodes` defaults to 1,000,000 and
+counts document metadata, pages, text boxes, fonts, links, images and manifest
+entries. Bundle file and byte budgets are cumulative and include the generated
+manifest; every limit is charged before the corresponding collection or
+stream grows. Exceeding one throws a deterministic `PdfLimitException`.
+
 ## CLI and playground
 
 The CLI exposes `json`, `xml`, `xhtml` and `export` commands. All accept
 `--page` or a `--first-page`/`--last-page` range, text ordering flags,
 `--no-images`, and `--decoded-images`. `export` writes the complete bundle.
+Beta.2 additionally exposes `--max-pages`, `--max-nodes`, `--max-files` and
+`--max-output-bytes` for these commands.
 
 The WebAssembly playground downloads document JSON, XML, XHTML and a ZIP
 bundle. Its image buttons use original JPEG/JP2 when safe and PNG otherwise;

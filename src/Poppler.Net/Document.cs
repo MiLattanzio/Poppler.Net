@@ -14,7 +14,7 @@ namespace Poppler;
 /// <summary>Read-only managed representation of a PDF document.</summary>
 public sealed class Document : IDisposable
 {
-    public const string PortVersion = "0.13.0-beta.1";
+    public const string PortVersion = "0.13.0-beta.2";
     public const string UpstreamVersion = "26.07.0";
 
     private readonly byte[] _data;
@@ -472,18 +472,50 @@ public sealed class Document : IDisposable
             throw new ArgumentOutOfRangeException(nameof(pageCount));
         PdfPageExtractionOptions effectiveOptions =
             (options ?? new PdfPageExtractionOptions()).Snapshot();
+        if (count > effectiveOptions.MaximumPages)
+        {
+            throw new PdfLimitException(
+                "Extracted page count exceeds the configured limit.");
+        }
         var result = new PdfExtractedPage[count];
+        long totalBytes = 0;
         for (int offset = 0; offset < count; offset++)
         {
             int index = firstPageIndex + offset;
-            result[offset] = new PdfExtractedPage(
-                index,
-                PdfPageExtractor.Extract(
+            long remainingBytes = effectiveOptions.MaximumTotalOutputBytes - totalBytes;
+            if (remainingBytes < 64)
+            {
+                throw new PdfLimitException(
+                    "Extracted pages exceed the configured cumulative output limit.");
+            }
+            PdfPageExtractionOptions pageOptions = effectiveOptions with
+            {
+                MaximumOutputBytes = Math.Min(
+                    effectiveOptions.MaximumOutputBytes,
+                    remainingBytes)
+            };
+            byte[] data;
+            try
+            {
+                data = PdfPageExtractor.Extract(
                     _core,
                     _catalog,
                     _pageNodes[index],
                     _pageNodes,
-                    effectiveOptions));
+                    pageOptions);
+            }
+            catch (PdfLimitException exception) when (
+                pageOptions.MaximumOutputBytes < effectiveOptions.MaximumOutputBytes &&
+                exception.Message ==
+                    "Extracted PDF exceeds the configured output-size limit.")
+            {
+                throw new PdfLimitException(
+                    "Extracted pages exceed the configured cumulative output limit.");
+            }
+            totalBytes = checked(totalBytes + data.LongLength);
+            result[offset] = new PdfExtractedPage(
+                index,
+                data);
         }
         return result;
     }

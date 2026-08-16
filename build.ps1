@@ -164,6 +164,63 @@ try {
             $rangePages[1].index -ne 2) {
             throw "The packaged CLI structured page-range smoke output is invalid."
         }
+        $limitedHtml = Join-Path $toolRoot "limited.html"
+        $nativeErrorPreference = $PSNativeCommandUseErrorActionPreference
+        $errorPreference = $ErrorActionPreference
+        try {
+            $PSNativeCommandUseErrorActionPreference = $false
+            $ErrorActionPreference = "Continue"
+            & $toolCommand html `
+                tests/fixtures/compatibility-beta1.pdf `
+                $limitedHtml `
+                --first-page 1 `
+                --last-page 2 `
+                --max-pages 1 2>$null
+            $limitedHtmlExitCode = $LASTEXITCODE
+        }
+        finally {
+            $PSNativeCommandUseErrorActionPreference = $nativeErrorPreference
+            $ErrorActionPreference = $errorPreference
+        }
+        if ($limitedHtmlExitCode -eq 0 -or (Test-Path -LiteralPath $limitedHtml)) {
+            throw "The packaged CLI did not enforce the HTML page limit."
+        }
+        $limitedJson = Join-Path $toolRoot "limited.json"
+        try {
+            $PSNativeCommandUseErrorActionPreference = $false
+            $ErrorActionPreference = "Continue"
+            & $toolCommand json `
+                tests/fixtures/compatibility-beta1.pdf `
+                $limitedJson `
+                --max-nodes 1 2>$null
+            $limitedJsonExitCode = $LASTEXITCODE
+        }
+        finally {
+            $PSNativeCommandUseErrorActionPreference = $nativeErrorPreference
+            $ErrorActionPreference = $errorPreference
+        }
+        if ($limitedJsonExitCode -eq 0 -or (Test-Path -LiteralPath $limitedJson)) {
+            throw "The packaged CLI did not enforce the structured node limit."
+        }
+        $limitedPages = Join-Path $toolRoot "limited-pages"
+        try {
+            $PSNativeCommandUseErrorActionPreference = $false
+            $ErrorActionPreference = "Continue"
+            & $toolCommand separate `
+                tests/fixtures/compatibility-beta1.pdf `
+                $limitedPages `
+                --first-page 1 `
+                --last-page 2 `
+                --max-pages 1 2>$null
+            $limitedPagesExitCode = $LASTEXITCODE
+        }
+        finally {
+            $PSNativeCommandUseErrorActionPreference = $nativeErrorPreference
+            $ErrorActionPreference = $errorPreference
+        }
+        if ($limitedPagesExitCode -eq 0) {
+            throw "The packaged CLI did not enforce the separated-page limit."
+        }
     }
     finally {
         if (Test-Path -LiteralPath $toolRoot) {

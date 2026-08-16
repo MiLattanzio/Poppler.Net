@@ -162,9 +162,7 @@ internal static class Cli
         EnsureUnlocked(document);
         foreach (EmbeddedFile file in document.EmbeddedFiles)
         {
-            string safeName = Path.GetFileName(file.Name);
-            if (string.IsNullOrWhiteSpace(safeName))
-                safeName = "attachment.bin";
+            string safeName = SafeOutputFileName(file.Name, "attachment.bin");
             string path = UniquePath(outputDirectory, safeName);
             file.SaveTo(path);
             Console.WriteLine($"{file.Name} -> {path} ({file.Size} bytes)");
@@ -449,9 +447,27 @@ internal static class Cli
         string stem = SafeFileStem(Path.GetFileNameWithoutExtension(args[1]));
         int width = Math.Max(4, document.Pages.ToString(CultureInfo.InvariantCulture).Length);
         string format = "D" + width.ToString(CultureInfo.InvariantCulture);
+        var extractionDefaults = new PdfPageExtractionOptions();
+        var extractionOptions = extractionDefaults with
+        {
+            MaximumObjects =
+                GetIntegerOption(args, "--max-objects") ?? extractionDefaults.MaximumObjects,
+            MaximumDepth =
+                GetIntegerOption(args, "--max-depth") ?? extractionDefaults.MaximumDepth,
+            MaximumStreamBytes =
+                GetLongOption(args, "--max-stream-bytes") ?? extractionDefaults.MaximumStreamBytes,
+            MaximumOutputBytes =
+                GetLongOption(args, "--max-output-bytes") ?? extractionDefaults.MaximumOutputBytes,
+            MaximumPages =
+                GetIntegerOption(args, "--max-pages") ?? extractionDefaults.MaximumPages,
+            MaximumTotalOutputBytes =
+                GetLongOption(args, "--max-total-output-bytes") ??
+                extractionDefaults.MaximumTotalOutputBytes
+        };
         foreach (PdfExtractedPage page in document.ExtractPages(
                      firstPage - 1,
-                     lastPage - firstPage + 1))
+                     lastPage - firstPage + 1,
+                     extractionOptions))
         {
             string number = page.SourcePageNumber.ToString(format, CultureInfo.InvariantCulture);
             string path = UniquePath(outputDirectory, $"{stem}-page-{number}.pdf");
@@ -492,10 +508,14 @@ internal static class Cli
             _ => throw new ArgumentException("--fallback must be 'rasterize' or 'omit'.")
         };
         string title = GetStringOption(args, "--title");
+        var htmlDefaults = new HtmlRenderOptions();
+        var exportDefaults = new HtmlExportOptions();
         var options = new HtmlExportOptions
         {
             FirstPageIndex = firstPage - 1,
             PageCount = lastPage - firstPage + 1,
+            MaximumPages =
+                GetIntegerOption(args, "--max-pages") ?? exportDefaults.MaximumPages,
             Title = string.IsNullOrWhiteSpace(title) ? null : title,
             PageOptions = new HtmlRenderOptions
             {
@@ -510,6 +530,15 @@ internal static class Cli
                     !args.Contains("--no-embed-fonts", StringComparer.Ordinal),
                 FallbackMode = fallback,
                 RasterFallbackDpi = GetDoubleOption(args, "--fallback-dpi") ?? 144,
+                MaximumOutputBytes =
+                    GetLongOption(args, "--max-output-bytes") ?? htmlDefaults.MaximumOutputBytes,
+                MaximumEmbeddedFontBytes =
+                    GetLongOption(args, "--max-font-bytes") ??
+                    htmlDefaults.MaximumEmbeddedFontBytes,
+                MaximumDomNodes =
+                    GetIntegerOption(args, "--max-dom-nodes") ?? htmlDefaults.MaximumDomNodes,
+                MaximumFiles =
+                    GetIntegerOption(args, "--max-files") ?? htmlDefaults.MaximumFiles,
                 OptionalContentVisibility = GetLayerOverrides(args)
             }
         };
@@ -576,6 +605,7 @@ internal static class Cli
                 $"Structured export page range must be between 1 and {document.Pages}.");
         }
 
+        var defaults = new StructuredExportOptions();
         return new StructuredExportOptions
         {
             FirstPageIndex = firstPage - 1,
@@ -587,7 +617,15 @@ internal static class Cli
                     : TextLayout.Physical,
             IncludeImages = !args.Contains("--no-images", StringComparer.Ordinal),
             PreferOriginalImages =
-                !args.Contains("--decoded-images", StringComparer.Ordinal)
+                !args.Contains("--decoded-images", StringComparer.Ordinal),
+            MaximumFiles =
+                GetIntegerOption(args, "--max-files") ?? defaults.MaximumFiles,
+            MaximumOutputBytes =
+                GetLongOption(args, "--max-output-bytes") ?? defaults.MaximumOutputBytes,
+            MaximumPages =
+                GetIntegerOption(args, "--max-pages") ?? defaults.MaximumPages,
+            MaximumNodes =
+                GetIntegerOption(args, "--max-nodes") ?? defaults.MaximumNodes
         };
     }
 
@@ -746,6 +784,24 @@ internal static class Cli
         return value;
     }
 
+    private static long? GetLongOption(string[] args, string option)
+    {
+        int index = Array.IndexOf(args, option);
+        if (index < 0)
+            return null;
+        if (index + 1 >= args.Length ||
+            !long.TryParse(
+                args[index + 1],
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out long value))
+        {
+            throw new ArgumentException($"{option} requires an integer byte value.");
+        }
+
+        return value;
+    }
+
     private static Document LoadDocument(string[] args, int inputIndex) =>
         Document.LoadFromFile(
             args[inputIndex],
@@ -856,7 +912,42 @@ internal static class Cli
                 : '-')
             .ToArray());
         result = result.Trim('.', '-', '_');
-        return string.IsNullOrEmpty(result) ? "document" : result;
+        if (string.IsNullOrEmpty(result))
+            return "document";
+        const int maximumLength = 80;
+        return result.Length <= maximumLength
+            ? result
+            : result[..maximumLength].TrimEnd('.', '-', '_');
+    }
+
+    private static string SafeOutputFileName(string? value, string fallback)
+    {
+        string candidate = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+        candidate = candidate.Replace('\\', '/');
+        candidate = candidate[(candidate.LastIndexOf('/') + 1)..];
+        string result = new string(candidate
+            .Select(character =>
+                char.IsControl(character) || character is '<' or '>' or ':' or '"' or
+                    '/' or '\\' or '|' or '?' or '*'
+                    ? '-'
+                    : character)
+            .ToArray())
+            .Trim(' ', '.');
+        if (string.IsNullOrWhiteSpace(result))
+            result = fallback;
+        if (result.Length > 120)
+            result = result[..120].TrimEnd(' ', '.');
+
+        string stem = Path.GetFileNameWithoutExtension(result);
+        string[] reserved =
+        [
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        ];
+        if (reserved.Contains(stem, StringComparer.OrdinalIgnoreCase))
+            result = "_" + result;
+        return result;
     }
 
     private static string YesNo(bool value) => value ? "yes" : "no";
@@ -898,11 +989,11 @@ internal static class Cli
               poppler-net layers <input.pdf> [password options]
               poppler-net graphics <input.pdf> [--page N] [password options]
               poppler-net images <input.pdf> <output-dir> [--page N] [--decoded-images] [password options]
-              poppler-net separate <input.pdf> <output-dir> [--first-page N] [--last-page N] [password options]
+              poppler-net separate <input.pdf> <output-dir> [--first-page N] [--last-page N] [export limits] [password options]
               poppler-net render <input.pdf> <output.png> [--page N] [--dpi N] [--antialias 1|2|4|8] [--transparent] [--font-dir PATH] [--layer ID=on|off] [--no-font-substitution] [common options]
               poppler-net attachments <input.pdf> <output-dir> [password options]
               poppler-net svg <input.pdf> <output.svg> [--page N] [--bounds] [--image-bounds] [--layer ID=on|off] [password options]
-              poppler-net html <input.pdf> <output.html|output-dir> [--page N|--first-page N --last-page N] [--bundle] [--svg-text] [--scale N] [--no-embed-fonts] [--no-images] [--no-vector] [--fallback rasterize|omit] [--fallback-dpi N] [--title VALUE] [--layer ID=on|off] [password options]
+              poppler-net html <input.pdf> <output.html|output-dir> [--page N|--first-page N --last-page N] [--bundle] [--svg-text] [--scale N] [--no-embed-fonts] [--no-images] [--no-vector] [--fallback rasterize|omit] [--fallback-dpi N] [--title VALUE] [--layer ID=on|off] [export limits] [password options]
               poppler-net json <input.pdf> <output.json> [structured options]
               poppler-net xml <input.pdf> <output.xml> [structured options]
               poppler-net xhtml <input.pdf> <output.xhtml> [structured options]
@@ -914,6 +1005,19 @@ internal static class Cli
               --raw | --reading-order
               --no-images           Omit image metadata and bundle files.
               --decoded-images      Always export decoded PNG images.
+              --max-nodes N         Maximum structured semantic nodes.
+
+            Export limits:
+              --max-pages N         Maximum selected/output pages.
+              --max-files N         Maximum bundle files.
+              --max-output-bytes N  Maximum output bytes.
+              --max-total-output-bytes N
+                                    Maximum cumulative separated-PDF bytes.
+              --max-font-bytes N    Maximum generated HTML font bytes.
+              --max-dom-nodes N     Maximum generated HTML/SVG DOM nodes.
+              --max-objects N       Maximum objects in one separated PDF.
+              --max-depth N         Maximum separated-PDF graph depth.
+              --max-stream-bytes N  Maximum copied stream bytes per PDF.
 
             Password options:
               --user-password VALUE

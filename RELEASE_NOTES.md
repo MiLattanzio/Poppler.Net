@@ -1,45 +1,50 @@
-# Poppler.Net 0.13.0-beta.1
+# Poppler.Net 0.13.0-beta.2
 
-Release date: 2026-08-15
+Release date: 2026-08-16
 
-`0.13.0-beta.1` closes conversion compatibility across the managed HTML,
-standalone-page PDF, structured-data and image-export features introduced by
-the 0.13 alpha releases. It adds no native runtime and no general PDF mutation
-surface.
+`0.13.0-beta.2` hardens the managed HTML, standalone-page PDF, structured-data
+and image-export features introduced in the 0.13 line. It adds cumulative
+budgets, adversarial coverage, concurrent-conversion qualification and
+package/source checks without adding a native runtime or a general PDF
+mutation surface.
 
-## Conversion compatibility
+## Bounded export pipelines
 
-- Added a pinned cross-feature matrix for subset and missing fonts,
-  annotations, forms, rotations/page boxes, images, encrypted/unlocked input,
-  malformed optional metadata and bounded hostile resource graphs.
-- Classified every representative difference against Poppler 26.07
-  `pdftohtml`, `pdfseparate`, `pdftotext` and `pdfimages` behavior.
-- Added an optional development-only executable differential while retaining a
-  fully managed runtime and CI graph.
-- Qualified selected HTML/structured ranges against the same source-page
-  identity and verified standalone pages by reopening and comparing managed
-  raster pixels, boxes, rotation and extracted text with their source.
+- HTML exports now bound selected pages, generated DOM/SVG nodes, bundle
+  files, embedded font bytes and cumulative UTF-8 output before growth.
+- JSON, XML and XHTML now apply output and semantic-node limits to standalone
+  results as well as bundles; structured bundles enforce one cumulative file
+  and byte budget, including their manifest.
+- Multi-page PDF extraction now limits selected pages and the cumulative bytes
+  retained by the complete operation in addition to per-page writer limits.
+- CLI options expose every new export limit. Output file names normalize both
+  directory separators, control/invalid characters and Windows reserved names.
+- Limit failures use stable `PdfLimitException` diagnostics and are covered by
+  hostile image-resource names, undersized budgets and pre-allocation tests.
 
-## API, CLI and playground alignment
+## Concurrency, performance and playground
 
-- Kept structured-export schema `1.0` and the alpha.3 public API unchanged.
-- Added page-level JSON, XML and XHTML downloads to the WebAssembly playground
-  beside the existing current-page HTML and autonomous PDF downloads.
-- Extended packaged CLI smoke tests on Ubuntu, Windows and macOS to cover page
-  and range HTML/JSON, structured image bundles and normalized/raw font names.
-- Extended clean NuGet consumers on `net8.0` and `net10.0` to export schema
-  `1.0` ranges and reopen standalone pages in addition to PNG/SVG/HTML.
+- Twelve concurrent conversion families from one read-only document produce
+  isolated, byte-identical results in the beta.2 regression corpus.
+- Release baselines cover conversion time and managed allocation; the new
+  two-page export baseline remains below 3 seconds and 32 MiB locally.
+- The WebAssembly playground applies tighter browser-specific input, page,
+  node, file and output budgets, reports them in the UI, and bounds ZIP growth.
+- Preview and download object URLs are tracked and revoked after use or page
+  teardown, avoiding retained large blobs during repeated multi-file exports.
 
-## Correctness and boundaries
+## Packaging and qualification
 
-- HTML source text remains available when fonts are absent or embedding,
-  vectors, images and raster fallbacks are disabled.
-- Unlocked encrypted input converts normally; extracted pages are intentionally
-  autonomous and unencrypted.
-- Optional metadata damage remains diagnostic-only, while malformed required
-  streams and configured resource limits fail deterministically.
-- No known P0/P1 correctness defect remains in the declared 0.13 conversion
-  scope after local qualification. Three-OS CI is the final promotion gate.
+- Clean NuGet consumers on `net8.0` and `net10.0` now exercise the public
+  export limits as well as successful conversions.
+- Package verification checks embedded portable PDBs and Source Link mappings
+  for both library target frameworks and the packaged dotnet tool, including
+  deterministic Source Link generation from the extracted source archive.
+- Packaged CLI smoke tests exercise deterministic limit failures on Ubuntu,
+  Windows and macOS in addition to existing conversion commands.
+- The public API fingerprints are intentionally updated for the new limit
+  options. Structured schema `1.0` and all generated manifest formats remain
+  unchanged.
 
 OCR, semantic reconstruction, office conversion, page merging, general PDF
 editing, action execution, XFA and encryption mutation remain out of scope.

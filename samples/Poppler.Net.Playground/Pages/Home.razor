@@ -1,5 +1,5 @@
 @page "/"
-@implements IDisposable
+@implements IAsyncDisposable
 @inject HttpClient Http
 @inject IJSRuntime JS
 
@@ -350,7 +350,7 @@
                             <section class="export-panel" aria-label="Esporta documento e pagina">
                                 <div class="export-copy">
                                     <span class="cap-icon">↓</span>
-                                    <div><strong>Esporta i risultati</strong><small>HTML e PDF autonomi generati localmente, senza upload.</small></div>
+                                    <div><strong>Esporta i risultati</strong><small>HTML e PDF autonomi generati localmente, senza upload. Massimo @MaxExportPages pagine, @MaxDownloadFiles file e @FormatBytes(MaxDownloadBytes) per download.</small></div>
                                 </div>
                                 <div class="export-actions">
                                     <button type="button" class="download-action" @onclick="DownloadSourcePdfAsync" disabled="@(_selectedBytes is null || _isBusy)">PDF originale</button>
@@ -621,6 +621,10 @@
 
 @code {
     private const long MaxInputBytes = 64 * 1024 * 1024;
+    private const long MaxDownloadBytes = 128L * 1024 * 1024;
+    private const int MaxDownloadFiles = 2_048;
+    private const int MaxExportPages = 512;
+    private const int MaxExportNodes = 500_000;
     private const int MaxImagePreviews = 12;
     private static readonly string[] FallbackFontFiles =
     {
@@ -640,6 +644,7 @@
     private string _userPassword = "";
     private string? _errorMessage;
     private string? _previewUrl;
+    private string? _previewObjectUrl;
     private string? _previewHtml;
     private byte[]? _previewBytes;
     private string _previewExtension = "html";
@@ -719,7 +724,7 @@
         }
         catch (Exception exception)
         {
-            ResetDocument();
+            await ResetDocumentAsync();
             _errorMessage = FriendlyMessage(exception);
         }
         finally
@@ -743,7 +748,7 @@
         }
         catch (Exception exception)
         {
-            ResetDocument();
+            await ResetDocumentAsync();
             _errorMessage = FriendlyMessage(exception);
         }
         finally
@@ -765,7 +770,7 @@
         }
         catch (Exception exception)
         {
-            ResetDocument();
+            await ResetDocumentAsync();
             _errorMessage = FriendlyMessage(exception);
         }
         finally
@@ -777,11 +782,13 @@
     private async Task LoadDocumentAsync()
     {
         await Task.Yield();
+        await ReleasePreviewUrlAsync();
         _document?.Dispose();
         _document = Document.LoadFromData(
             _selectedBytes!,
             ownerPassword: _ownerPassword,
-            userPassword: _userPassword);
+            userPassword: _userPassword,
+            options: PlaygroundReadOptions());
         _pageIndex = 0;
         _previewUrl = null;
         _previewHtml = null;
@@ -880,6 +887,7 @@
 
         if (_previewFormat == PreviewFormat.Html)
         {
+            await ReleasePreviewUrlAsync();
             string html = _page!.RenderToHtml(HtmlPageOptions());
             byte[] htmlBytes = Encoding.UTF8.GetBytes(html);
             _previewHtml = html;
@@ -906,7 +914,7 @@
             _previewBytes = png;
             _previewExtension = "png";
             _previewMimeType = "image/png";
-            _previewUrl = $"data:image/png;base64,{Convert.ToBase64String(png)}";
+            _previewUrl = await CreatePreviewUrlAsync(png, _previewMimeType);
         }
         else
         {
@@ -923,7 +931,7 @@
             _previewBytes = svgBytes;
             _previewExtension = "svg";
             _previewMimeType = "image/svg+xml";
-            _previewUrl = $"data:image/svg+xml;base64,{Convert.ToBase64String(svgBytes)}";
+            _previewUrl = await CreatePreviewUrlAsync(svgBytes, _previewMimeType);
         }
     }
 
@@ -1040,7 +1048,7 @@
             return new DownloadArtifact(
                 ExtractedPageFileName(page.Number),
                 "application/pdf",
-                page.ExtractPdf());
+                page.ExtractPdf(PlaygroundExtractionOptions()));
         });
     }
 
@@ -1050,7 +1058,7 @@
         {
             Document document = _document ?? throw new InvalidOperationException("Nessun PDF caricato.");
             IEnumerable<ZipItem> items = document
-                .ExtractPages()
+                .ExtractPages(options: PlaygroundExtractionOptions())
                 .Select(page => new ZipItem(
                     ExtractedPageFileName(page.SourcePageNumber),
                     page.Data.ToArray()));
@@ -1082,6 +1090,7 @@
             string html = document.RenderToHtml(new HtmlExportOptions
             {
                 Title = DisplayTitle,
+                MaximumPages = MaxExportPages,
                 PageOptions = HtmlPageOptions()
             });
             return new DownloadArtifact(
@@ -1099,6 +1108,7 @@
             HtmlExportBundle bundle = document.CreateHtmlBundle(new HtmlExportOptions
             {
                 Title = DisplayTitle,
+                MaximumPages = MaxExportPages,
                 PageOptions = HtmlPageOptions()
             });
             return new DownloadArtifact(
@@ -1144,7 +1154,7 @@
         return new DownloadArtifact(
             $"{DocumentStem}-pagina-{_pageIndex + 1}-dati.json",
             "application/json",
-            Encoding.UTF8.GetBytes(page.ExportToJson()));
+            Encoding.UTF8.GetBytes(page.ExportToJson(PlaygroundStructuredOptions())));
     });
 
     private Task DownloadPageStructuredXmlAsync() => RunDownloadAsync(() =>
@@ -1153,7 +1163,7 @@
         return new DownloadArtifact(
             $"{DocumentStem}-pagina-{_pageIndex + 1}-dati.xml",
             "application/xml",
-            Encoding.UTF8.GetBytes(page.ExportToXml()));
+            Encoding.UTF8.GetBytes(page.ExportToXml(PlaygroundStructuredOptions())));
     });
 
     private Task DownloadPageStructuredXhtmlAsync() => RunDownloadAsync(() =>
@@ -1162,7 +1172,7 @@
         return new DownloadArtifact(
             $"{DocumentStem}-pagina-{_pageIndex + 1}-dati.xhtml",
             "application/xhtml+xml",
-            Encoding.UTF8.GetBytes(page.ExportToXhtml()));
+            Encoding.UTF8.GetBytes(page.ExportToXhtml(PlaygroundStructuredOptions())));
     });
 
     private Task DownloadStructuredJsonAsync()
@@ -1173,7 +1183,7 @@
             return new DownloadArtifact(
                 $"{DocumentStem}-dati.json",
                 "application/json",
-                Encoding.UTF8.GetBytes(document.ExportToJson()));
+                Encoding.UTF8.GetBytes(document.ExportToJson(PlaygroundStructuredOptions())));
         });
     }
 
@@ -1183,7 +1193,7 @@
         return new DownloadArtifact(
             $"{DocumentStem}-dati.xml",
             "application/xml",
-            Encoding.UTF8.GetBytes(document.ExportToXml()));
+            Encoding.UTF8.GetBytes(document.ExportToXml(PlaygroundStructuredOptions())));
     });
 
     private Task DownloadStructuredXhtmlAsync() => RunDownloadAsync(() =>
@@ -1192,13 +1202,14 @@
         return new DownloadArtifact(
             $"{DocumentStem}-dati.xhtml",
             "application/xhtml+xml",
-            Encoding.UTF8.GetBytes(document.ExportToXhtml()));
+            Encoding.UTF8.GetBytes(document.ExportToXhtml(PlaygroundStructuredOptions())));
     });
 
     private Task DownloadStructuredBundleAsync() => RunDownloadAsync(() =>
     {
         Document document = _document ?? throw new InvalidOperationException("Nessun PDF caricato.");
-        StructuredExportBundle bundle = document.CreateStructuredBundle();
+        StructuredExportBundle bundle = document.CreateStructuredBundle(
+            PlaygroundStructuredOptions());
         IEnumerable<ZipItem> items = bundle.Files.Select(file =>
             new ZipItem(file.RelativePath, file.Data.ToArray()));
         return new DownloadArtifact(
@@ -1296,6 +1307,11 @@
         {
             await Task.Yield();
             DownloadArtifact artifact = createArtifact();
+            if (artifact.Data.LongLength > MaxDownloadBytes)
+            {
+                throw new PdfLimitException(
+                    $"Il download supera il limite di {FormatBytes(MaxDownloadBytes)} del playground.");
+            }
             using var stream = new MemoryStream(artifact.Data, writable: false);
             using var streamReference = new DotNetStreamReference(stream);
             await JS.InvokeVoidAsync(
@@ -1348,9 +1364,40 @@
         EmbedFonts = true,
         FallbackMode = _svgFallback,
         RasterFallbackDpi = Math.Clamp(_dpi, 1, 2400),
+        MaximumOutputBytes = MaxDownloadBytes,
+        MaximumEmbeddedFontBytes = 32L * 1024 * 1024,
+        MaximumDomNodes = MaxExportNodes,
+        MaximumFiles = MaxDownloadFiles,
         OptionalContentVisibility = new Dictionary<string, bool>(
             _layerVisibility,
             StringComparer.Ordinal)
+    };
+
+    private static StructuredExportOptions PlaygroundStructuredOptions() => new()
+    {
+        MaximumFiles = MaxDownloadFiles,
+        MaximumOutputBytes = MaxDownloadBytes,
+        MaximumPages = MaxExportPages,
+        MaximumNodes = MaxExportNodes
+    };
+
+    private static PdfPageExtractionOptions PlaygroundExtractionOptions() => new()
+    {
+        MaximumOutputBytes = MaxDownloadBytes,
+        MaximumPages = MaxExportPages,
+        MaximumTotalOutputBytes = MaxDownloadBytes
+    };
+
+    private static PdfReadOptions PlaygroundReadOptions() => new()
+    {
+        MaximumInputBytes = MaxInputBytes,
+        MaximumDecodedStreamBytes = 64 * 1024 * 1024,
+        MaximumCachedDecodedBytes = 16L * 1024 * 1024,
+        MaximumImagePixels = 25_000_000,
+        MaximumPageImagePixels = 50_000_000,
+        MaximumRenderPixels = 25_000_000,
+        MaximumRenderWorkingBytes = 256L * 1024 * 1024,
+        MaximumSvgFallbackPixels = 12_500_000
     };
 
     private static FontDownload FontDownloadFor(FontInfo font)
@@ -1373,14 +1420,23 @@
         using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
         {
             var usedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            int fileCount = 0;
+            long sourceBytes = 0;
             foreach (ZipItem item in items)
             {
+                if (++fileCount > MaxDownloadFiles)
+                    throw new PdfLimitException("Il bundle supera il limite di file del playground.");
+                if (sourceBytes > MaxDownloadBytes - item.Data.LongLength)
+                    throw new PdfLimitException("Il bundle supera il limite di byte del playground.");
+                sourceBytes += item.Data.LongLength;
                 string name = UniqueZipName(SafeFileName(item.Name, "file.bin"), usedNames);
                 ZipArchiveEntry entry = archive.CreateEntry(name, CompressionLevel.Fastest);
                 using Stream destination = entry.Open();
                 destination.Write(item.Data);
             }
         }
+        if (output.Length > MaxDownloadBytes)
+            throw new PdfLimitException("L'archivio supera il limite di byte del playground.");
         return output.ToArray();
     }
 
@@ -1389,8 +1445,14 @@
         using var output = new MemoryStream();
         using (var archive = new ZipArchive(output, ZipArchiveMode.Create, leaveOpen: true))
         {
+            if (bundle.Files.Count > MaxDownloadFiles)
+                throw new PdfLimitException("Il bundle supera il limite di file del playground.");
+            long sourceBytes = 0;
             foreach (HtmlExportFile file in bundle.Files)
             {
+                if (sourceBytes > MaxDownloadBytes - file.Data.Length)
+                    throw new PdfLimitException("Il bundle supera il limite di byte del playground.");
+                sourceBytes += file.Data.Length;
                 ZipArchiveEntry entry = archive.CreateEntry(
                     file.RelativePath,
                     CompressionLevel.Fastest);
@@ -1398,7 +1460,33 @@
                 destination.Write(file.Data.Span);
             }
         }
+        if (output.Length > MaxDownloadBytes)
+            throw new PdfLimitException("L'archivio supera il limite di byte del playground.");
         return output.ToArray();
+    }
+
+    private async Task<string> CreatePreviewUrlAsync(byte[] data, string contentType)
+    {
+        if (data.LongLength > MaxDownloadBytes)
+            throw new PdfLimitException("L'anteprima supera il limite di memoria del playground.");
+        using var stream = new MemoryStream(data, writable: false);
+        using var streamReference = new DotNetStreamReference(stream);
+        string url = await JS.InvokeAsync<string>(
+            "popplerNetDownloads.preview",
+            contentType,
+            streamReference,
+            _previewObjectUrl);
+        _previewObjectUrl = url;
+        return url;
+    }
+
+    private async ValueTask ReleasePreviewUrlAsync()
+    {
+        string? url = _previewObjectUrl;
+        _previewObjectUrl = null;
+        _previewUrl = null;
+        if (url is not null)
+            await JS.InvokeVoidAsync("popplerNetDownloads.release", url);
     }
 
     private static string UniqueZipName(string name, HashSet<string> usedNames)
@@ -1433,7 +1521,18 @@
         string result = sanitized.ToString().Trim(' ', '.');
         if (string.IsNullOrWhiteSpace(result))
             result = fallback;
-        return result.Length <= 140 ? result : result[..140].TrimEnd(' ', '.');
+        if (result.Length > 140)
+            result = result[..140].TrimEnd(' ', '.');
+        string stem = Path.GetFileNameWithoutExtension(result);
+        string[] reserved =
+        {
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        };
+        return reserved.Contains(stem, StringComparer.OrdinalIgnoreCase)
+            ? "_" + result
+            : result;
     }
 
     private int? TabCount(InspectorTab tab) => tab switch
@@ -1459,11 +1558,11 @@
         _ => tab.ToString()
     };
 
-    private void ResetDocument()
+    private async Task ResetDocumentAsync()
     {
         _document?.Dispose();
         _document = null;
-        _previewUrl = null;
+        await ReleasePreviewUrlAsync();
         _previewHtml = null;
         _previewBytes = null;
         ClearPageState();
@@ -1513,7 +1612,18 @@
         _ => $"{bytes} B"
     };
 
-    public void Dispose() => _document?.Dispose();
+    public async ValueTask DisposeAsync()
+    {
+        _document?.Dispose();
+        try
+        {
+            await ReleasePreviewUrlAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+            // Browser teardown will release every remaining object URL on pagehide.
+        }
+    }
 
     private enum PreviewFormat { Html, Png, Svg }
     private enum InspectorTab { Overview, Text, Fonts, Images, Annotations, Structure, Diagnostics }

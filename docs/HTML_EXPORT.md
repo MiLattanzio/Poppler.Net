@@ -27,6 +27,21 @@ or decorative shadow. A single-page export starts at the top-left origin and
 contains only that page. Range and complete-document exports contain only the
 selected pages, stacked in order at their exact PDF dimensions without gaps.
 
+## Beta.2 export budgets
+
+HTML creation is bounded while UTF-8 content, DOM state and bundle entries are
+accumulated, rather than only after a complete result exists. Defaults are
+10,000 selected pages, 1,000,000 generated HTML/SVG nodes, 10,000 bundle
+files, 256 MiB total output and 64 MiB of unique generated web-font data.
+`MaximumOutputBytes` applies to one self-contained result or to the complete
+bundle, including CSS and manifest. `MaximumFiles` includes HTML, CSS,
+manifest, page backgrounds and fonts.
+
+Applications can lower these limits through `HtmlExportOptions.MaximumPages`
+and `HtmlRenderOptions.MaximumDomNodes`, `MaximumFiles`,
+`MaximumOutputBytes` and `MaximumEmbeddedFontBytes`. Exceeding a budget throws
+`PdfLimitException` with a stable page, DOM, file, font or byte diagnostic.
+
 The default `HtmlTextLayerMode.Visible` reconstructs supported glyphs in HTML.
 Poppler.Net decodes each embedded TrueType, OpenType, CFF or Type 1 outline and
 builds a small deterministic TrueType web font entirely in managed code. Its
@@ -134,6 +149,7 @@ poppler-net html input.pdf output-directory --bundle
 poppler-net html input.pdf native.html --scale 1.25
 poppler-net html input.pdf svg-text.html --svg-text
 poppler-net html input.pdf layers.html --layer 17:0=off
+poppler-net html input.pdf bounded.html --max-pages 100 --max-dom-nodes 250000 --max-output-bytes 67108864
 ```
 
 CLI page numbers are one-based. `--bundle` interprets the output as a

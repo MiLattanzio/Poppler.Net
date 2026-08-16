@@ -368,6 +368,21 @@ Beta.2 begins only after the compatibility tracker is complete.
 - Promote only when no P0/P1 safety, performance, concurrency, packaging, or
   playground defect remains.
 
+#### Exit criteria
+
+- [x] No known P0/P1 robustness, resource, concurrency, packaging, or
+  playground defect remains after local qualification.
+- [x] Malformed and adversarial inputs fail with deterministic bounded
+  diagnostics; cumulative budgets are charged before allocation or growth.
+- [x] Conversion performance and managed-allocation baselines pass.
+- [x] Concurrent read-only conversions are isolated and byte-deterministic.
+- [x] The WebAssembly playground bounds input, pages, nodes, files, ZIP/output
+  bytes and releases preview/download blobs deterministically.
+- [x] Local NuGet, Source Link and clean `net8.0`/`net10.0` consumer gates pass.
+- [ ] Ubuntu, Windows and macOS CI pass on the final pushed commit.
+- [x] Public options, default limits, diagnostics and operational boundaries
+  are documented for beta.2.
+
 ### 0.13.0-rc.1: release qualification
 
 RC.1 freezes callable APIs, option defaults, schemas, manifests, and CLI

@@ -101,3 +101,26 @@ has SHA-256:
 
 The compatibility corpus and packaged consumer changes qualify existing APIs;
 they do not expand the alpha.3 structured/export surface.
+
+## 0.13.0-beta.2 export-hardening surface
+
+Beta.2 intentionally adds reviewed safety-budget members to existing option
+records: `HtmlRenderOptions.MaximumDomNodes`/`MaximumFiles`,
+`HtmlExportOptions.MaximumPages`, `StructuredExportOptions.MaximumPages`/
+`MaximumNodes`, and `PdfPageExtractionOptions.MaximumPages`/
+`MaximumTotalOutputBytes`. No conversion method, schema or manifest contract
+was otherwise added or changed.
+
+The approved beta.2 callable SHA-256, normalizing only
+`Document.PortVersion`, is:
+
+`082e5c6049186507381f039a20299754104b3f9c9cc5338a5619aab1e20ea52a`
+
+The complete `0.13.0-beta.2` public surface, including the prerelease version,
+has SHA-256:
+
+`d898dc1482df82df570e0db71892eb19340ec651b491f74bec52062c92580948`
+
+These values were accepted after reviewing the additive option-record diff,
+default budgets and deterministic limit diagnostics. RC.1 may freeze this
+surface; it must not silently remove or relax a beta.2 safety gate.

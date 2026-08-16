@@ -67,5 +67,11 @@ inputs that exceed a bound fail deterministically with an argument or
 `PdfLimitException`; indirect-reference cycles are tracked and never expanded
 recursively without a bound.
 
-Extraction writes each selected page independently. Limits therefore apply to
-each generated PDF rather than to the complete range.
+Extraction writes each selected page independently, while beta.2 also applies
+two operation-wide bounds before retaining results. `MaximumPages` defaults to
+10,000 and is checked before allocating the result array;
+`MaximumTotalOutputBytes` defaults to 512 MiB and bounds the sum of all
+generated PDFs. The remaining cumulative byte budget is passed to each page
+writer, so an oversized range fails before that writer can grow beyond what
+the operation may retain. The CLI exposes these as `--max-pages` and
+`--max-total-output-bytes` alongside the per-page writer limits.

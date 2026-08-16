@@ -28,6 +28,15 @@ public sealed record StructuredExportOptions
     /// <summary>Maximum cumulative bytes produced by one structured bundle.</summary>
     public long MaximumOutputBytes { get; init; } = 256L * 1024 * 1024;
 
+    /// <summary>Maximum pages selected by one structured export.</summary>
+    public int MaximumPages { get; init; } = 10_000;
+
+    /// <summary>
+    /// Maximum cumulative semantic nodes (document metadata, pages, text
+    /// boxes, fonts, links, images and manifest entries) in one export.
+    /// </summary>
+    public int MaximumNodes { get; init; } = 1_000_000;
+
     internal StructuredExportOptions Snapshot()
     {
         if (FirstPageIndex < 0)
@@ -38,8 +47,12 @@ public sealed record StructuredExportOptions
             throw new ArgumentOutOfRangeException(nameof(TextLayout));
         if (MaximumFiles < 4)
             throw new ArgumentOutOfRangeException(nameof(MaximumFiles));
-        if (MaximumOutputBytes < 1)
+        if (MaximumOutputBytes is < 1 or > int.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(MaximumOutputBytes));
+        if (MaximumPages < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumPages));
+        if (MaximumNodes < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumNodes));
         return this with { };
     }
 }

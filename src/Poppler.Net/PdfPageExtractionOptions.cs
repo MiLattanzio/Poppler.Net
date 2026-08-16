@@ -15,6 +15,15 @@ public sealed record PdfPageExtractionOptions
     /// <summary>Maximum size of one extracted PDF.</summary>
     public long MaximumOutputBytes { get; init; } = 256L * 1024 * 1024;
 
+    /// <summary>Maximum pages retained by one <c>ExtractPages</c> call.</summary>
+    public int MaximumPages { get; init; } = 10_000;
+
+    /// <summary>
+    /// Maximum cumulative bytes retained by one <c>ExtractPages</c> call.
+    /// The remaining budget also bounds each writer before it grows.
+    /// </summary>
+    public long MaximumTotalOutputBytes { get; init; } = 512L * 1024 * 1024;
+
     /// <summary>Preserve annotations that can remain valid on the isolated page.</summary>
     public bool PreserveAnnotations { get; init; } = true;
 
@@ -28,6 +37,10 @@ public sealed record PdfPageExtractionOptions
             throw new ArgumentOutOfRangeException(nameof(MaximumStreamBytes));
         if (MaximumOutputBytes is < 64 or > int.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(MaximumOutputBytes));
+        if (MaximumPages < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumPages));
+        if (MaximumTotalOutputBytes is < 64 or > int.MaxValue)
+            throw new ArgumentOutOfRangeException(nameof(MaximumTotalOutputBytes));
         return this with { };
     }
 }

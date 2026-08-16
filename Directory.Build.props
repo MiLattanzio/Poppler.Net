@@ -15,5 +15,15 @@
     <RepositoryUrl>https://github.com/MiLattanzio/Poppler.Net</RepositoryUrl>
     <PackageProjectUrl>https://github.com/MiLattanzio/Poppler.Net</PackageProjectUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EnableSourceControlManagerQueries Condition="'$(SourceArchiveBuild)' == 'true'">false</EnableSourceControlManagerQueries>
+    <ContinuousIntegrationBuild Condition="'$(SourceArchiveBuild)' == 'true'">true</ContinuousIntegrationBuild>
   </PropertyGroup>
+  <ItemGroup Condition="'$(SourceArchiveBuild)' == 'true' and '$(SourceRevisionId)' != ''">
+    <SourceRoot
+      Include="$([MSBuild]::EnsureTrailingSlash('$(MSBuildThisFileDirectory)'))"
+      RepositoryUrl="$(RepositoryUrl)"
+      SourceControl="git"
+      RevisionId="$(SourceRevisionId)"
+      SourceLinkUrl="https://raw.githubusercontent.com/MiLattanzio/Poppler.Net/$(SourceRevisionId)/*" />
+  </ItemGroup>
 </Project>
