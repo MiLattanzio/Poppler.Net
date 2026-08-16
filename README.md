@@ -9,7 +9,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.13.0-beta.1` prerelease builds on stable `0.12.0` and is not a
+> This `0.13.0-beta.2` prerelease builds on stable `0.12.0` and is not a
 > complete replacement for libpoppler. It adds deterministic fixed-layout
 > HTML conversion for pages, ranges and complete documents, including
 > selectable DOM text, safe links, normalized subset-font names, embedded
@@ -22,6 +22,10 @@ process invocation, or native NuGet dependency.
 > conversion compatibility with a pinned cross-feature corpus, Poppler 26.07
 > difference classifications, standalone-page raster equivalence, packaged
 > API/CLI conversion gates and page-level structured playground downloads.
+> Beta.2 hardens every export family with cumulative page, DOM/node, file and
+> byte budgets, adversarial file-name coverage, deterministic concurrent
+> conversion tests, browser blob-lifetime controls and portable-PDB/Source-Link
+> package audits.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
 > extraction, a backend-neutral vector display list and an SVG vector
@@ -191,8 +195,8 @@ Starting with `0.13.0-alpha.1`, the CLI is published as the
 tool. Install or update it with:
 
 ```bash
-dotnet tool install --global Poppler.Net.Cli --version 0.13.0-beta.1
-dotnet tool update --global Poppler.Net.Cli --version 0.13.0-beta.1
+dotnet tool install --global Poppler.Net.Cli --version 0.13.0-beta.2
+dotnet tool update --global Poppler.Net.Cli --version 0.13.0-beta.2
 poppler-net version
 ```
 
@@ -234,6 +238,9 @@ kept in a transparent selectable layer. Missing fonts use positioned browser
 fallbacks and text requiring PDF compositing remains in SVG. `--svg-text`
 selects the legacy all-SVG visual text mode; `--no-embed-fonts`,
 `--fallback omit`, `--scale`, page-range and layer options are also available.
+Beta.2 export commands also accept bounded-workload switches such as
+`--max-pages`, `--max-output-bytes`, `--max-files` and `--max-dom-nodes` or
+`--max-nodes`; `separate` additionally exposes `--max-total-output-bytes`.
 
 Encrypted input accepts `--user-password VALUE` or `--owner-password VALUE`.
 Command-line values may be visible to other local processes; applications

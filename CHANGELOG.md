@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.13.0-beta.2 - 2026-08-16
+
+- Added pre-growth cumulative page, DOM/node, file and byte limits to HTML,
+  structured and standalone-page PDF export pipelines.
+- Extended the CLI with corresponding export-limit switches and hardened
+  generated attachment/resource names against traversal, invalid characters,
+  excessive length and Windows reserved names.
+- Added adversarial export cases, deterministic diagnostics, concurrent
+  conversion coverage and explicit performance/allocation baselines.
+- Bounded WebAssembly input, ZIP and download artifacts and made preview/blob
+  URL lifetime explicit to prevent retained large browser allocations.
+- Extended clean `net8.0`/`net10.0` consumers, packaged CLI smokes and NuGet
+  audits with limit failures, portable PDB and exact-commit Source Link checks.
+- Made extracted-source builds emit the same exact-commit Source Link mapping
+  without depending on a `.git` directory.
+- Kept structured schema `1.0` and manifest contracts unchanged while
+  intentionally expanding the public options surface with reviewed budgets.
+
 ## 0.13.0-beta.1 — 2026-08-15
 
 - Added a pinned conversion-compatibility matrix spanning HTML, standalone

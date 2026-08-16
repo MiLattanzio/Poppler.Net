@@ -64,6 +64,18 @@ public sealed record HtmlRenderOptions
     /// <summary>Maximum unique reusable font bytes embedded in one export.</summary>
     public long MaximumEmbeddedFontBytes { get; init; } = 64L * 1024 * 1024;
 
+    /// <summary>
+    /// Maximum generated HTML and embedded SVG element nodes in one export.
+    /// The cumulative budget is checked before the final document is built.
+    /// </summary>
+    public int MaximumDomNodes { get; init; } = 1_000_000;
+
+    /// <summary>
+    /// Maximum files in a directory bundle, including HTML, CSS, manifest,
+    /// page backgrounds and generated web fonts.
+    /// </summary>
+    public int MaximumFiles { get; init; } = 10_000;
+
     /// <summary>Per-layer visibility overrides keyed by optional-content group id.</summary>
     public IReadOnlyDictionary<string, bool> OptionalContentVisibility { get; init; } =
         new Dictionary<string, bool>(StringComparer.Ordinal);
@@ -89,13 +101,17 @@ public sealed record HtmlRenderOptions
         {
             throw new ArgumentOutOfRangeException(nameof(RasterFallbackDpi));
         }
-        if (MaximumOutputBytes <= 0)
+        if (MaximumOutputBytes is <= 0 or > int.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(MaximumOutputBytes));
         if (MaximumEmbeddedFontBytes < 0 ||
             MaximumEmbeddedFontBytes > MaximumOutputBytes)
         {
             throw new ArgumentOutOfRangeException(nameof(MaximumEmbeddedFontBytes));
         }
+        if (MaximumDomNodes < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumDomNodes));
+        if (MaximumFiles < 3)
+            throw new ArgumentOutOfRangeException(nameof(MaximumFiles));
         if (OptionalContentVisibility is null)
             throw new ArgumentNullException(nameof(OptionalContentVisibility));
         if (OptionalContentVisibility.Keys.Any(string.IsNullOrWhiteSpace))
@@ -141,6 +157,9 @@ public sealed record HtmlExportOptions
     /// </summary>
     public int? PageCount { get; init; }
 
+    /// <summary>Maximum pages selected by one document or bundle export.</summary>
+    public int MaximumPages { get; init; } = 10_000;
+
     /// <summary>HTML document title. The PDF title is used when this is empty.</summary>
     public string? Title { get; init; }
 
@@ -155,10 +174,17 @@ public sealed record HtmlExportOptions
             throw new ArgumentOutOfRangeException(nameof(FirstPageIndex));
         if (PageCount is <= 0)
             throw new ArgumentOutOfRangeException(nameof(PageCount));
+        if (MaximumPages < 1)
+            throw new ArgumentOutOfRangeException(nameof(MaximumPages));
 
         int count = PageCount ?? totalPages - FirstPageIndex;
         if (count > totalPages - FirstPageIndex)
             throw new ArgumentOutOfRangeException(nameof(PageCount));
+        if (count > MaximumPages)
+        {
+            throw new PdfLimitException(
+                "HTML export page count exceeds the configured limit.");
+        }
         if (PageOptions is null)
             throw new ArgumentNullException(nameof(PageOptions));
 

@@ -143,3 +143,29 @@ range_json="${tool_root}/range.json"
   --no-images
 grep -F '"index": 1' "$range_json" >/dev/null
 grep -F '"index": 2' "$range_json" >/dev/null
+
+if "${tool_root}/poppler-net" html \
+  tests/fixtures/compatibility-beta1.pdf \
+  "${tool_root}/limited.html" \
+  --first-page 1 \
+  --last-page 2 \
+  --max-pages 1 2>/dev/null; then
+  echo "The packaged CLI did not enforce the HTML page limit." >&2
+  exit 1
+fi
+if "${tool_root}/poppler-net" json \
+  tests/fixtures/compatibility-beta1.pdf \
+  "${tool_root}/limited.json" \
+  --max-nodes 1 2>/dev/null; then
+  echo "The packaged CLI did not enforce the structured node limit." >&2
+  exit 1
+fi
+if "${tool_root}/poppler-net" separate \
+  tests/fixtures/compatibility-beta1.pdf \
+  "${tool_root}/limited-pages" \
+  --first-page 1 \
+  --last-page 2 \
+  --max-pages 1 2>/dev/null; then
+  echo "The packaged CLI did not enforce the separated-page limit." >&2
+  exit 1
+fi

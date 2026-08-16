@@ -1,4 +1,8 @@
 using System.IO.Compression;
+using System.Reflection.Metadata;
+using System.Reflection.Metadata.Ecma335;
+using System.Reflection.PortableExecutable;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 
@@ -137,6 +141,8 @@ internal static partial class Program
         {
             throw new InvalidDataException("NuSpec repository metadata is incomplete.");
         }
+        VerifyEmbeddedSourceLink(entries["lib/net8.0/Poppler.Net.dll"], commit);
+        VerifyEmbeddedSourceLink(entries["lib/net10.0/Poppler.Net.dll"], commit);
 
         XElement[] groups = metadata
             .Element(ns + "dependencies")?
@@ -271,6 +277,12 @@ internal static partial class Program
         {
             throw new InvalidDataException("Tool NuSpec repository metadata is incomplete.");
         }
+        VerifyEmbeddedSourceLink(
+            entries["tools/net8.0/any/Poppler.Net.dll"],
+            commit);
+        VerifyEmbeddedSourceLink(
+            entries["tools/net8.0/any/poppler-net.dll"],
+            commit);
 
         XDocument settings = ReadXml(entries["tools/net8.0/any/DotnetToolSettings.xml"]);
         XElement command = settings.Root?
@@ -322,6 +334,53 @@ internal static partial class Program
         {
             throw new InvalidDataException(
                 $"Package entry '{entry.FullName}' does not contain '{expected}'.");
+        }
+    }
+
+    private static void VerifyEmbeddedSourceLink(
+        ZipArchiveEntry assemblyEntry,
+        string expectedCommit)
+    {
+        using Stream stream = assemblyEntry.Open();
+        using var image = new MemoryStream();
+        stream.CopyTo(image);
+        image.Position = 0;
+        using var peReader = new PEReader(image, PEStreamOptions.LeaveOpen);
+        DebugDirectoryEntry[] embeddedEntries = peReader
+            .ReadDebugDirectory()
+            .Where(entry => entry.Type == DebugDirectoryEntryType.EmbeddedPortablePdb)
+            .ToArray();
+        if (embeddedEntries.Length != 1)
+        {
+            throw new InvalidDataException(
+                $"Assembly '{assemblyEntry.FullName}' must contain one embedded portable PDB.");
+        }
+
+        using MetadataReaderProvider provider =
+            peReader.ReadEmbeddedPortablePdbDebugDirectoryData(embeddedEntries[0]);
+        MetadataReader reader = provider.GetMetadataReader();
+        var sourceLinkKind = new Guid("CC110556-A091-4D38-9FEC-25AB9A351A6A");
+        CustomDebugInformationHandle sourceLink = reader
+            .GetCustomDebugInformation(
+                MetadataTokens.EntityHandle(TableIndex.Module, 1))
+            .FirstOrDefault(handle =>
+                reader.GetGuid(reader.GetCustomDebugInformation(handle).Kind) ==
+                sourceLinkKind);
+        if (sourceLink.IsNil)
+        {
+            throw new InvalidDataException(
+                $"Assembly '{assemblyEntry.FullName}' does not contain Source Link data.");
+        }
+
+        byte[] value = reader.GetBlobBytes(
+            reader.GetCustomDebugInformation(sourceLink).Value);
+        string json = Encoding.UTF8.GetString(value);
+        if (!json.Contains(expectedCommit, StringComparison.OrdinalIgnoreCase) ||
+            !json.Contains("MiLattanzio/Poppler.Net", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                $"Assembly '{assemblyEntry.FullName}' Source Link data does not target " +
+                "the NuSpec repository commit.");
         }
     }
 

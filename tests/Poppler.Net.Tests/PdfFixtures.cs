@@ -703,6 +703,29 @@ internal static class PdfFixtures
         return BuildClassic(objects, infoObject: null);
     }
 
+    public static byte[] CreateWithHostileImageResourceName()
+    {
+        string encodedName = new string('A', 180) + "#2F..#5CCON#3A#2A";
+        byte[] content = Ascii($"q /{encodedName} Do Q");
+        byte[] pixel = { 255, 0, 0 };
+        return BuildClassic(
+            new[]
+            {
+                Ascii("<< /Type /Catalog /Pages 2 0 R >>"),
+                Ascii("<< /Type /Pages /Kids [3 0 R] /Count 1 >>"),
+                Ascii(
+                    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] " +
+                    $"/Resources << /XObject << /{encodedName} 5 0 R >> >> " +
+                    "/Contents 4 0 R >>"),
+                Stream($"<< /Length {content.Length} >>", content),
+                Stream(
+                    "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 " +
+                    "/ColorSpace /DeviceRGB /BitsPerComponent 8 /Length 3 >>",
+                    pixel)
+            },
+            infoObject: null);
+    }
+
     private static byte[] BuildClassic(
         IReadOnlyList<byte[]> objects,
         int? infoObject = 6)

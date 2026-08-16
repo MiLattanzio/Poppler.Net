@@ -181,7 +181,11 @@ jobs:
           tar -xzf "${GITHUB_WORKSPACE}/artifacts/Poppler.Net.${PACKAGE_VERSION}.tar.gz" -C "${source_root}"
           cd "${source_root}/Poppler.Net"
           dotnet restore Poppler.Net.sln --configfile NuGet.Config
-          dotnet build Poppler.Net.sln --configuration Release --no-restore
+          dotnet build Poppler.Net.sln \
+            --configuration Release \
+            --no-restore \
+            -p:SourceArchiveBuild=true \
+            -p:SourceRevisionId="${GITHUB_SHA}"
           dotnet run \
             --project eng/Poppler.Net.ManagedOnlyVerifier/Poppler.Net.ManagedOnlyVerifier.csproj \
             --configuration Release \
@@ -411,6 +415,66 @@ jobs:
               $rangePages[1].index -ne 2) {
             throw "The packaged CLI structured page range is invalid."
           }
+          $limitedHtml = Join-Path "${{ runner.temp }}" "poppler-net-limited.html"
+          $nativeErrorPreference = $PSNativeCommandUseErrorActionPreference
+          $errorPreference = $ErrorActionPreference
+          try {
+            $PSNativeCommandUseErrorActionPreference = $false
+            $ErrorActionPreference = "Continue"
+            & $command html `
+              "tests/fixtures/compatibility-beta1.pdf" `
+              $limitedHtml `
+              --first-page 1 `
+              --last-page 2 `
+              --max-pages 1 2>$null
+            $limitedHtmlExitCode = $LASTEXITCODE
+          }
+          finally {
+            $PSNativeCommandUseErrorActionPreference = $nativeErrorPreference
+            $ErrorActionPreference = $errorPreference
+          }
+          if ($limitedHtmlExitCode -eq 0 -or (Test-Path -LiteralPath $limitedHtml)) {
+            throw "The packaged CLI did not enforce the HTML page limit."
+          }
+          $limitedJson = Join-Path "${{ runner.temp }}" "poppler-net-limited.json"
+          try {
+            $PSNativeCommandUseErrorActionPreference = $false
+            $ErrorActionPreference = "Continue"
+            & $command json `
+              "tests/fixtures/compatibility-beta1.pdf" `
+              $limitedJson `
+              --max-nodes 1 2>$null
+            $limitedJsonExitCode = $LASTEXITCODE
+          }
+          finally {
+            $PSNativeCommandUseErrorActionPreference = $nativeErrorPreference
+            $ErrorActionPreference = $errorPreference
+          }
+          if ($limitedJsonExitCode -eq 0 -or (Test-Path -LiteralPath $limitedJson)) {
+            throw "The packaged CLI did not enforce the structured node limit."
+          }
+          $limitedPages = Join-Path "${{ runner.temp }}" "poppler-net-limited-pages"
+          try {
+            $PSNativeCommandUseErrorActionPreference = $false
+            $ErrorActionPreference = "Continue"
+            & $command separate `
+              "tests/fixtures/compatibility-beta1.pdf" `
+              $limitedPages `
+              --first-page 1 `
+              --last-page 2 `
+              --max-pages 1 2>$null
+            $limitedPagesExitCode = $LASTEXITCODE
+          }
+          finally {
+            $PSNativeCommandUseErrorActionPreference = $nativeErrorPreference
+            $ErrorActionPreference = $errorPreference
+          }
+          if ($limitedPagesExitCode -eq 0) {
+            throw "The packaged CLI did not enforce the separated-page limit."
+          }
+          # The expected native failure remains in PowerShell's automatic
+          # exit-code variable even after the assertion succeeds.
+          $global:LASTEXITCODE = 0
 
   publish:
     name: Publish to NuGet.org
