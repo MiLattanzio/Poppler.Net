@@ -221,6 +221,8 @@ try {
         if ($limitedPagesExitCode -eq 0) {
             throw "The packaged CLI did not enforce the separated-page limit."
         }
+        # Do not return the final expected native failure as the script result.
+        $global:LASTEXITCODE = 0
     }
     finally {
         if (Test-Path -LiteralPath $toolRoot) {

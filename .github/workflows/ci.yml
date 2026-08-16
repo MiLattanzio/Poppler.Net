@@ -472,6 +472,9 @@ jobs:
           if ($limitedPagesExitCode -eq 0) {
             throw "The packaged CLI did not enforce the separated-page limit."
           }
+          # The expected native failure remains in PowerShell's automatic
+          # exit-code variable even after the assertion succeeds.
+          $global:LASTEXITCODE = 0
 
   publish:
     name: Publish to NuGet.org
