@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.13.0 - 2026-08-21
+
+- Promoted the qualified RC.1 implementation to stable without adding a
+  feature or changing callable APIs, option defaults, schemas, manifests or
+  CLI contracts.
+- Synchronized library, dotnet tool, package-consumer fallback and
+  `Document.PortVersion` metadata at `0.13.0` while retaining assembly/file
+  version `26.7.0.0`.
+- Finalized stable installation, upgrade, compatibility, release and
+  promotion documentation for the managed HTML, standalone-page PDF,
+  structured-data and image-export families.
+- Retained the full three-OS build/test, managed-only, package, Source Link,
+  source-archive, clean consumer, packaged CLI and WebAssembly gates.
+- Required stable tag `v0.13.0` to match the package version before trusted
+  NuGet publication of both library and CLI packages.
+
 ## 0.13.0-rc.1 - 2026-08-21
 
 - Froze the beta.2 callable API, public option defaults, structured schema

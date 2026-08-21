@@ -136,7 +136,7 @@ requested root and rejects any escaping path.
 Install the NuGet dotnet tool:
 
 ```bash
-dotnet tool install --global Poppler.Net.Cli --version 0.13.0-rc.1
+dotnet tool install --global Poppler.Net.Cli --version 0.13.0
 ```
 
 Examples:

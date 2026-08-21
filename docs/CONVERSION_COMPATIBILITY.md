@@ -2,8 +2,8 @@
 
 `0.13.0-beta.1` established this compatibility matrix across the managed HTML,
 standalone-page PDF, structured-data and image-export features introduced by
-the three 0.13 alpha releases. `0.13.0-rc.1` retains and freezes it without a
-new conversion family or broader public mutation surface.
+the three 0.13 alpha releases. Stable `0.13.0` retains and freezes it without
+a new conversion family or broader public mutation surface.
 
 ## Reference and reproducibility
 

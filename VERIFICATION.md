@@ -1,57 +1,69 @@
 # Verification record
 
-Local release qualification was performed on 2026-08-21 for
-`0.13.0-rc.1` with .NET SDK 10.0.302 on Windows 10.0.26200. The library
-compiles for `net8.0` and `net10.0`; the CLI tool targets `net8.0` with
-major-version roll-forward.
+Local stable-candidate qualification was performed on 2026-08-21 for
+`0.13.0` with .NET SDK 10.0.302 on Windows 10.0.26200. The library compiles
+for `net8.0` and `net10.0`; the CLI tool targets `net8.0` with major-version
+roll-forward.
 
 - Release solution build: 0 warnings, 0 errors, including the Blazor
   WebAssembly playground.
 - NUnitLite: 339 passed, 0 failed, 0 warnings, 0 skipped.
 - Managed-only source and restored NuGet graph verification: passed.
 - Library and CLI NuGet content, dependency, license, metadata, embedded
-  portable-PDB and exact-revision Source Link verification: passed.
+  portable-PDB and Source Link verification: passed.
 - Clean local-package consumers: passed on `net8.0` and `net10.0`, including
   HTML, schema `1.0`, standalone-page reopen and public limit failures.
 - Packaged dotnet-tool install/version, HTML, selected-range HTML/JSON, page
   separation, normalized/raw font names and structured image bundle: passed.
 - Packaged CLI negative limit smokes returned the expected exit code without
   leaving result artifacts.
-- Source snapshot restore, build, managed-only verification, 339-test suite,
-  repack and strict library/tool package verification: passed outside `.git`.
-- Release tag guard: accepted `v0.13.0-rc.1` and rejected a mismatched tag.
-- Browser smoke: the local WebAssembly app reported `0.13.0-rc.1`, loaded the
-  demo PDF, rendered selectable HTML by default, exposed page/document
-  downloads and produced no warning/error console entries.
+- A candidate snapshot assembled outside `.git` restored, built, passed the
+  managed-only verifier and all 339 tests, repacked both packages, passed both
+  strict package verifiers, exercised `net8.0`/`net10.0` consumers and
+  exercised the installed CLI tool.
+- Release tag guard: accepted `v0.13.0` and rejected a mismatched tag.
+- Browser smoke: the local WebAssembly app reported `0.13.0`, loaded the demo
+  PDF, rendered selectable HTML by default, exposed HTML/PNG/SVG and document
+  downloads, and produced no warning/error console entries.
 
-The exact pushed commit must still pass GitHub Actions on Ubuntu, Windows and
-macOS. That remote matrix, PR merge and prerelease publication are not claimed
-by this local record.
+The stable change is not committed or pushed by this local record. The exact
+pushed revision must still pass GitHub Actions on Ubuntu, Windows and macOS.
+PR merge, stable tag, GitHub release and NuGet publication are not claimed.
+
+## RC approval evidence
+
+The stable branch starts from approved `master` commit
+`386a031f2840cdf0e3d04e11f17646849c26764f`, the merge result of PR #41.
+The RC.1 `master` workflow run #83 and release workflow run #84 completed
+successfully; issue #33 and its milestone are closed. No stable-candidate
+change adds a feature or fixes a release blocker.
 
 ## Frozen release contract
 
-RC.1 adds no callable public member and changes no public option default from
-beta.2. `ReleaseCandidateTests` enforces these SHA-256 fingerprints:
+Stable 0.13.0 adds no callable public member and changes no public option
+default from RC.1. `ReleaseCandidateTests` enforces these SHA-256
+fingerprints:
 
 | Contract | SHA-256 |
 | --- | --- |
 | callable public API, version normalized | `082e5c6049186507381f039a20299754104b3f9c9cc5338a5619aab1e20ea52a` |
-| complete public API with `0.13.0-rc.1` | `dd2c730d3d23353782d772880ace99e023fefa99008d5dfd296434e3c9cf180d` |
+| complete public API with `0.13.0` | `62051a5542175bf1a0987d592745dc0a822e3e03e319180629095db343344f0e` |
 | public option defaults | `bebb562cea90592ee86bf2114893a1264a030c48ec295e38a1c14dbddb1bd3e2` |
 | JSON/XSD schema files | `5b7efeb4e294e2ce9aef1193245808629bf30652f6ec3bf42119f09c95561035` |
 | HTML/structured manifest shapes | `f417311ed5fa87cb034f07b9f06eebc458d03dad780689da744d87be87ba4b3b` |
 | CLI help contract | `b1371a275a4ad3add72bd1543643c8c1b3dbcd4d6b5b8c75fad70a7f9a16363b` |
 
-The callable hash is identical to beta.2. The three HTML corpus byte counts
-changed by exactly two bytes because the embedded generator label changed
-from `0.13.0-beta.2` to the two-character-shorter `0.13.0-rc.1`; canonical
-rendering hashes remained unchanged.
+Only the complete public API hash changed, as expected from
+`Document.PortVersion`. The callable/default/schema/manifest/CLI hashes are
+identical to RC.1. The three HTML corpus byte counts decreased by exactly five
+bytes because the embedded generator label changed from `0.13.0-rc.1` to
+`0.13.0`; canonical rendering hashes remained unchanged.
 
 ## Performance and concurrency
 
 The representative two-page HTML/structured/separation gate completed in
-approximately 1.5-1.6 ms with 0.8 MiB allocated, below its 3 second/32 MiB
-limits. The six-page release smoke completed in approximately 23-32 ms with
+approximately 2.6 ms with 0.8 MiB allocated, below its 3 second/32 MiB limits.
+The six-page release smoke completed in approximately 33.3-33.8 ms with
 7.6 MiB allocated, below its 5 second/32 MiB limits. These values are local
 regression guardrails, not cross-platform benchmarks.
 
@@ -62,14 +74,14 @@ local guard test.
 
 ## Packages
 
-The local pipeline produced:
+The local working-tree pipeline produced:
 
-- `Poppler.Net.0.13.0-rc.1.nupkg` — SHA-256
-  `627c390858d530ad3761dea26afd54c761fa18c4b7602dc73c31b349ff623a2a`;
-- `Poppler.Net.Cli.0.13.0-rc.1.nupkg` — SHA-256
-  `a3f5909709e572e2ff492dc592196e2a947af3f0c8e36e01a702cf94c795d740`.
+- `Poppler.Net.0.13.0.nupkg` — SHA-256
+  `acbc239627a5291fa72d39e0e0889e71f2c510a5ca776743ad94b11a6fdd6da3`;
+- `Poppler.Net.Cli.0.13.0.nupkg` — SHA-256
+  `7cfb13286076de561cb5605f91f5603567728aebc77ba8eb1e9ed395952cda12`.
 
-These hashes identify local uncommitted qualification artifacts and will
+These hashes identify local uncommitted qualification artifacts. They will
 change when repository/Source Link metadata records the final pushed commit.
 Release artifacts must use and record hashes from the green CI run.
 

@@ -7,7 +7,7 @@
     <RootNamespace>Poppler.Net.PackageSmoke</RootNamespace>
     <IsPackable>false</IsPackable>
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
-    <PopplerPackageVersion Condition="'$(PopplerPackageVersion)' == ''">0.13.0-rc.1</PopplerPackageVersion>
+    <PopplerPackageVersion Condition="'$(PopplerPackageVersion)' == ''">0.13.0</PopplerPackageVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Poppler.Net" Version="$(PopplerPackageVersion)" />
