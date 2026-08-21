@@ -390,13 +390,15 @@ contracts. Only release blockers may change the candidate.
 
 #### Exit criteria
 
-- [ ] No known P0/P1 defect remains and deferred work is explicitly tracked.
-- [ ] APIs, schemas, manifests, defaults, CLI, and version metadata are frozen.
-- [ ] Full conversion corpus, Poppler differential review, browser checks,
-  package inspection, source archive, and clean-consumer tests pass.
-- [ ] Documentation, changelog, compatibility matrix, licenses, and release
-  notes are publication-ready.
-- [ ] The stable-release checklist contains no unresolved blocker.
+- [x] No known P0/P1 defect remains; post-0.13 work is tracked in issue #40.
+- [x] APIs, schemas, manifests, defaults, CLI, and version metadata are frozen
+  by deterministic RC regression fingerprints.
+- [x] The full local conversion corpus, pinned Poppler source review, browser
+  smoke, package inspection, source snapshot, and clean-consumer tests pass.
+- [x] Documentation, upgrade notes, changelog, compatibility matrix, licenses,
+  notices, package metadata and release notes are publication-ready.
+- [x] The stable-release checklist is updated for 0.13 with no known blocker.
+- [ ] Ubuntu, Windows and macOS CI pass for the exact pushed RC commit.
 
 ### 0.13.0: stable release
 

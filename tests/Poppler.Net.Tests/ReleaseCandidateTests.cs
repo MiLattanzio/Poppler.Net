@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Collections;
 using System.Globalization;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Poppler;
 using Poppler.Rendering;
 
@@ -11,9 +13,17 @@ namespace Poppler.Net.Tests;
 public sealed class ReleaseCandidateTests
 {
     private const string FrozenPublicApiSha256 =
-        "d898dc1482df82df570e0db71892eb19340ec651b491f74bec52062c92580948";
+        "dd2c730d3d23353782d772880ace99e023fefa99008d5dfd296434e3c9cf180d";
     private const string FrozenCallableApiSha256 =
         "082e5c6049186507381f039a20299754104b3f9c9cc5338a5619aab1e20ea52a";
+    private const string FrozenOptionDefaultsSha256 =
+        "bebb562cea90592ee86bf2114893a1264a030c48ec295e38a1c14dbddb1bd3e2";
+    private const string FrozenSchemasSha256 =
+        "5b7efeb4e294e2ce9aef1193245808629bf30652f6ec3bf42119f09c95561035";
+    private const string FrozenManifestContractsSha256 =
+        "f417311ed5fa87cb034f07b9f06eebc458d03dad780689da744d87be87ba4b3b";
+    private const string FrozenCliHelpSha256 =
+        "b1371a275a4ad3add72bd1543643c8c1b3dbcd4d6b5b8c75fad70a7f9a16363b";
 
     [Test]
     public async Task ConcurrentReadsFromOneDocumentAreDeterministic()
@@ -281,6 +291,96 @@ public sealed class ReleaseCandidateTests
     }
 
     [Test]
+    public void PublicOptionDefaultsMatchFrozenReleaseContract()
+    {
+        string actual = Sha256(OptionDefaultsSurface());
+
+        Assert.That(
+            actual,
+            Is.EqualTo(FrozenOptionDefaultsSha256),
+            $"Public option defaults changed. Actual SHA-256: {actual}");
+    }
+
+    [Test]
+    public void StructuredSchemasMatchFrozenReleaseContract()
+    {
+        string directory = Path.Combine(AppContext.BaseDirectory, "Schemas");
+        string surface = string.Join(
+            '\n',
+            Directory.GetFiles(directory)
+                .OrderBy(Path.GetFileName, StringComparer.Ordinal)
+                .Select(path =>
+                    $"{Path.GetFileName(path)}\n{NormalizeNewlines(File.ReadAllText(path))}")) +
+            "\n";
+        string actual = Sha256(surface);
+
+        Assert.That(
+            actual,
+            Is.EqualTo(FrozenSchemasSha256),
+            $"Structured schemas changed. Actual SHA-256: {actual}");
+    }
+
+    [Test]
+    public void ExportManifestsMatchFrozenReleaseContract()
+    {
+        using Document document = Document.LoadFromData(
+            PdfFixtures.Create(compressContent: false));
+        HtmlExportBundle html = document.CreateHtmlBundle();
+        StructuredExportBundle structured = document.CreateStructuredBundle();
+        using JsonDocument htmlManifest = JsonDocument.Parse(
+            html.Files.Single(file => file.RelativePath == "manifest.json").Data);
+        using JsonDocument structuredManifest = JsonDocument.Parse(
+            structured.Files.Single(file => file.RelativePath == "manifest.json").Data);
+
+        Assert.Multiple((Action)(() =>
+        {
+            Assert.That(
+                htmlManifest.RootElement.GetProperty("format").GetString(),
+                Is.EqualTo("poppler-net-html-bundle"));
+            Assert.That(
+                htmlManifest.RootElement.GetProperty("formatVersion").GetInt32(),
+                Is.EqualTo(1));
+            Assert.That(
+                htmlManifest.RootElement.GetProperty("entryPoint").GetString(),
+                Is.EqualTo("index.html"));
+            Assert.That(
+                structuredManifest.RootElement.GetProperty("schemaVersion").GetString(),
+                Is.EqualTo(StructuredExportBundle.SchemaVersion));
+        }));
+
+        string surface =
+            $"html:{JsonShape(htmlManifest.RootElement)}\n" +
+            $"structured:{JsonShape(structuredManifest.RootElement)}\n";
+        string actual = Sha256(surface);
+        Assert.That(
+            actual,
+            Is.EqualTo(FrozenManifestContractsSha256),
+            $"Export manifest contracts changed. Actual SHA-256: {actual}");
+    }
+
+    [Test]
+    public void CliHelpMatchesFrozenReleaseContract()
+    {
+        string source = NormalizeNewlines(File.ReadAllText(Path.Combine(
+            AppContext.BaseDirectory,
+            "ContractSources",
+            "CliProgram.cs")));
+        const string startMarker = "            poppler-net — managed-only Poppler 26.07 port\n";
+        const string endMarker = "            Page numbers accepted by the CLI are one-based.\n";
+        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
+        int end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
+        Assert.That(start, Is.GreaterThanOrEqualTo(0));
+        Assert.That(end, Is.GreaterThan(start));
+        string help = source[start..(end + endMarker.Length)];
+        string actual = Sha256(help);
+
+        Assert.That(
+            actual,
+            Is.EqualTo(FrozenCliHelpSha256),
+            $"CLI help contract changed. Actual SHA-256: {actual}");
+    }
+
+    [Test]
     public void PortVersionMatchesAssemblyInformationalVersion()
     {
         string informationalVersion =
@@ -293,7 +393,7 @@ public sealed class ReleaseCandidateTests
     }
 
     [Test]
-    public void VersionMatchesBeta2Prerelease()
+    public void VersionMatchesRc1Prerelease()
     {
         string informationalVersion =
             typeof(Document).Assembly
@@ -303,11 +403,92 @@ public sealed class ReleaseCandidateTests
 
         Assert.Multiple((Action)(() =>
         {
-            Assert.That(Document.PortVersion, Is.EqualTo("0.13.0-beta.2"));
-            Assert.That(packageVersion, Is.EqualTo("0.13.0-beta.2"));
-            Assert.That(packageVersion, Does.EndWith("-beta.2"));
+            Assert.That(Document.PortVersion, Is.EqualTo("0.13.0-rc.1"));
+            Assert.That(packageVersion, Is.EqualTo("0.13.0-rc.1"));
+            Assert.That(packageVersion, Does.EndWith("-rc.1"));
         }));
     }
+
+    private static string OptionDefaultsSurface()
+    {
+        object[] defaults =
+        [
+            new PdfReadOptions(),
+            new PdfPageExtractionOptions(),
+            new StructuredExportOptions(),
+            new RasterRenderOptions(),
+            new SvgRenderOptions(),
+            new HtmlRenderOptions(),
+            new HtmlExportOptions()
+        ];
+        return string.Join(
+            '\n',
+            defaults.Select(value => ContractValue(value))) + "\n";
+    }
+
+    private static string ContractValue(object? value)
+    {
+        if (value is null)
+            return "null";
+        Type type = value.GetType();
+        if (value is string text)
+            return JsonSerializer.Serialize(text);
+        if (value is bool boolean)
+            return boolean ? "true" : "false";
+        if (type.IsEnum)
+            return $"{FriendlyName(type)}.{value}";
+        if (value is IFormattable formattable &&
+            (type.IsPrimitive || value is decimal))
+        {
+            return formattable.ToString(null, CultureInfo.InvariantCulture);
+        }
+        if (value is IEnumerable items)
+        {
+            return $"[{string.Join(",", items.Cast<object?>().Select(ContractValue))}]";
+        }
+        if (type.Assembly == typeof(Document).Assembly)
+        {
+            string properties = string.Join(
+                ",",
+                type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                    .Where(property => property.GetMethod is not null)
+                    .OrderBy(property => property.Name, StringComparer.Ordinal)
+                    .Select(property =>
+                        $"{property.Name}={ContractValue(property.GetValue(value))}"));
+            return $"{FriendlyName(type)}{{{properties}}}";
+        }
+        return value.ToString() ?? "";
+    }
+
+    private static string JsonShape(JsonElement element) => element.ValueKind switch
+    {
+        JsonValueKind.Object =>
+            "{" + string.Join(
+                ",",
+                element.EnumerateObject()
+                    .OrderBy(property => property.Name, StringComparer.Ordinal)
+                    .Select(property => $"{property.Name}:{JsonShape(property.Value)}")) + "}",
+        JsonValueKind.Array =>
+            "[" + string.Join(
+                "|",
+                element.EnumerateArray()
+                    .Select(JsonShape)
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(value => value, StringComparer.Ordinal)) + "]",
+        JsonValueKind.String => "string",
+        JsonValueKind.Number => "number",
+        JsonValueKind.True or JsonValueKind.False => "boolean",
+        JsonValueKind.Null => "null",
+        _ => element.ValueKind.ToString().ToLowerInvariant()
+    };
+
+    private static string NormalizeNewlines(string value) =>
+        value.Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n');
+
+    private static string Sha256(string value) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)))
+            .ToLowerInvariant();
 
     private static string SnapshotForCulture(byte[] source, string cultureName)
     {

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.13.0-rc.1 - 2026-08-21
+
+- Froze the beta.2 callable API, public option defaults, structured schema
+  `1.0`, HTML/structured manifest shapes, CLI help and synchronized package
+  version metadata as the 0.13 release contract.
+- Added deterministic regression fingerprints for defaults, schema files,
+  representative manifest contracts and the CLI surface; callable API hash
+  remains unchanged from beta.2.
+- Requalified the historical and 0.13 corpora, concurrency/performance gates,
+  managed-only boundary, package contents, Source Link, package consumers and
+  dotnet-tool conversions without adding release scope.
+- Audited release notes, compatibility and upgrade documentation, licenses,
+  notices, package metadata and the stable-promotion checklist.
+- Moved semantic HTML, page composition, OCR, office reconstruction and other
+  post-0.13 candidates to issue #40.
+
 ## 0.13.0-beta.2 - 2026-08-16
 
 - Added pre-growth cumulative page, DOM/node, file and byte limits to HTML,

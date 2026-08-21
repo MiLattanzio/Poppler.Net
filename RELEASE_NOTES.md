@@ -1,50 +1,52 @@
-# Poppler.Net 0.13.0-beta.2
+# Poppler.Net 0.13.0-rc.1
 
-Release date: 2026-08-16
+Release date: 2026-08-21
 
-`0.13.0-beta.2` hardens the managed HTML, standalone-page PDF, structured-data
-and image-export features introduced in the 0.13 line. It adds cumulative
-budgets, adversarial coverage, concurrent-conversion qualification and
-package/source checks without adding a native runtime or a general PDF
-mutation surface.
+`0.13.0-rc.1` is the publication candidate for the managed 0.13 conversion
+line. It freezes the callable API, public option defaults, structured schemas,
+HTML and structured manifest layouts, CLI help contract and synchronized
+library/tool version metadata. No new conversion feature is introduced after
+beta.2.
 
-## Bounded export pipelines
+## Frozen release contract
 
-- HTML exports now bound selected pages, generated DOM/SVG nodes, bundle
-  files, embedded font bytes and cumulative UTF-8 output before growth.
-- JSON, XML and XHTML now apply output and semantic-node limits to standalone
-  results as well as bundles; structured bundles enforce one cumulative file
-  and byte budget, including their manifest.
-- Multi-page PDF extraction now limits selected pages and the cumulative bytes
-  retained by the complete operation in addition to per-page writer limits.
-- CLI options expose every new export limit. Output file names normalize both
-  directory separators, control/invalid characters and Windows reserved names.
-- Limit failures use stable `PdfLimitException` diagnostics and are covered by
-  hostile image-resource names, undersized budgets and pre-allocation tests.
+- The version-normalized callable API remains byte-for-byte compatible with
+  beta.2. Reflection-based regression tests now enforce both the callable and
+  complete RC surfaces.
+- Public defaults for PDF reading, raster/SVG/HTML rendering, HTML and
+  structured export, and standalone-page extraction have a dedicated frozen
+  fingerprint.
+- Structured JSON schema and XML schema remain at version `1.0`; representative
+  HTML and structured manifest shapes and their discriminators are frozen.
+- CLI commands, switches, one-based page convention and help text are covered
+  by a release-contract fingerprint.
+- `Poppler.Net` and the `Poppler.Net.Cli` dotnet tool are both versioned
+  `0.13.0-rc.1`; the library still targets .NET 8 and .NET 10 and the tool
+  targets .NET 8 with major-version roll-forward.
 
-## Concurrency, performance and playground
+## Qualification scope
 
-- Twelve concurrent conversion families from one read-only document produce
-  isolated, byte-identical results in the beta.2 regression corpus.
-- Release baselines cover conversion time and managed allocation; the new
-  two-page export baseline remains below 3 seconds and 32 MiB locally.
-- The WebAssembly playground applies tighter browser-specific input, page,
-  node, file and output budgets, reports them in the UI, and bounds ZIP growth.
-- Preview and download object URLs are tracked and revoked after use or page
-  teardown, avoiding retained large blobs during repeated multi-file exports.
+- The historical and 0.13 conversion corpora cover fixed-layout HTML,
+  standalone pages, JSON/XML/XHTML, safe image export, raster/SVG/text,
+  annotations, forms, optional content, encryption and damaged input.
+- Release gates cover deterministic concurrent reads/conversions, allocation
+  and time budgets, managed-only source inspection, package contents,
+  portable PDB/Source Link, extracted source and clean package/tool consumers.
+- The WebAssembly playground remains a browser-local consumer of the same
+  managed API, with bounded input, page, node, file, artifact and ZIP sizes.
+- Poppler 26.07 remains the pinned source-level behavioral reference. No
+  Poppler executable, native library or external process is a runtime/package
+  dependency.
 
-## Packaging and qualification
+## Compatibility and limits
 
-- Clean NuGet consumers on `net8.0` and `net10.0` now exercise the public
-  export limits as well as successful conversions.
-- Package verification checks embedded portable PDBs and Source Link mappings
-  for both library target frameworks and the packaged dotnet tool, including
-  deterministic Source Link generation from the extracted source archive.
-- Packaged CLI smoke tests exercise deterministic limit failures on Ubuntu,
-  Windows and macOS in addition to existing conversion commands.
-- The public API fingerprints are intentionally updated for the new limit
-  options. Structured schema `1.0` and all generated manifest formats remain
-  unchanged.
+The declared 0.13 behavior and known limits are documented in
+`docs/COMPATIBILITY.md`, `docs/CONVERSION_COMPATIBILITY.md`,
+`docs/HTML_EXPORT.md`, `docs/PAGE_EXTRACTION.md` and
+`docs/STRUCTURED_EXPORT.md`. OCR, semantic/reflow reconstruction, office
+conversion, page merge, general PDF mutation, action execution, XFA and
+encryption mutation remain outside 0.13 and are tracked in issue #40.
 
-OCR, semantic reconstruction, office conversion, page merging, general PDF
-editing, action execution, XFA and encryption mutation remain out of scope.
+This is a prerelease. Stable `0.13.0` promotion requires a green Ubuntu,
+Windows and macOS matrix for the exact candidate commit and completion of
+`docs/RELEASE_CHECKLIST.md`.

@@ -1,5 +1,19 @@
 # Compatibility matrix
 
+## Qualified for 0.13.0-rc.1
+
+RC.1 freezes the beta.2 callable API, option defaults, structured schema
+`1.0`, HTML/structured manifests and CLI contract. It adds no feature or
+declared compatibility expansion. The historical and 0.13 corpora, managed
+rendering/conversion gates, clean .NET 8/.NET 10 consumers, package audits and
+WebAssembly build remain the qualification basis. Local qualification is
+recorded in `VERIFICATION.md`; the exact pushed commit still requires green
+Ubuntu, Windows and macOS CI before publication.
+
+No known P0/P1 defect remains in the declared scope. Semantic/reflow HTML,
+page merge, OCR, office reconstruction and additional formats are not RC
+blockers and are tracked separately in issue #40.
+
 ## Qualified in 0.13.0-beta.2
 
 Beta.2 retains structured schema `1.0` and the beta.1 conversion behavior. It

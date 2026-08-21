@@ -136,7 +136,7 @@ requested root and rejects any escaping path.
 Install the NuGet dotnet tool:
 
 ```bash
-dotnet tool install --global Poppler.Net.Cli --version 0.13.0-alpha.1
+dotnet tool install --global Poppler.Net.Cli --version 0.13.0-rc.1
 ```
 
 Examples:
@@ -189,7 +189,7 @@ other actions are never executed or copied into executable HTML.
 Document metadata and text are HTML-encoded. Rendering colors reject CSS
 statement/block delimiters. The generated document contains no script.
 
-## Known alpha.1 limits
+## Known limits
 
 - Fixed layout preserves page geometry; it is not responsive semantic reflow.
 - Browser glyph shapes may differ when the PDF has no decodable outline; each
