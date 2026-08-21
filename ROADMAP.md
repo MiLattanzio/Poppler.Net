@@ -398,7 +398,8 @@ contracts. Only release blockers may change the candidate.
 - [x] Documentation, upgrade notes, changelog, compatibility matrix, licenses,
   notices, package metadata and release notes are publication-ready.
 - [x] The stable-release checklist is updated for 0.13 with no known blocker.
-- [ ] Ubuntu, Windows and macOS CI pass for the exact pushed RC commit.
+- [x] Ubuntu, Windows and macOS CI, master/Pages and release publication runs
+  pass for the exact qualified RC commit.
 
 ### 0.13.0: stable release
 
@@ -407,7 +408,7 @@ published and then verified from its public artifacts.
 
 #### Exit criteria
 
-- [ ] All RC.1 gates remain green after final release-blocker fixes.
+- [x] All RC.1 gates remain green; no final release-blocker fix was required.
 - [ ] The stable tag targets the approved `master` commit and release assets
   plus hashes are preserved.
 - [ ] NuGet `0.13.0` is pushed and clean .NET 8/.NET 10 consumers pass HTML and

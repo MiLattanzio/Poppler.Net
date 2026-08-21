@@ -153,3 +153,18 @@ help literal. After RC.1, only a documented release blocker may change a
 fingerprint. Such a change requires an explicit contract diff, changelog and
 release-note entry, and complete requalification; feature work belongs after
 0.13.
+
+## 0.13.0 stable surface
+
+Stable 0.13 changes only `Document.PortVersion` from the RC label to
+`0.13.0`. The approved version-normalized callable SHA-256 remains:
+
+`082e5c6049186507381f039a20299754104b3f9c9cc5338a5619aab1e20ea52a`
+
+The complete stable public surface has SHA-256:
+
+`62051a5542175bf1a0987d592745dc0a822e3e03e319180629095db343344f0e`
+
+The option-default, schema, manifest-shape and CLI-help fingerprints remain
+the RC.1 values above. Changes to any stable callable or companion contract
+require explicit compatibility review and belong to a later release line.

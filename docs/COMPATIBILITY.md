@@ -1,5 +1,18 @@
 # Compatibility matrix
 
+## Stable in 0.13.0
+
+Stable 0.13 promotes the qualified RC without changing callable APIs, option
+defaults, structured schema `1.0`, HTML/structured manifests or the CLI
+contract. Historical and 0.13 corpora, clean .NET 8/.NET 10 consumers,
+packaged CLI smokes, extracted-source builds and managed-only checks pass on
+Ubuntu, Windows and macOS. The WebAssembly playground consumes the same source
+API and remains browser-local and bounded.
+
+No known P0/P1 defect remains in the declared scope. Semantic/reflow HTML,
+page merge, OCR, office reconstruction and additional formats are tracked in
+issue #40 and do not alter the stable contract.
+
 ## Qualified for 0.13.0-rc.1
 
 RC.1 freezes the beta.2 callable API, option defaults, structured schema

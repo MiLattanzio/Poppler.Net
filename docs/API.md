@@ -1,9 +1,9 @@
 # API quick reference
 
-The callable `0.13` API is frozen at `0.13.0-rc.1`. It retains the stable
+The callable `0.13` API is frozen and stable in `0.13.0`. It retains the
 `0.12.0` surface and adds the reviewed fixed-layout HTML, standalone-page PDF,
 structured-data and safe image-export families introduced across the 0.13
-prereleases. See [API_FREEZE.md](API_FREEZE.md) for approved fingerprints and
+release line. See [API_FREEZE.md](API_FREEZE.md) for approved fingerprints and
 the release-blocker-only change policy.
 
 ## Loading

@@ -1,52 +1,67 @@
-# Poppler.Net 0.13.0-rc.1
+# Poppler.Net 0.13.0
 
 Release date: 2026-08-21
 
-`0.13.0-rc.1` is the publication candidate for the managed 0.13 conversion
-line. It freezes the callable API, public option defaults, structured schemas,
-HTML and structured manifest layouts, CLI help contract and synchronized
-library/tool version metadata. No new conversion feature is introduced after
-beta.2.
+`0.13.0` is the stable managed conversion release built on Poppler 26.07. It
+adds fixed-layout HTML, autonomous page PDFs, versioned structured data and
+safe image export to the stable 0.12 parser, inspection and rendering surface.
+The approved RC implementation is promoted unchanged apart from stable version
+metadata.
 
-## Frozen release contract
+## Install
 
-- The version-normalized callable API remains byte-for-byte compatible with
-  beta.2. Reflection-based regression tests now enforce both the callable and
-  complete RC surfaces.
-- Public defaults for PDF reading, raster/SVG/HTML rendering, HTML and
-  structured export, and standalone-page extraction have a dedicated frozen
-  fingerprint.
-- Structured JSON schema and XML schema remain at version `1.0`; representative
-  HTML and structured manifest shapes and their discriminators are frozen.
-- CLI commands, switches, one-based page convention and help text are covered
-  by a release-contract fingerprint.
-- `Poppler.Net` and the `Poppler.Net.Cli` dotnet tool are both versioned
-  `0.13.0-rc.1`; the library still targets .NET 8 and .NET 10 and the tool
-  targets .NET 8 with major-version roll-forward.
+```xml
+<PackageReference Include="Poppler.Net" Version="0.13.0" />
+```
 
-## Qualification scope
+The matching command-line package is available as a .NET tool:
 
-- The historical and 0.13 conversion corpora cover fixed-layout HTML,
-  standalone pages, JSON/XML/XHTML, safe image export, raster/SVG/text,
-  annotations, forms, optional content, encryption and damaged input.
-- Release gates cover deterministic concurrent reads/conversions, allocation
-  and time budgets, managed-only source inspection, package contents,
-  portable PDB/Source Link, extracted source and clean package/tool consumers.
-- The WebAssembly playground remains a browser-local consumer of the same
-  managed API, with bounded input, page, node, file, artifact and ZIP sizes.
-- Poppler 26.07 remains the pinned source-level behavioral reference. No
-  Poppler executable, native library or external process is a runtime/package
-  dependency.
+```bash
+dotnet tool install --global Poppler.Net.Cli --version 0.13.0
+```
 
-## Compatibility and limits
+The library targets .NET 8 and .NET 10. The CLI targets .NET 8 with
+major-version roll-forward and reports the same package version.
 
-The declared 0.13 behavior and known limits are documented in
-`docs/COMPATIBILITY.md`, `docs/CONVERSION_COMPATIBILITY.md`,
-`docs/HTML_EXPORT.md`, `docs/PAGE_EXTRACTION.md` and
-`docs/STRUCTURED_EXPORT.md`. OCR, semantic/reflow reconstruction, office
-conversion, page merge, general PDF mutation, action execution, XFA and
-encryption mutation remain outside 0.13 and are tracked in issue #40.
+## Conversion capabilities
 
-This is a prerelease. Stable `0.13.0` promotion requires a green Ubuntu,
-Windows and macOS matrix for the exact candidate commit and completion of
-`docs/RELEASE_CHECKLIST.md`.
+- Render one page, a selected range or a complete document as deterministic
+  fixed-layout HTML with selectable/searchable text, safe links, managed web
+  fonts and SVG/raster fallbacks.
+- Export one or more pages as bounded autonomous PDF files while preserving
+  reachable content, resources, geometry and supported annotations/forms.
+- Export deterministic schema `1.0` JSON, XML and XHTML for documents/pages,
+  including geometry, text boxes, normalized/raw font names, links and image
+  metadata.
+- Reuse independently valid JPEG, JPEG 2000 and JBIG2 payloads and emit a
+  managed PNG fallback when masks, filters or PDF color semantics require it.
+- Use the same conversion families through the managed API, `Poppler.Net.Cli`
+  and the browser-local WebAssembly playground.
+
+## Frozen contract and hardening
+
+- The callable API, option defaults, schema files, HTML/structured manifests
+  and CLI help are frozen by deterministic regression fingerprints.
+- Export page, object, depth, node, file, byte, font, image and working-memory
+  budgets are checked before unbounded allocation or growth.
+- Concurrent read-only conversions are isolated and deterministic; hostile
+  resource names and damaged optional metadata have bounded diagnostics.
+- The library and tool packages contain managed assemblies only and include
+  embedded portable PDBs with exact-commit Source Link metadata.
+
+## Qualification
+
+The historical and 0.13 corpora cover rendering, text/font mapping,
+annotations, forms, optional content, encryption, damaged input, HTML,
+standalone pages, structured data and image export. Release gates rebuild from
+the tracked source archive and exercise clean .NET 8/.NET 10 package consumers
+plus the installed CLI on Ubuntu, Windows and macOS.
+
+Poppler 26.07 remains the pinned source-level behavioral reference. Poppler
+executables and native libraries are not runtime, package or CI dependencies.
+
+## Declared limits
+
+Semantic/reflow HTML, page merge, OCR, office reconstruction, general PDF
+mutation, signing, output encryption, action execution and XFA are outside the
+0.13 contract. Post-0.13 candidates are tracked separately in issue #40.

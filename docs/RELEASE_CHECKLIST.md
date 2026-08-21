@@ -6,8 +6,8 @@ rerun every affected gate plus the complete qualification suite.
 
 ## Candidate approval
 
-- [ ] Issue #33 is complete and the RC.1 milestone has no open release blocker.
-- [ ] The approved `master` commit and successful RC.1 release run are recorded.
+- [x] Issue #33 is complete and the RC.1 milestone has no open release blocker.
+- [x] The approved `master` commit and successful RC.1 release run are recorded.
 - [x] The version-normalized callable API fingerprint is
   `082e5c6049186507381f039a20299754104b3f9c9cc5338a5619aab1e20ea52a`,
   matching `docs/API_FREEZE.md` and the regression test.
@@ -17,32 +17,33 @@ rerun every affected gate plus the complete qualification suite.
 
 ## Stable version and documentation
 
-- [ ] Set library, CLI, package-smoke fallback and `Document.PortVersion` to
+- [x] Set library, CLI, package-smoke fallback and `Document.PortVersion` to
   exactly `0.13.0`; retain assembly/file version `26.7.0.0`.
-- [ ] Replace RC wording in README, compatibility documentation and release
+- [x] Replace RC wording in README, compatibility documentation and release
   notes; prepend the stable changelog entry.
-- [ ] Update only the complete API hash for the expected `PortVersion` change;
+- [x] Update only the complete API hash for the expected `PortVersion` change;
   callable/default/schema/manifest/CLI hashes must not change.
 - [x] Audit API/conversion/compatibility/limit documentation, `LICENSE`,
   `NOTICE.md`, package license/repository metadata and content allowlists.
-- [ ] Confirm stable release notes contain no prerelease label and show
+- [x] Confirm stable release notes contain no prerelease label and show
   `<PackageReference Include="Poppler.Net" Version="0.13.0" />` plus CLI
   tool installation at exactly `0.13.0`.
 
 ## Qualification
 
-- [ ] Restore with repository `NuGet.Config`, build Release with warnings as
+- [x] Restore with repository `NuGet.Config`, build Release with warnings as
   errors and run the complete NUnitLite suite on the stable candidate.
-- [ ] Run the managed-only verifier and review the pinned Poppler 26.07
+- [x] Run the managed-only verifier and review the pinned Poppler 26.07
   differential classifications; record any accepted differences.
-- [ ] Pack the approved source revision and run the strict package verifier.
-- [ ] Extract the tracked source archive into a clean directory, then restore,
-  build, test, verify, repack and exercise the CLI from that copy.
-- [ ] Restore and convert from produced packages as `net8.0` and `net10.0`;
+- [x] Pack the stable candidate working tree and run the strict package
+  verifier; CI must repeat this gate on the approved pushed revision.
+- [x] Extract a candidate source snapshot outside `.git`, then restore, build,
+  test, verify, repack and exercise the CLI from that copy.
+- [x] Restore and convert from produced packages as `net8.0` and `net10.0`;
   install and exercise the packaged dotnet tool.
 - [ ] PR CI is green for Ubuntu, Windows and macOS, including package/source,
   browser playground and all OS/framework consumer jobs.
-- [ ] The tag guard accepts `v0.13.0` and rejects a mismatched tag.
+- [x] The tag guard accepts `v0.13.0` and rejects a mismatched tag.
 
 ## Publication
 

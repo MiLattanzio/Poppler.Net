@@ -2,25 +2,25 @@
 
 The 0.13 line is additive for existing 0.12 consumers. It keeps the managed-only
 runtime boundary, `net8.0`/`net10.0` library targets, assembly/file version
-`26.7.0.0`, existing loader/render/text APIs and their defaults. RC.1 freezes
+`26.7.0.0`, existing loader/render/text APIs and their defaults. `0.13.0` freezes
 the expanded surface described in [API_FREEZE.md](API_FREEZE.md).
 
 ## Package references
 
-During RC validation, opt in explicitly:
+Use the stable library package:
 
 ```xml
-<PackageReference Include="Poppler.Net" Version="0.13.0-rc.1" />
+<PackageReference Include="Poppler.Net" Version="0.13.0" />
 ```
 
 The CLI is now also distributed as a .NET tool:
 
 ```bash
-dotnet tool install --global Poppler.Net.Cli --version 0.13.0-rc.1
+dotnet tool install --global Poppler.Net.Cli --version 0.13.0
 ```
 
-Stable promotion changes only these versions to `0.13.0`; it must not change
-the frozen callable/default/schema/manifest/CLI contracts.
+The stable packages retain the frozen callable/default/schema/manifest/CLI
+contracts qualified by RC.1.
 
 ## Additive 0.13 capabilities
 
@@ -39,7 +39,7 @@ zero-based; CLI page numbers remain one-based.
 
 Do not clone option objects by assuming only the 0.12 members. Construct them
 normally or use `with` expressions so the bounded 0.13 defaults remain active.
-RC.1 freezes the exact defaults for `PdfReadOptions`, `RasterRenderOptions`,
+Stable 0.13 freezes the exact defaults for `PdfReadOptions`, `RasterRenderOptions`,
 `SvgRenderOptions`, `HtmlRenderOptions`, `HtmlExportOptions`,
 `StructuredExportOptions` and `PdfPageExtractionOptions`.
 
