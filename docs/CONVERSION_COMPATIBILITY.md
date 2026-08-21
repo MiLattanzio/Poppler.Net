@@ -1,9 +1,9 @@
 # Conversion compatibility qualification
 
-`0.13.0-beta.1` closes compatibility gaps across the managed HTML, standalone
-page PDF, structured-data and image-export features introduced by the three
-0.13 alpha releases. It does not add a new conversion family or broaden the
-public mutation surface.
+`0.13.0-beta.1` established this compatibility matrix across the managed HTML,
+standalone-page PDF, structured-data and image-export features introduced by
+the three 0.13 alpha releases. `0.13.0-rc.1` retains and freezes it without a
+new conversion family or broader public mutation surface.
 
 ## Reference and reproducibility
 

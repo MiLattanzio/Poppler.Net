@@ -100,5 +100,8 @@
     <None Include="..\..\docs\schemas\*"
           Link="Schemas\%(Filename)%(Extension)"
           CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\Poppler.Net.Cli\Program.cs"
+          Link="ContractSources\CliProgram.cs"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -9,7 +9,7 @@
 26.07.0. It contains no C++/CLI, P/Invoke, native shared library, external
 process invocation, or native NuGet dependency.
 
-> This `0.13.0-beta.2` prerelease builds on stable `0.12.0` and is not a
+> This `0.13.0-rc.1` prerelease builds on stable `0.12.0` and is not a
 > complete replacement for libpoppler. It adds deterministic fixed-layout
 > HTML conversion for pages, ranges and complete documents, including
 > selectable DOM text, safe links, normalized subset-font names, embedded
@@ -25,7 +25,8 @@ process invocation, or native NuGet dependency.
 > Beta.2 hardens every export family with cumulative page, DOM/node, file and
 > byte budgets, adversarial file-name coverage, deterministic concurrent
 > conversion tests, browser blob-lifetime controls and portable-PDB/Source-Link
-> package audits.
+> package audits. RC.1 freezes that API, its public defaults, schema and
+> manifest contracts, CLI surface and package metadata for final qualification.
 > It implements the PDF object/xref layer, document and page discovery,
 > common stream filters, metadata, embedded files, structured font/text
 > extraction, a backend-neutral vector display list and an SVG vector
@@ -195,8 +196,8 @@ Starting with `0.13.0-alpha.1`, the CLI is published as the
 tool. Install or update it with:
 
 ```bash
-dotnet tool install --global Poppler.Net.Cli --version 0.13.0-beta.2
-dotnet tool update --global Poppler.Net.Cli --version 0.13.0-beta.2
+dotnet tool install --global Poppler.Net.Cli --version 0.13.0-rc.1
+dotnet tool update --global Poppler.Net.Cli --version 0.13.0-rc.1
 poppler-net version
 ```
 
@@ -326,7 +327,9 @@ link and security behavior, and
 JSON/XML/XHTML schemas, image reuse policy, manifests and Poppler comparison.
 The beta.1 cross-feature corpus, accepted differences and reproducible
 development differential are recorded in
-[docs/CONVERSION_COMPATIBILITY.md](docs/CONVERSION_COMPATIBILITY.md).
+[docs/CONVERSION_COMPATIBILITY.md](docs/CONVERSION_COMPATIBILITY.md). Existing
+0.12 consumers can use [docs/UPGRADING_0_13.md](docs/UPGRADING_0_13.md) for the
+additive API, package and default-limit migration notes.
 
 Encrypted files can be opened directly:
 

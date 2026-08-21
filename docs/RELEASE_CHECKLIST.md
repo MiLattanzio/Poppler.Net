@@ -1,63 +1,69 @@
-# 0.12.0 stable-release checklist
+# 0.13.0 stable-release checklist
 
-Use this checklist to promote the qualified `0.12.0-rc.1` candidate to
-`0.12.0`. After rc.1, accept only fixes that resolve a documented release
-blocker and rerun every affected gate plus the complete qualification suite.
+Use this checklist to promote the qualified `0.13.0-rc.1` candidate to
+`0.13.0`. After RC.1, accept only fixes for documented release blockers and
+rerun every affected gate plus the complete qualification suite.
 
 ## Candidate approval
 
-- [x] Issue #22 is complete and the rc.1 milestone has no open release blocker.
-- [x] The approved master commit and successful rc.1 release run are recorded.
-- [x] The version-normalized callable API fingerprint remains
-  `ce87b22579e9458c3c1dcdb1aa01790f15d13006ad177ad4815f1e974e63b527`,
+- [ ] Issue #33 is complete and the RC.1 milestone has no open release blocker.
+- [ ] The approved `master` commit and successful RC.1 release run are recorded.
+- [x] The version-normalized callable API fingerprint is
+  `082e5c6049186507381f039a20299754104b3f9c9cc5338a5619aab1e20ea52a`,
   matching `docs/API_FREEZE.md` and the regression test.
-- [x] No post-RC blocker fix was required; the stable promotion contains no
-  scope or implementation change.
+- [x] Public option defaults, schema files, manifest shapes and CLI help have
+  frozen fingerprints and no feature work remains in the candidate.
+- [x] Non-blocking post-0.13 work is separated into issue #40.
 
 ## Stable version and documentation
 
-- [x] Set the library, CLI, package-smoke fallback and `Document.PortVersion`
-  to exactly `0.12.0`; retain assembly/file version `26.7.0.0`.
-- [x] Replace RC wording in README, compatibility documentation and release
+- [ ] Set library, CLI, package-smoke fallback and `Document.PortVersion` to
+  exactly `0.13.0`; retain assembly/file version `26.7.0.0`.
+- [ ] Replace RC wording in README, compatibility documentation and release
   notes; prepend the stable changelog entry.
-- [x] Update only the complete API hash for the expected `PortVersion` change;
-  the version-normalized callable hash must not change.
-- [x] Audit `docs/API.md`, `docs/COMPATIBILITY.md`, `LICENSE`, `NOTICE.md`,
-  package license/repository metadata and the explicit package allowlist.
-- [x] Confirm release notes contain no prerelease label and install with
-  `<PackageReference Include="Poppler.Net" Version="0.12.0" />`.
+- [ ] Update only the complete API hash for the expected `PortVersion` change;
+  callable/default/schema/manifest/CLI hashes must not change.
+- [x] Audit API/conversion/compatibility/limit documentation, `LICENSE`,
+  `NOTICE.md`, package license/repository metadata and content allowlists.
+- [ ] Confirm stable release notes contain no prerelease label and show
+  `<PackageReference Include="Poppler.Net" Version="0.13.0" />` plus CLI
+  tool installation at exactly `0.13.0`.
 
 ## Qualification
 
-- [x] Restore with the repository `NuGet.Config`, build Release with warnings
-  as errors and run the complete NUnitLite suite.
-- [x] Run the managed-only verifier and the optional Poppler differential
-  review; record approved differences.
-- [x] Pack with the approved source revision and run the package verifier.
-- [x] Extract the tracked source archive into a clean directory, then restore,
+- [ ] Restore with repository `NuGet.Config`, build Release with warnings as
+  errors and run the complete NUnitLite suite on the stable candidate.
+- [ ] Run the managed-only verifier and review the pinned Poppler 26.07
+  differential classifications; record any accepted differences.
+- [ ] Pack the approved source revision and run the strict package verifier.
+- [ ] Extract the tracked source archive into a clean directory, then restore,
   build, test, verify, repack and exercise the CLI from that copy.
-- [x] Restore and render from the produced package as `net8.0` and `net10.0`.
-- [ ] PR CI is green for Ubuntu, Windows and macOS, package/source verification
-  and all six operating-system/framework consumers.
-- [x] The tag guard accepts `v0.12.0` and rejects a mismatched tag.
+- [ ] Restore and convert from produced packages as `net8.0` and `net10.0`;
+  install and exercise the packaged dotnet tool.
+- [ ] PR CI is green for Ubuntu, Windows and macOS, including package/source,
+  browser playground and all OS/framework consumer jobs.
+- [ ] The tag guard accepts `v0.13.0` and rejects a mismatched tag.
 
 ## Publication
 
 - [ ] Merge only the approved PR and confirm `master` equals the qualified
   commit with no unrelated release change.
-- [ ] Create tag `v0.12.0` on that commit and a GitHub release marked stable,
-  not prerelease; use the audited release notes.
-- [ ] Follow the release workflow through the successful NuGet OIDC login and
-  `dotnet nuget push`; retain the run URL and artifact hashes.
-- [ ] Confirm the GitHub release tag, package version and repository commit all
-  identify the same stable revision.
+- [ ] Create tag `v0.13.0` on that commit and a GitHub release marked stable,
+  not prerelease; use the audited stable release notes.
+- [ ] Follow the release workflow through successful NuGet OIDC login and both
+  library/tool `dotnet nuget push` operations; retain run URL and hashes.
+- [ ] Confirm GitHub tag, library package, tool package and repository commit
+  all identify the same stable revision.
 
 ## Post-publication
 
-- [ ] After NuGet indexing, restore `Poppler.Net` `0.12.0` from nuget.org in a
-  clean cache and render PNG/SVG as both supported target frameworks.
-- [ ] Verify the NuGet page, README badges and WebAssembly playground.
-- [ ] Record package/source hashes and final consumer evidence in
+- [ ] After NuGet indexing, restore `Poppler.Net` `0.13.0` from nuget.org in a
+  clean cache as .NET 8 and .NET 10 and exercise HTML, page extraction,
+  structured data and image export.
+- [ ] Install `Poppler.Net.Cli` `0.13.0` from nuget.org and repeat representative
+  conversion commands.
+- [ ] Verify NuGet pages, README badges and deployed WebAssembly playground.
+- [ ] Record public package/source hashes and final consumer evidence in
   `VERIFICATION.md`.
-- [ ] Close issue #23 and the stable milestone, then move non-blocking work to
-  the next release line.
+- [ ] Close the stable tracker and milestone; retain issue #40 as post-0.13
+  planning rather than reopening the release scope.

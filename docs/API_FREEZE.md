@@ -124,3 +124,32 @@ has SHA-256:
 These values were accepted after reviewing the additive option-record diff,
 default budgets and deterministic limit diagnostics. RC.1 may freeze this
 surface; it must not silently remove or relax a beta.2 safety gate.
+
+## 0.13.0-rc.1 frozen release contract
+
+RC.1 adds no callable public member and changes no public default. The
+version-normalized callable surface is frozen at the beta.2 SHA-256:
+
+`082e5c6049186507381f039a20299754104b3f9c9cc5338a5619aab1e20ea52a`
+
+The complete RC.1 surface, including `Document.PortVersion`, has SHA-256:
+
+`dd2c730d3d23353782d772880ace99e023fefa99008d5dfd296434e3c9cf180d`
+
+The freeze also has machine-enforced companion fingerprints:
+
+- public option defaults:
+  `bebb562cea90592ee86bf2114893a1264a030c48ec295e38a1c14dbddb1bd3e2`;
+- structured JSON/XSD schema files:
+  `5b7efeb4e294e2ce9aef1193245808629bf30652f6ec3bf42119f09c95561035`;
+- representative HTML/structured manifest shapes:
+  `f417311ed5fa87cb034f07b9f06eebc458d03dad780689da744d87be87ba4b3b`;
+- CLI help contract:
+  `b1371a275a4ad3add72bd1543643c8c1b3dbcd4d6b5b8c75fad70a7f9a16363b`.
+
+`ReleaseCandidateTests` calculates these surfaces independently from runtime
+metadata, copied schema files, representative generated bundles and the CLI
+help literal. After RC.1, only a documented release blocker may change a
+fingerprint. Such a change requires an explicit contract diff, changelog and
+release-note entry, and complete requalification; feature work belongs after
+0.13.
